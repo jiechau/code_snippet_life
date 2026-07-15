@@ -35,3 +35,6 @@ Thumbs.db
 # Environment
 .env
 .env.local
+
+# Credentials (see config_example.yml)
+config.yml

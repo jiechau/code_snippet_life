@@ -7,3 +7,4 @@ A collection of small, self-contained code snippets. Each snippet lives in its o
 | Snippet | Description |
 | --- | --- |
 | [google_news_url/](google_news_url/README.md) | Resolve a Google News redirect URL (e.g. from an RSS feed) to its real destination URL. Python and Node implementations. |
+| [cwa_opendata/](cwa_opendata/README.md) | Query Taiwan CWA Open Data for daily sunrise/sunset (`cwa_sunrise.py`) and moonrise/moonset (`cwa_moonrise.py`) times per county. |

@@ -1,0 +1,3 @@
+# Copy this file to config.yml (gitignored) and fill in real values.
+cwa_opendata:
+  api_key: CWA-XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX

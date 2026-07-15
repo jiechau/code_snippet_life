@@ -39,6 +39,20 @@ node google_news_url/google_new_url.mjs [arg]
 
 There is no lint or test command; verify a snippet by running it.
 
+## cwa_opendata specifics
+
+Queries Taiwan CWA Open Data REST datastore endpoints
+(`https://opendata.cwa.gov.tw/api/v1/rest/datastore/<dataset-id>`) with an API key
+(`Authorization` query param), `CountyName`, and a `timeFrom`/`timeTo` date window.
+The key comes from the `CWA_API_KEY` env var or root `config.yml` (gitignored; see
+`config_example.yml`) — never hard-code credentials in snippets. `cwa_sunrise.py` uses dataset `A-B0062-001` (a 1-day
+window); `cwa_moonrise.py` uses `A-B0063-001` with a 3-day window (yesterday/today/
+tomorrow) because moon rise/transit/set can be missing on a given date or fall on an
+adjacent day — `pick_moon_events()` stitches the cycle together, labeling borrowed
+times with 昨/明. Note: the site's TLS certificate lacks a Subject Key Identifier, so
+both scripts relax `ssl.VERIFY_X509_STRICT` (Python 3.13 default) via a custom
+`HTTPAdapter` while keeping normal certificate verification.
+
 ## google_news_url specifics
 
 Resolves a Google News redirect link (from the search RSS feed) to the real article URL by
