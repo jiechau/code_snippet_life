@@ -738,6 +738,21 @@ function tint(value, scale) {
     };
 }
 
+const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+/**
+ * "2026-08-17T21:00" -> "08/17 Mon".
+ *
+ * hourly.time is local wall time, so the date is read back as if it were UTC:
+ * getUTCDay() then reports the weekday of that local date rather than whatever
+ * day it happens to be in the browser's own timezone.
+ */
+function formatDate(iso) {
+    const date = iso.slice(0, 10);
+    const weekday = DAY_NAMES[new Date(`${date}T00:00:00Z`).getUTCDay()];
+    return `${date.slice(5, 7)}/${date.slice(8, 10)} ${weekday}`;
+}
+
 function formatValue(value) {
     if (value === null || value === undefined) return "-";
     if (typeof value !== "number") return String(value);
@@ -839,12 +854,20 @@ function buildTable(body, params, model, fromNow) {
         if (dayStart.has(i) && i !== indices[0]) cell.classList.add("daybreak");
     };
 
-    // 日期 -- the day number, printed once per day like a forecast strip.
+    // 日期 -- one cell per day, spanning that day's hours. Spanning rather than
+    // labelling the first hour matters: "08/17 Mon" is wider than an hour column,
+    // so in a single cell it would stretch the first column of every day and
+    // leave the grid uneven.
     const dateRow = addRow("日期", "", "date");
+    let dateCell = null;
     for (const i of indices) {
-        const td = dateRow.insertCell();
-        markBreak(td, i);
-        if (dayStart.has(i)) td.textContent = `${Number(hourly.time[i].slice(8, 10))}日`;
+        if (dayStart.has(i)) {
+            dateCell = dateRow.insertCell();
+            dateCell.textContent = formatDate(hourly.time[i]);
+            markBreak(dateCell, i);
+        } else {
+            dateCell.colSpan += 1;
+        }
     }
 
     // 時間 -- hour of day, with the current hour picked out.
