@@ -17,11 +17,14 @@ the list to pick from when editing their `hourly` or `extra params` boxes.
   — one call, raw JSON plus the request URL.
 - [open-meteo readable](https://jiechau.github.io/code_snippet_life/open_meteo/open-meteo_readable.html)
   — the same call as an hour-by-hour grid.
+- [milkyway readable](https://jiechau.github.io/code_snippet_life/open_meteo/milkyway_readable.html)
+  — that grid cut down to a stargazing score per hour.
 
 ## The four models
 
-Every snippet in this folder sends the same `&models=` list, so this applies to
-all of them. These are four completely separate forecasting systems, each run by
+Everything in this folder sends the same `&models=` list except
+`milkyway_readable.html`, which asks for `icon_global` alone. These are four
+completely separate forecasting systems, each run by
 a different national or intergovernmental weather agency, not four views of one
 dataset:
 
@@ -238,6 +241,61 @@ defaults, the same literal-comma URL construction (`encodeURIComponent` with
 `%2C` restored, matching `urlencode(params, safe=",")` byte for byte), the same
 added `get_para` key, and the same policy of *displaying* an API error body
 rather than throwing. Change one and mirror it in the other.
+
+## `milkyway_readable.html`
+
+`open-meteo_readable.html` cut down to one question: **which hours are worth
+going out for.** Same grid, same colouring, same 從現在開始 trim, same saved
+spots, same collapsed raw JSON panel — with a 銀河 score added and everything
+that does not feed it removed.
+
+- **The form is two fields and a location.** `hourly`, `models` and `extra
+  params` are gone, fixed as constants in the page, because there is exactly one
+  request worth making here. Only `forecast_days`, `timezone` and the place
+  remain. `buildUrl()` / `fetchForecast()` / `paramsFromForm()` are still the
+  byte-for-byte port the other pages use; only the constants they are fed differ.
+- **One model, no tabs.** `models=icon_global` alone, so the score has a single
+  unambiguous 雲量 instead of four to reconcile. A single model makes Open-Meteo
+  return **bare** series keys (`cloud_cover`, not `cloud_cover_icon_global`),
+  which `seriesKey()` already handles.
+- **Four variables, not ten.** The cloud decks only —
+  能見度/降雨/濕度/露點/風速/氣溫 are dropped, along with the `daily=` and
+  `past_days=61` extras. A 7-day response is about **5.7 KB / 168 hours**, versus
+  ~300 KB / 1632 hours on `open-meteo_readable.html`.
+- **The 銀河 row** sits directly under 時間, above 天氣, its label in green. Cells
+  are tinted on the usual scale, inverted — 100 is green.
+
+### The score
+
+Daylight is a hard cutoff, the moon is a ramp, and the rest is just clear sky.
+The page states this formula on itself, above the form:
+
+```
+銀河     = 0                                        if 太陽 > −10°
+月亮扣分 = min(100, max(0, 月亮 / 10 × 100))        0 below the horizon, 100 from +10° up
+銀河     = (100 − 雲量) × (100 − 月亮扣分) / 100    otherwise
+```
+
+Run on a 20%-cloud hour, the moon term is the whole story:
+
+| 雲量 | 月亮 | 計算 | 銀河 |
+| --- | --- | --- | --- |
+| 20 | −5° | `(100−20) × (100−0)   / 100` | **80** — moon down, near enough a clear night |
+| 20 | +2° | `(100−20) × (100−20)  / 100` | **64** — a low moon costs a fifth, not the hour |
+| 20 | +8° | `(100−20) × (100−80)  / 100` | **16** — almost gone |
+| 20 | +10° | `(100−20) × (100−100) / 100` | **0** — moon high enough to write the hour off |
+
+The penalty is **altitude only** — a crescent and a full moon at the same height
+score the same, which is why 月相 stays on screen as its own row to judge by eye.
+
+Sun and moon altitudes come from the same Meeus series as the 太陽/月亮 rows,
+computed in the page. Null cloud cover scores `-`, not 100. The result is
+fractional and displayed rounded.
+
+This is **deliberately not** a port of `sky_quality()` below — it is a simpler
+rule of thumb kept on purpose, so the two are free to disagree. The astronomy
+*is* shared, though: change the Meeus series here or in `milkyway.py` and both
+need re-checking, along with the copy in `open-meteo_readable.html`.
 
 ## `milkyway.py`
 

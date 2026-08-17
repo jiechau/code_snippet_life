@@ -117,7 +117,9 @@ local, so past hours are trimmed using `utc_offset_seconds` (the 從現在開始
 no retyping — `PLACES`, `DEFAULT_LAT`/`DEFAULT_LON`, `HOURLY_VARS`, `MODELS`,
 `DEFAULT_EXTRA`, the `.locrow`/`.place` CSS and `buildPlaces()`/`markActivePlace()` are
 duplicated verbatim in both. **Edit one and you must edit the other**; there is no shared
-file, by the one-folder-per-snippet rule.
+file, by the one-folder-per-snippet rule. `milkyway_readable.html` is a third copy of
+`PLACES`, the saved-spot CSS and `buildPlaces()`/`markActivePlace()` — but *not* of
+`HOURLY_VARS`/`MODELS`/`DEFAULT_EXTRA`, which it deliberately overrides.
 
 Three of those defaults intentionally differ from `open-meteo.py`. The request *machinery*
 (`buildUrl`, `fetchForecast`, `paramsFromForm`) is still a byte-for-byte port, and any
@@ -156,6 +158,23 @@ epoch (JD 2440587.5) instead of the Python's Gregorian calendar arithmetic; the 
 exactly equivalent. Because these rows depend only on place and time they are identical on
 every model tab, and the solar altitude — not an `is_day` series or an hour-of-day rule —
 is what makes the 天氣 icons switch between sun and moon.
+
+`milkyway_readable.html` is that grid stripped to what stargazing needs, and so is a
+**fourth copy of the request core and a third copy of the Meeus astronomy** — the same
+edit-one-edit-all rule applies to both. It fixes `hourly` (the four cloud decks only),
+`models` (`icon_global` alone) and drops `DEFAULT_EXTRA` entirely, removing those three
+textareas from the form; only `forecast_days`, `timezone` and the location remain. One
+model means no tabs and **bare series keys**, which `seriesKey()` already resolves, and the
+response drops to ~5.7 KB / 168 hours from ~300 KB / 1632. The 銀河 row goes between 時間
+and 天氣, green label, tinted `[0, 100, false]` so 100 is green. Its score is
+`(100 − 雲量) × (100 − moonPenalty) / 100`, zeroed outright when the sun is above −10°,
+where `moonPenalty` ramps 0→100 as moon altitude goes 0°→10° (`MOON_KILL_ALT`) and is 0
+below the horizon — altitude only, so 月相 is left on screen to judge illumination by eye.
+The moon used to be a hard `> 0° → 0` cutoff; the ramp exists because that threw away the
+best hour of nights when a low moon was setting, so **don't "simplify" it back**. The score
+is **deliberately not** a port of `sky_quality()` — a rule of thumb the user is still
+revising, so the two are free to disagree. The astronomy underneath it is the shared part,
+and is not.
 
 `open-meteo.py` is the bare API demo: it builds the request URL itself with
 `urlencode(params, safe=",")` and requests that exact string, so the `get_para` key it
