@@ -132,17 +132,20 @@ The form is the same one `open-meteo_readable.html` uses — both pages open on 
 identical request, so you can switch between raw JSON and the grid without
 retyping anything:
 
-- **location** — a `lat,lon` box, narrow because that is all it ever holds, with
-  the saved spots beside it: 三總, 瑞光路, 大崙頭山, 大武崙砲台, 東澳, 烏石港,
-  暗空公園. Clicking one fills the coordinates and refetches; the pressed button
-  shows which spot is displayed, and a hand-typed coordinate presses none. They
-  come from the `PLACES` array, whose first entry is also the default location, so
-  adding or reordering a spot is a one-line change **in both pages**.
-- **forecast_days** and **timezone** on the next line.
+- **forecast_days** and **timezone** share the first line.
 - **hourly** and **models** — comma-separated; blank drops the parameter, which
   for `models` means bare series keys instead of model-suffixed ones.
 - **extra params** — one `key=value` per line, prefilled with
   `daily=sunrise,sunset,moon_phase`; an empty value drops a parameter.
+- **location** — deliberately **last, immediately above Fetch**, because it is the
+  only field normally touched: everything above it is left at its default, so the
+  one control in constant use sits where the hand already is. A `lat,lon` box,
+  narrow because that is all it ever holds, with the saved spots beside it: 三總,
+  瑞光路, 大崙頭山, 大武崙砲台, 東澳, 烏石港, 暗空公園. Clicking one fills the
+  coordinates and refetches; the pressed button shows which spot is displayed, and
+  a hand-typed coordinate presses none. They come from the `PLACES` array, whose
+  first entry is also the default location, so adding or reordering a spot is a
+  one-line change **in both pages**.
 
 These three defaults deliberately differ from `open-meteo.py`: the location
 (三總 rather than Taipei), the cloud decks listed high → low, and the `daily=`

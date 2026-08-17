@@ -142,13 +142,6 @@
 
         <form id="form">
             <div class="grid">
-                <div class="field wide">
-                    <label for="location">location <span class="hint">lat,lon &mdash; or pick a spot</span></label>
-                    <div class="locrow">
-                        <input id="location" name="location" spellcheck="false">
-                        <div class="places" id="places"></div>
-                    </div>
-                </div>
                 <div class="field">
                     <label for="forecast_days">forecast_days</label>
                     <input id="forecast_days" name="forecast_days" value="7" spellcheck="false">
@@ -168,6 +161,13 @@
                 <div class="field wide">
                     <label for="extra">extra params <span class="hint">one <code>key=value</code> per line; empty value drops a parameter</span></label>
                     <textarea id="extra" name="extra" rows="2" spellcheck="false" placeholder="forecast_hours=24"></textarea>
+                </div>
+                <div class="field wide">
+                    <label for="location">location <span class="hint">lat,lon &mdash; or pick a spot</span></label>
+                    <div class="locrow">
+                        <input id="location" name="location" spellcheck="false">
+                        <div class="places" id="places"></div>
+                    </div>
                 </div>
             </div>
 

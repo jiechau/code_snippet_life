@@ -123,6 +123,10 @@ divergence there is a bug:
   the Taipei coordinates the script defaults to.
 - `DEFAULT_EXTRA` adds `daily=...`, which the script does not send.
 
+The location field sits **last in the form, directly above Fetch**, out of normal
+parameter order on purpose: it is the only field a user changes, so it belongs next to the
+button rather than at the top above five fields nobody edits. Keep it there.
+
 `PLACES` drives both the default location and the buttons beside the location box; adding a
 spot is one row there and nothing else, and reordering it changes what the pages open on.
 Clicking a button fills the box **and refetches** — leaving a stale result under a new
