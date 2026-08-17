@@ -100,12 +100,18 @@ the **literal string `"undefined"`** (so with the default four models, three of 
 `visibility` tabs are a row of dashes) — and `forecast_days` starts the series at 00:00
 local, so past hours are trimmed using `utc_offset_seconds` (the 從現在開始 checkbox).
 
-`DEFAULT_EXTRA` prefills `daily=sunrise,sunset,moon_phase` into the extra-params box —
-kept there, not in `defaultParams()`, so the request core stays identical to the script.
-**Model suffixing applies to `daily` as well as `hourly`**, so four models return twelve
-daily series; they are pure astronomy, so every model's `moon_phase` is byte-identical and
-sunrise/sunset differ only by grid-point rounding. The readable grid renders `hourly` only,
-so this data surfaces in the raw JSON panel alone.
+`DEFAULT_EXTRA` prefills two lines into the extra-params box — kept there, not in
+`defaultParams()`, so the request core stays identical to the script:
+
+- `daily=sunrise,sunset,moon_phase`. **Model suffixing applies to `daily` as well as
+  `hourly`**, so four models return twelve daily series; they are pure astronomy, so every
+  model's `moon_phase` is byte-identical and sunrise/sunset differ only by grid-point
+  rounding. The readable grid renders `hourly` only, so this surfaces in the raw JSON panel
+  alone.
+- `past_days=61`, which takes the response from ~33 KB / 168 hours to **~300 KB / 1632
+  hours** (billing counts time range, not just variables). The 從現在開始 trim is what keeps
+  the grid usable: ticked ~150 hours, unticked all 1632 — 68 day groups, ~24,500 cells.
+  Anything iterating the whole series should assume this scale.
 
 **The two pages share their whole form**, so switching between raw JSON and the grid needs
 no retyping — `PLACES`, `DEFAULT_LAT`/`DEFAULT_LON`, `HOURLY_VARS`, `MODELS`,

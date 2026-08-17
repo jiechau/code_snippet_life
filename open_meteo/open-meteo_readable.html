@@ -323,17 +323,21 @@ const HOURLY_VARS = [
 const MODELS = ["ecmwf_ifs025", "gfs_global", "jma_gsm", "icon_global"];
 
 // Prefilled into the "extra params" box rather than added to defaultParams(),
-// which has to stay identical to open-meteo.py/.html. These are the only
-// sun/moon figures the API has (moon_phase is a 0..1 cycle position, not an
-// illuminated fraction), so they sit alongside the page's own calculations as a
-// cross-check.
+// which stays identical to open-meteo.py. One key=value per line; clear a line to
+// drop that parameter.
 //
-// Two things to know: daily keys get the same model suffixing as hourly ones, so
-// four models return twelve series here; and they are pure astronomy, so every
-// model returns the same moon_phase and sunrise/sunset within a minute of each
-// other. Only the raw JSON panel shows them -- the grid renders hourly alone.
-// Clear the box to drop the parameter.
-const DEFAULT_EXTRA = "daily=sunrise,sunset,moon_phase";
+//   daily=  the only sun/moon figures the API has. moon_phase is a 0..1 cycle
+//           position, not an illuminated fraction. Its keys get the same model
+//           suffixing as hourly ones, so four models return twelve series -- all
+//           identical, since this is pure astronomy.
+//   past_days=  extends the series backwards, for comparing the forecast against
+//           what actually happened. It is not free: 61 past days takes the
+//           response from ~33 KB / 168 hours to ~300 KB / 1632 hours, and
+//           Open-Meteo bills by time range as well as variable count.
+const DEFAULT_EXTRA = [
+    "daily=sunrise,sunset,moon_phase",
+    "past_days=61",
+].join("\n");
 
 /** The request milkyway.py makes, as a plain object. */
 function defaultParams(lat, lon, days = DEFAULT_DAYS) {

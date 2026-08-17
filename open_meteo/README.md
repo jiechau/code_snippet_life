@@ -140,8 +140,13 @@ retyping anything:
 - **forecast_days** and **timezone** share the first line.
 - **hourly** and **models** — comma-separated; blank drops the parameter, which
   for `models` means bare series keys instead of model-suffixed ones.
-- **extra params** — one `key=value` per line, prefilled with
-  `daily=sunrise,sunset,moon_phase`; an empty value drops a parameter.
+- **extra params** — one `key=value` per line; an empty value drops a parameter.
+  Prefilled with two:
+  - `daily=sunrise,sunset,moon_phase` — the API's own sun/moon figures.
+  - `past_days=61` — extends the series backwards two months, so a forecast can be
+    read against what actually happened. It is not free: the response goes from
+    ~33 KB / 168 hours to ~300 KB / 1632 hours, and Open-Meteo bills by time range
+    as well as variable count. Drop the line to go back to forecast-only.
 - **location** — deliberately **last, immediately above Fetch**, because it is the
   only field normally touched: everything above it is left at its default, so the
   one control in constant use sits where the hand already is. A `lat,lon` box,
@@ -218,8 +223,11 @@ What differs is everything below the form:
   renders `hourly` alone, so this shows up in the raw JSON panel only; clear the
   box to drop the parameter.
 - **從現在開始** drops the already-past hours — `forecast_days` starts the series
-  at 00:00 local, the same trim `score_hours()` does in `milkyway.py`. Untick it
-  to see the whole window. Local "now" comes from `utc_offset_seconds`.
+  at 00:00 local, the same trim `score_hours()` does in `milkyway.py`. Local "now"
+  comes from `utc_offset_seconds`. This carries most of the weight now that
+  `past_days=61` is a default: ticked it shows ~150 hours, unticked the full 1632,
+  which is 68 day groups and around 24,500 cells — the browser copes, but it is a
+  lot of grid to scroll.
 
 It talks to Open-Meteo **straight from the browser**; Pages is static hosting and
 cannot run the Python. That works only because Open-Meteo needs no API key (a key
