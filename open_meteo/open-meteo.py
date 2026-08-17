@@ -52,7 +52,7 @@ HOURLY_VARS = [
     "temperature_2m",
 ]
 
-MODELS = ["ecmwf_ifs025", "gfs_global", "jma_gsm", "icon_global"]
+MODELS = ["icon_global", "jma_seamless", "gfs_global", "ecmwf_ifs025"]
 
 
 def default_params(lat: float, lon: float, days: int = DEFAULT_DAYS) -> dict:

@@ -107,11 +107,16 @@ local, so past hours are trimmed using `utc_offset_seconds` (the 從現在開始
   `hourly`**, so four models return twelve daily series; they are pure astronomy, so every
   model's `moon_phase` is byte-identical and sunrise/sunset differ only by grid-point
   rounding. The readable grid renders `hourly` only, so this surfaces in the raw JSON panel
-  alone.
-- `past_days=61`, which takes the response from ~33 KB / 168 hours to **~300 KB / 1632
-  hours** (billing counts time range, not just variables). The 從現在開始 trim is what keeps
-  the grid usable: ticked ~150 hours, unticked all 1632 — 68 day groups, ~24,500 cells.
-  Anything iterating the whole series should assume this scale.
+  alone — it is a cross-check, never a data source: the 太陽/月亮/月相 rows come from the
+  page's own Meeus port, so clearing the line changes nothing on screen. The extra-params
+  hint says so, on both pages.
+- `past_days=7`, which takes the response from ~33 KB / 168 hours to ~64 KB / 336 hours
+  (billing counts time range, not just variables). The API accepts `past_days` up to **93**,
+  but the models keep only a rolling ~2-month archive (the JMA models shortest,
+  `ecmwf_ifs025` longest), so **~61 is the practical maximum** — beyond it the extra hours are nulls. At 61
+  the response is ~300 KB / 1632 hours and the 從現在開始 trim is what keeps the grid usable:
+  unticked that is 68 day groups, ~24,500 cells. Anything iterating the whole series should
+  assume that scale is reachable from the form.
 
 **The two pages share their whole form**, so switching between raw JSON and the grid needs
 no retyping — `PLACES`, `DEFAULT_LAT`/`DEFAULT_LON`, `HOURLY_VARS`, `MODELS`,
@@ -165,7 +170,7 @@ edit-one-edit-all rule applies to both. It fixes `hourly` (the four cloud decks 
 `models` (`icon_global` alone) and drops `DEFAULT_EXTRA` entirely, removing those three
 textareas from the form; only `forecast_days`, `timezone` and the location remain. One
 model means no tabs and **bare series keys**, which `seriesKey()` already resolves, and the
-response drops to ~5.7 KB / 168 hours from ~300 KB / 1632. The 銀河 row goes between 時間
+response drops to ~5.7 KB / 168 hours from ~64 KB / 336. The 銀河 row goes between 時間
 and 天氣, green label, tinted `[0, 100, false]` so 100 is green. Its score is
 `(100 − 雲量) × (100 − moonPenalty) / 100`, zeroed outright when the sun is above −10°,
 where `moonPenalty` ramps 0→100 as moon altitude goes 0°→10° (`MOON_KILL_ALT`) and is 0
@@ -186,11 +191,18 @@ on a non-2xx. Note the filename is hyphenated, so it is a script only — not im
 `milkyway.py` scores each upcoming hour for Milky Way astrophotography at a `lat,lon`.
 No API key — Open-Meteo's free tier is keyless (10,000 calls/day), so there is nothing to
 read from `config.yml`. It queries `hourly=` cloud/moisture variables with
-`&models=ecmwf_ifs025,gfs_global,jma_gsm,icon_global`, which suffixes every series with
+`&models=icon_global,jma_seamless,gfs_global,ecmwf_ifs025`, which suffixes every series with
 its model name (`cloud_cover_gfs_global`) — and not every model publishes every variable
 (of the four, **only gfs returns `visibility`**; `precipitation_probability` is null for
 jma), so `_hour_vars()` fills gaps from the ensemble mean, which for `visibility` means
-gfs on its own. Suffixing only happens with two or
+gfs on its own. The model list is shared by `open-meteo.py` and both `open-meteo*.html`
+pages (**not** `milkyway_readable.html`, which fixes `icon_global` alone), and its order is
+the order rows/tabs appear in, so keep the four in step. `jma_seamless` rather than
+`jma_msm` is deliberate: MSM is 0.05° ≈ 5 km over Taiwan but its domain stops near
+22.4°N/120°E and it runs dry after ~3 days, and outside either bound the key is **missing
+from the response entirely**, which `fetch_forecast()` would reject; `jma_seamless` is
+identical to MSM where MSM reaches and falls back to GSM elsewhere, so the key always
+exists. Suffixing only happens with two or
 more models; a single-model `MODELS` returns bare keys and would silently score every
 hour as a perfect sky, so `fetch_forecast()` validates the response shape. `sky_quality()` is scored per model and
 averaged; the spread across models plus forecast lead time drives the 信心 column, which

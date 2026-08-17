@@ -35,12 +35,12 @@ FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 # forecast from two predicting 0% and two predicting 60%. Who runs them, at what
 # resolution, how independent they really are and why they are weighted equally:
 # see "The four models" in README.md.
-MODELS = ["ecmwf_ifs025", "gfs_global", "jma_gsm", "icon_global"]
+MODELS = ["icon_global", "jma_seamless", "gfs_global", "ecmwf_ifs025"]
 
 # Not every model publishes every variable through Open-Meteo: of the four
-# models here, only gfs_global returns visibility (ecmwf_ifs025, jma_gsm and
-# icon_global are all null), and precipitation_probability is null for jma_gsm.
-# Missing values fall back to the ensemble mean (see _hour_vars).
+# models here, only gfs_global returns visibility (icon_global, jma_seamless and
+# ecmwf_ifs025 are all null), and precipitation_probability is null for
+# jma_seamless. Missing values fall back to the ensemble mean (see _hour_vars).
 HOURLY_VARS = [
     "cloud_cover",
     "cloud_cover_low",

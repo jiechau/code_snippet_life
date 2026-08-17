@@ -163,7 +163,7 @@
                     <textarea id="models" name="models" rows="2" spellcheck="false"></textarea>
                 </div>
                 <div class="field wide">
-                    <label for="extra">extra params <span class="hint">one <code>key=value</code> per line; empty value drops a parameter</span></label>
+                    <label for="extra">extra params <span class="hint">one <code>key=value</code> per line; empty value drops a parameter. <code>daily=sunrise,sunset,moon_phase</code> is only echoed in the JSON &mdash; the readable grid's 太陽/月亮/月相 rows are computed from the location with the page's own astronomy, not read from the response. <code>past_days</code> takes 0&ndash;93, but the models only keep about 61 days of history &mdash; past that the hours come back empty</span></label>
                     <textarea id="extra" name="extra" rows="2" spellcheck="false" placeholder="forecast_hours=24"></textarea>
                 </div>
                 <div class="field wide">
@@ -229,7 +229,7 @@ const HOURLY_VARS = [
     "temperature_2m",
 ];
 
-const MODELS = ["ecmwf_ifs025", "gfs_global", "jma_gsm", "icon_global"];
+const MODELS = ["icon_global", "jma_seamless", "gfs_global", "ecmwf_ifs025"];
 
 // Prefilled into the "extra params" box rather than added to defaultParams(),
 // which stays identical to open-meteo.py. One key=value per line; clear a line to
@@ -240,12 +240,15 @@ const MODELS = ["ecmwf_ifs025", "gfs_global", "jma_gsm", "icon_global"];
 //           suffixing as hourly ones, so four models return twelve series -- all
 //           identical, since this is pure astronomy.
 //   past_days=  extends the series backwards, for comparing the forecast against
-//           what actually happened. It is not free: 61 past days takes the
-//           response from ~33 KB / 168 hours to ~300 KB / 1632 hours, and
-//           Open-Meteo bills by time range as well as variable count.
+//           what actually happened. It is not free: 7 past days takes the
+//           response from ~33 KB / 168 hours to ~64 KB / 336 hours, and
+//           Open-Meteo bills by time range as well as variable count -- 61 days
+//           is ~300 KB / 1632 hours. The API accepts 0..93, but the models'
+//           rolling archive only reaches about 61 days back (the JMA models are
+//           the shortest), so anything beyond that returns nulls rather than data.
 const DEFAULT_EXTRA = [
     "daily=sunrise,sunset,moon_phase",
-    "past_days=61",
+    "past_days=7",
 ].join("\n");
 
 /** The request milkyway.py makes, as a plain object. */

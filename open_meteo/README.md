@@ -28,17 +28,29 @@ completely separate forecasting systems, each run by
 a different national or intergovernmental weather agency, not four views of one
 dataset:
 
-| id | Agency | Country | Global resolution | New run |
+| id | Agency | Country | Resolution over Taiwan | New run |
 | --- | --- | --- | --- | --- |
-| `ecmwf_ifs025` | ECMWF (European Centre for Medium-Range Weather Forecasts) | EU / intergovernmental | 0.25° ≈ 25 km | every 6 h |
-| `gfs_global` | NOAA / NCEP — Global Forecast System | USA | ~11–25 km | every 1 h |
-| `jma_gsm` | JMA — Global Spectral Model | Japan | ~20 km | every 3 h |
 | `icon_global` | DWD (Deutscher Wetterdienst) | Germany | ~11 km | every 3 h |
+| `jma_seamless` | JMA — MSM where it reaches, GSM beyond | Japan | 0.05° ≈ **5 km** | every 3 h |
+| `gfs_global` | NOAA / NCEP — Global Forecast System | USA | 0.25° ≈ 25 km | every 1 h |
+| `ecmwf_ifs025` | ECMWF (European Centre for Medium-Range Weather Forecasts) | EU / intergovernmental | 0.25° ≈ 25 km | every 6 h |
 
 Open-Meteo's docs list each model *family*, so its quoted resolution ranges fold
 in high-resolution regional nests (HRRR for GFS, ICON-D2 for ICON) that only
 cover the US and Europe. The `_global` variants are used here precisely because
-the regional nests do not cover Taiwan.
+those regional nests do not cover Taiwan.
+
+**`jma_seamless` is the exception, and the reason it is in the list.** JMA's
+regional nest — MSM, 0.05° ≈ 5 km, hourly native fields — *does* reach Taiwan,
+and at 11× the grid resolution of the global models it is the only member that
+can resolve the Central Range at all. Its domain stops around 22.4°N / 120°E,
+though: ask for `jma_msm` at 墾丁 (21.95, 120.80) and the series is **absent from
+the response entirely** — not null — which would trip `fetch_forecast()`'s shape
+check. MSM also runs dry after ~3 days. `jma_seamless` is the safe way to get it:
+it is byte-identical to `jma_msm` inside the domain and falls back to GSM
+(0.5° ≈ 55 km, 6-hourly) outside it and beyond day 3, so the key always exists
+and `forecast_days=7` comes back complete. It replaced a bare `jma_gsm`, whose
+55 km cells spanned the whole Central Range.
 
 **How independent are they?** Partially. They all assimilate largely the same
 raw observations — satellite radiances, radiosondes, aircraft reports, buoys —
@@ -55,7 +67,8 @@ Rough reputations:
 - **ECMWF** consistently verifies best in global headline scores — the model
   meteorologists reach for first.
 - **ICON** has a good name specifically for cloud and boundary-layer detail.
-- **JMA GSM** has home-field advantage for East Asia and typhoons.
+- **JMA** has home-field advantage for East Asia and typhoons, and via
+  `jma_seamless` the finest grid of the four over Taiwan.
 - **GFS** is the freshest, updating hourly, and the most permissively open.
 
 ### Weighting (`milkyway.py`)
@@ -97,7 +110,7 @@ for watching the response shape change when the model list goes away.
   "timezone": "Asia/Taipei",
   "hourly_units": { ... },
   "hourly": { ... },
-  "get_para": "https://api.open-meteo.com/v1/forecast?latitude=25.033&longitude=121.565&hourly=cloud_cover,cloud_cover_low,...&models=ecmwf_ifs025,gfs_global,jma_gsm,icon_global&timezone=auto&forecast_days=7"
+  "get_para": "https://api.open-meteo.com/v1/forecast?latitude=25.033&longitude=121.565&hourly=cloud_cover,cloud_cover_low,...&models=icon_global,jma_seamless,gfs_global,ecmwf_ifs025&timezone=auto&forecast_days=7"
 }
 ```
 
@@ -145,11 +158,21 @@ retyping anything:
   for `models` means bare series keys instead of model-suffixed ones.
 - **extra params** — one `key=value` per line; an empty value drops a parameter.
   Prefilled with two:
-  - `daily=sunrise,sunset,moon_phase` — the API's own sun/moon figures.
-  - `past_days=61` — extends the series backwards two months, so a forecast can be
-    read against what actually happened. It is not free: the response goes from
-    ~33 KB / 168 hours to ~300 KB / 1632 hours, and Open-Meteo bills by time range
+  - `daily=sunrise,sunset,moon_phase` — the API's own sun/moon figures, and the
+    only place they are used: they are echoed in the JSON as a cross-check, while
+    the `太陽`/`月亮`/`月相` rows of `open-meteo_readable.html` are computed from
+    the location by the page's own astronomy (the Meeus series ported from
+    `milkyway.py`), never read from the response. Clear the line and the grid is
+    unchanged.
+  - `past_days=7` — extends the series backwards a week, so a forecast can be read
+    against what actually happened. It is not free: the response goes from
+    ~33 KB / 168 hours to ~64 KB / 336 hours, and Open-Meteo bills by time range
     as well as variable count. Drop the line to go back to forecast-only.
+    The parameter is accepted from 0 to 93, but **about 61 is the practical
+    maximum**: the models keep a rolling archive of roughly two months
+    (the JMA models the shortest, `ecmwf_ifs025` the longest), so days beyond that
+    return nulls rather than data — at 61 the response is ~300 KB / 1632 hours,
+    which is a lot of grid for hours you may not get.
 - **location** — deliberately **last, immediately above Fetch**, because it is the
   only field normally touched: everything above it is left at its default, so the
   one control in constant use sits where the hand already is. A `lat,lon` box,
@@ -209,7 +232,7 @@ What differs is everything below the form:
   wrong scale.
 - **Values a model does not publish show as `-`.** Only `gfs_global` returns
   `visibility` — the other three default models give a row of dashes — and
-  `precipitation_probability` is null for `jma_gsm`. A model that does not
+  `precipitation_probability` is null for `jma_seamless`. A model that does not
   publish a variable also reports the literal string `"undefined"` as its unit,
   which the page suppresses.
 - **能見度 is ground-level viewing distance in metres**, derived by Open-Meteo
@@ -219,18 +242,18 @@ What differs is everything below the form:
   night can read 24140 and still be overcast at 8 km, which is what the 雲量
   rows are for.
 - **The prefilled `daily=sunrise,sunset,moon_phase`** is the only sun/moon data
-  Open-Meteo has, kept next to the page's own calculations as a cross-check.
+  Open-Meteo has, kept next to the page's own calculations as a cross-check —
+  the grid never reads it, so clearing the line changes nothing on screen.
   Its keys take the **same model suffixing as hourly ones**, so the four default
   models return twelve series — and since this is pure astronomy, every model
   returns the identical `moon_phase` with sunrise/sunset within a minute. The grid
-  renders `hourly` alone, so this shows up in the raw JSON panel only; clear the
-  box to drop the parameter.
+  renders `hourly` alone, so this shows up in the raw JSON panel only.
 - **從現在開始** drops the already-past hours — `forecast_days` starts the series
   at 00:00 local, the same trim `score_hours()` does in `milkyway.py`. Local "now"
-  comes from `utc_offset_seconds`. This carries most of the weight now that
-  `past_days=61` is a default: ticked it shows ~150 hours, unticked the full 1632,
-  which is 68 day groups and around 24,500 cells — the browser copes, but it is a
-  lot of grid to scroll.
+  comes from `utc_offset_seconds`. With the default `past_days=7` it hides the 168
+  past hours, leaving ~150 of ~336; raise `past_days` to its practical maximum of
+  61 and unticking shows all 1632, which is 68 day groups and around 24,500 cells —
+  the browser copes, but it is a lot of grid to scroll.
 
 It talks to Open-Meteo **straight from the browser**; Pages is static hosting and
 cannot run the Python. That works only because Open-Meteo needs no API key (a key
@@ -260,8 +283,8 @@ that does not feed it removed.
   which `seriesKey()` already handles.
 - **Four variables, not ten.** The cloud decks only —
   能見度/降雨/濕度/露點/風速/氣溫 are dropped, along with the `daily=` and
-  `past_days=61` extras. A 7-day response is about **5.7 KB / 168 hours**, versus
-  ~300 KB / 1632 hours on `open-meteo_readable.html`.
+  `past_days=` extras. A 7-day response is about **5.7 KB / 168 hours**, versus
+  ~64 KB / 336 hours on `open-meteo_readable.html`.
 - **The 銀河 row** sits directly under 時間, above 天氣, its label in green. Cells
   are tinted on the usual scale, inverted — 100 is green.
 
@@ -422,9 +445,9 @@ eroded by two things: the spread of the per-model scores, and forecast lead time
 ### Notes and caveats
 
 - Not every model publishes every variable: of the four models only
-  `gfs_global` returns `visibility` (`ecmwf_ifs025`, `jma_gsm` and
-  `icon_global` are all null), and `precipitation_probability` is null for
-  `jma_gsm`. Missing values fall back to the ensemble mean, so one model's
+  `gfs_global` returns `visibility` (`icon_global`, `jma_seamless` and
+  `ecmwf_ifs025` are all null), and `precipitation_probability` is null for
+  `jma_seamless`. Missing values fall back to the ensemble mean, so one model's
   silence never makes it look artificially clear — though for `visibility` that
   mean is gfs on its own.
 - **`MODELS` needs at least two entries.** Open-Meteo only suffixes variable
