@@ -6,6 +6,7 @@ pages:
     - cp *.svg public/
     - cp robots.txt public/
     - cp -r open_meteo public/
+    - cp -r google_news_url public/
   artifacts:
     paths:
       - public

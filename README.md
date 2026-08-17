@@ -34,14 +34,17 @@ per demo, each named after the script it ports.
 | --- | --- |
 | [open_meteo/open-meteo.html](open_meteo/open-meteo.html) | `open_meteo/open-meteo.py` — fill in the arguments, submit, see the request URL and the returned JSON. |
 | [open_meteo/open-meteo_readable.html](open_meteo/open-meteo_readable.html) | The same request, drawn as an hour-by-hour forecast grid: a tab per model, a row per variable, plus locally computed sun/moon angles — colour-coded and scrollable. |
+| [google_news_url/google_new_url.html](google_news_url/google_new_url.html) | `google_news_url/google_new_url.py` — search the Google News RSS feed for a keyword, sort by `<pubDate>`, and resolve the newest N redirect links to real article URLs. **Requires a CORS proxy** (picked in the page). |
 
 Pages hosting is **static**, so a demo page cannot run the Python; it re-implements
 the snippet in JavaScript and calls the upstream API directly from the browser.
-That is only possible for keyless, CORS-enabled APIs like Open-Meteo — a snippet
-needing a credential (`cwa_opendata`) or a cross-origin scrape (`google_news_url`)
-cannot be demoed this way without a server, which is why those rows are absent.
-Where a page and a script are two implementations of the same snippet, changing
-one means mirroring the other.
+That is straightforward for a keyless, CORS-enabled API like Open-Meteo. A snippet
+needing a credential (`cwa_opendata`) has no demo, because the key would be readable
+in page source. `google_news_url` scrapes `news.google.com`, which sends no
+`Access-Control-Allow-Origin` at all, so its page routes every request through a
+user-selected public CORS proxy — that works, but those proxies are flaky and
+rate-limited, so expect some rows to fail. Where a page and a script are two
+implementations of the same snippet, changing one means mirroring the other.
 
 Preview locally with any static server:
 

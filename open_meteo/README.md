@@ -90,14 +90,19 @@ collapsed `raw JSON & request URL` panel at the bottom.
   or more models the keys are `cloud_cover_gfs_global`, with one (or with
   `models` blank) they are bare `cloud_cover`. Both shapes render identically.
 - **A row per `hourly` variable**, in the order requested, labelled in Chinese
-  with the API name and unit underneath. An unrecognised variable still gets a
-  row under its API name, so adding one to the `hourly` box just works. Because
+  with the unit, and an abbreviated API name underneath (`precip` for
+  `precipitation_probability`). The label column is frozen while the hours
+  scroll, so its width costs a column of forecast at every scroll position —
+  short names take it from 184px to 103px, worth two extra hours on screen. The
+  unabbreviated name is on the cell's `title`, and an unrecognised variable
+  falls back to its full API name, so adding one to the `hourly` box still
+  works. Because
   row order follows request order, the default lists the cloud decks
   高雲 → 中雲 → 低雲 (top of the atmosphere downwards); `open-meteo.py` and
   `open-meteo.html` list them low → high. Same ten variables, different listing
   order — reorder the `hourly` box to reorder the grid.
-- **Sun and moon rows** (`太陽高度`, `月亮高度`, `月相`) sit above the weather
-  rows, marked *computed* because they are not fetched: Open-Meteo offers only
+- **Sun and moon rows** (`太陽`, `月亮`, `月相`) sit above the weather rows, their
+  second line set in italics because they are not fetched: Open-Meteo offers only
   sunrise/sunset and `daily=moon_phase`. The Meeus low-precision series from
   `milkyway.py` are ported to JavaScript here and agree with the Python to four
   decimal places. They depend on place and time alone, so they are identical on
@@ -117,6 +122,15 @@ collapsed `raw JSON & request URL` panel at the bottom.
   dips when moisture builds. It says nothing about upper-air transparency: a
   night can read 24140 and still be overcast at 8 km, which is what the 雲量
   rows are for.
+- **`daily=sunrise,sunset,moon_phase` is prefilled** in the extra-params box —
+  the only sun/moon figures Open-Meteo has, kept next to the page's own
+  calculations as a cross-check. It lives in that box rather than in the default
+  parameters so the request core stays identical to `open-meteo.py`. Note the
+  daily keys take the **same model suffixing as hourly ones**, so the four
+  default models return twelve series, and since these are pure astronomy every
+  model returns the identical `moon_phase` and sunrise/sunset within a minute.
+  Only the raw JSON panel shows them; the grid renders `hourly` alone. Clear the
+  box to drop the parameter.
 - **從現在開始** drops the already-past hours — `forecast_days` starts the series
   at 00:00 local, the same trim `score_hours()` does in `milkyway.py`. Untick it
   to see the whole window. Local "now" comes from `utc_offset_seconds`.

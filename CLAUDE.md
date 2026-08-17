@@ -48,10 +48,11 @@ no change).
 Pages hosting is static, so a demo page **cannot run the snippet's Python**. It is a
 JavaScript re-implementation that calls the upstream API directly from the browser, which
 makes it a parallel implementation under the rule above: change one, mirror the other.
-This is only viable for keyless, CORS-enabled APIs. `cwa_opendata` needs an API key
-(which would be readable in page source) and `google_news_url` scrapes cross-origin, so
-neither can be demoed without a server — they are deliberately listed as todo in
-`index.html` rather than half-implemented.
+This is effortless for keyless, CORS-enabled APIs (Open-Meteo). `cwa_opendata` needs an
+API key, which would be readable in page source, so it has no demo and is deliberately
+listed as todo in `index.html` rather than half-implemented. `google_news_url` is
+cross-origin with no CORS headers at all and gets around it with a **user-selected public
+CORS proxy** — see below; that is the only reason it has a page.
 
 ## Running
 
@@ -99,13 +100,27 @@ the **literal string `"undefined"`** (so with the default four models, three of 
 `visibility` tabs are a row of dashes) — and `forecast_days` starts the series at 00:00
 local, so past hours are trimmed using `utc_offset_seconds` (the 從現在開始 checkbox).
 
+`DEFAULT_EXTRA` prefills `daily=sunrise,sunset,moon_phase` into the extra-params box —
+kept there, not in `defaultParams()`, so the request core stays identical to the other two.
+**Model suffixing applies to `daily` as well as `hourly`**, so four models return twelve
+daily series; they are pure astronomy, so every model's `moon_phase` is byte-identical and
+sunrise/sunset differ only by grid-point rounding. The grid renders `hourly` only, so this
+data surfaces in the raw JSON panel alone.
+
 Grid rows follow the order of the `hourly` parameter, so this page's `HOURLY_VARS` lists
 the cloud decks high → mid → low while `open-meteo.py`/`.html` list them low → high. That
 listing order is the **only** intended difference between the three; treat any other
 divergence as a bug.
 
+Row labels are deliberately terse (`LABELS`, `API_SHORT`, `UNIT_SHORT`): the label column
+is `position: sticky`, so its width is subtracted from every scroll position — abbreviating
+took it from 184px to 103px and bought two more hours on screen, which matters most on a
+phone. The full API name lives on the `title` attribute, and an unlisted variable falls
+back to its own (long, but never wrong) name. Keep new labels to two or three CJK
+characters.
+
 It also carries a JavaScript port of the Meeus solar/lunar series from `milkyway.py` (sun
-and moon altitude, moon illumination) for the 太陽高度/月亮高度/月相 rows, which Open-Meteo
+and moon altitude, moon illumination) for the 太陽/月亮/月相 rows, which Open-Meteo
 cannot supply — it offers only sunrise/sunset and `daily=moon_phase`. **This is a fourth
 parallel implementation: it is verified to agree with `milkyway.py` to four decimal places,
 so changing the astronomy in either means re-checking both.** `julianDay()` uses the Unix
@@ -148,3 +163,28 @@ mimicking the browser: (1) `GET` the article page to scrape the `data-n-a-sg` (s
 `batchexecute` RPC (`rpcids=Fbv4je`) and parse the real URL out of the `wrb.fr` row. This
 depends on Google's page structure and RPC payload shape — if Google changes either, the
 attribute scraping or response parsing is what breaks.
+
+`google_new_url.html` is the browser port (see "Demo pages"): it fetches the search RSS feed
+for a keyword, sorts items by `<pubDate>` newest-first, takes the first N (default 20), and
+resolves each `<link>`. It is a third parallel implementation of the resolve logic — change
+it and the `.py`/`.mjs` together — with two deliberate divergences, both forced by the
+browser:
+
+- **Batched RPC.** The scripts do one POST per link; the page collects all signatures first
+  and sends them in one `batchexecute` POST (chunked at 20, `RPC_CHUNK`). Response rows come
+  back **out of order**, tagged with the request id in `row[6]` — match on that id.
+  Positional matching looks fine and silently pairs the wrong URL with the wrong row.
+- **CORS proxy.** `news.google.com` sends no `Access-Control-Allow-Origin`, so *every*
+  request (feed, article pages, RPC POST) is routed through a proxy chosen from a dropdown
+  of public services, plus a custom-template field (`{url}` encoded, `{raw}` verbatim). This
+  is the fragile part: free proxies return 5xx, rate-limit after a handful of calls, and
+  some drop POST bodies (which passes step 1 and fails the whole resolve). Failures are
+  surfaced per row rather than aborting the run. Do not "fix" a failing demo by rewriting
+  the logic — check the proxy first.
+
+Two details that are load-bearing: article URLs are requested with
+`&hl=en-US&gl=US&ceid=US:en` appended, because the bare URL answers `302` to exactly that
+URL and not every proxy follows redirects; and each article page is ~570 KB (the signature
+is scraped from it), so the default 20 links move ~12 MB through the proxy — hence the
+worker pool and the 中止 button. `data-n-a-ts` is page-render time, not per-article, but
+`data-n-a-sg` is signed per article, so the per-article GET cannot be skipped.

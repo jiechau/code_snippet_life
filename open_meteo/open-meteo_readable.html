@@ -128,9 +128,12 @@
             z-index: 2;
             background: #f2f5f8;
             text-align: right;
-            padding: 6px 12px 6px 14px;
+            padding: 6px 8px 6px 10px;
             border-right: 1px solid var(--line);
-            min-width: 130px;
+            /* Narrow on purpose: this column is frozen, so its width is taken
+               off every scroll position. The abbreviated names above are what
+               let it be this small. */
+            min-width: 84px;
         }
         th.label .name { font-weight: 700; }
         th.label .api {
@@ -220,7 +223,7 @@
                 </div>
                 <div class="field wide">
                     <label for="extra">extra params <span class="hint">one <code>key=value</code> per line; empty value drops a parameter</span></label>
-                    <textarea id="extra" name="extra" rows="2" spellcheck="false" placeholder="daily=sunrise,sunset"></textarea>
+                    <textarea id="extra" name="extra" rows="2" spellcheck="false" placeholder="forecast_hours=24"></textarea>
                 </div>
             </div>
 
@@ -275,6 +278,19 @@ const HOURLY_VARS = [
 ];
 
 const MODELS = ["ecmwf_ifs025", "gfs_global", "jma_gsm", "icon_global"];
+
+// Prefilled into the "extra params" box rather than added to defaultParams(),
+// which has to stay identical to open-meteo.py/.html. These are the only
+// sun/moon figures the API has (moon_phase is a 0..1 cycle position, not an
+// illuminated fraction), so they sit alongside the page's own calculations as a
+// cross-check.
+//
+// Two things to know: daily keys get the same model suffixing as hourly ones, so
+// four models return twelve series here; and they are pure astronomy, so every
+// model returns the same moon_phase and sunrise/sunset within a minute of each
+// other. Only the raw JSON panel shows them -- the grid renders hourly alone.
+// Clear the box to drop the parameter.
+const DEFAULT_EXTRA = "daily=sunrise,sunset,moon_phase";
 
 /** The request milkyway.py makes, as a plain object. */
 function defaultParams(lat, lon, days = DEFAULT_DAYS) {
@@ -566,13 +582,15 @@ function astroSeries(body) {
 
 // Chinese label per hourly variable; anything unlisted falls back to its API
 // name, so adding a variable to the hourly box still produces a usable row.
+// Kept to two or three characters: the label column is frozen while the hours
+// scroll, so every pixel it takes is a pixel of forecast the phone cannot show.
 const LABELS = {
     cloud_cover: "雲量",
     cloud_cover_low: "低雲",
     cloud_cover_mid: "中雲",
     cloud_cover_high: "高雲",
     visibility: "能見度",
-    precipitation_probability: "降雨機率",
+    precipitation_probability: "降雨",
     relative_humidity_2m: "濕度",
     dew_point_2m: "露點",
     temperature_2m: "氣溫",
@@ -580,16 +598,45 @@ const LABELS = {
     wind_gusts_10m: "陣風",
     wind_direction_10m: "風向",
     pressure_msl: "氣壓",
-    precipitation: "降水量",
+    precipitation: "降水",
     is_day: "日夜",
+};
+
+// Abbreviated API name for the second line of the label. The unabbreviated name
+// is what actually went into the request, so it stays available as the cell's
+// title attribute; an unlisted variable shows its full name, which is long but
+// never wrong.
+const API_SHORT = {
+    cloud_cover: "cloud",
+    cloud_cover_low: "cloud lo",
+    cloud_cover_mid: "cloud mid",
+    cloud_cover_high: "cloud hi",
+    visibility: "vis",
+    precipitation_probability: "precip",
+    relative_humidity_2m: "humidity",
+    dew_point_2m: "dew pt",
+    temperature_2m: "temp",
+    wind_speed_10m: "wind",
+    wind_gusts_10m: "gust",
+    wind_direction_10m: "wind dir",
+    pressure_msl: "pressure",
+    // "precip" is taken by the probability above, which is the one in the
+    // default request; this is the amount, so name it by its unit.
+    precipitation: "precip mm",
+    is_day: "day/night",
+};
+
+// Units as the API reports them -> what fits in the label column.
+const UNIT_SHORT = {
+    "km/h": "k/h",
 };
 
 // Locally computed sun/moon rows, drawn above the API variables. Scales are
 // read for stargazing: sun well below the horizon, moon down, moon dark.
 const ASTRO_ROWS = [
-    { key: "sunAlt", label: "太陽高度 (°)", scale: [-18, 0, true] },
-    { key: "moonAlt", label: "月亮高度 (°)", scale: [-6, 45, true] },
-    { key: "moonIllum", label: "月相 (%)", scale: [0, 100, true] },
+    { key: "sunAlt", label: "太陽 (°)", api: "sun alt", scale: [-18, 0, true] },
+    { key: "moonAlt", label: "月亮 (°)", api: "moon alt", scale: [-6, 45, true] },
+    { key: "moonIllum", label: "月相 (%)", api: "illum", scale: [0, 100, true] },
 ];
 
 // [min, max, higherIsWorse] -- drives the green-to-red cell tint. A variable
@@ -715,12 +762,14 @@ function buildTable(body, params, model, fromNow) {
 
     const table = document.createElement("table");
 
-    const addRow = (labelName, apiName, className) => {
+    const addRow = (labelName, apiName, className, fullName) => {
         const tr = table.insertRow();
         if (className) tr.className = className;
         const th = document.createElement("th");
         th.className = "label";
         th.scope = "row";
+        // The full API name is abbreviated on screen, so keep it on hover.
+        if (fullName && fullName !== apiName) th.title = fullName;
         const name = document.createElement("span");
         name.className = "name";
         name.textContent = labelName;
@@ -778,8 +827,9 @@ function buildTable(body, params, model, fromNow) {
     }
 
     // Sun and moon -- computed here, not fetched, so identical on every tab.
+    // The italic second line is what marks them as not coming from the API.
     for (const spec of ASTRO_ROWS) {
-        const row = addRow(spec.label, "computed", "calc");
+        const row = addRow(spec.label, spec.api, "calc", "computed in the page, not returned by Open-Meteo");
         for (const i of indices) {
             const td = row.insertCell();
             markBreak(td, i);
@@ -800,8 +850,14 @@ function buildTable(body, params, model, fromNow) {
         // A model that does not publish a variable still gets a key, with the
         // literal string "undefined" as its unit and nulls all the way down.
         const rawUnit = units[key];
-        const unit = rawUnit && rawUnit !== "undefined" ? ` (${rawUnit})` : "";
-        const row = addRow((LABELS[name] || name) + unit, name);
+        const shownUnit = UNIT_SHORT[rawUnit] || rawUnit;
+        const unit = rawUnit && rawUnit !== "undefined" ? ` (${shownUnit})` : "";
+        const row = addRow(
+            (LABELS[name] || name) + unit,
+            API_SHORT[name] || name,
+            "",
+            name,
+        );
         const scale = SCALES[name];
         for (const i of indices) {
             const td = row.insertCell();
@@ -893,7 +949,7 @@ function resetDefaults() {
     document.getElementById("timezone").value = "auto";
     document.getElementById("hourly").value = HOURLY_VARS.join(",");
     document.getElementById("models").value = MODELS.join(",");
-    document.getElementById("extra").value = "";
+    document.getElementById("extra").value = DEFAULT_EXTRA;
 }
 
 document.getElementById("form").addEventListener("submit", async (event) => {
