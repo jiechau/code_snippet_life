@@ -27,7 +27,9 @@ FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 
 # Numerical weather models queried as an ensemble. Their disagreement is the
 # confidence signal: four models predicting 10% cloud is a very different
-# forecast from two predicting 0% and two predicting 60%.
+# forecast from two predicting 0% and two predicting 60%. Who runs them, at what
+# resolution, how independent they really are and why they are weighted equally:
+# see "The four models" in README.md.
 MODELS = ["ecmwf_ifs025", "gfs_global", "jma_gsm", "icon_global"]
 
 # Not every model publishes every variable through Open-Meteo: of the four

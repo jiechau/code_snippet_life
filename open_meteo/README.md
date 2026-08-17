@@ -6,6 +6,65 @@ Snippets built on the [Open-Meteo](https://open-meteo.com/) weather API.
 weather variables counts as more than one call, so one `milkyway.py` run (10
 variables × 4 models) bills as a few calls.
 
+**Live demo:** https://jiechau.github.io/code_snippet_life/open_meteo/
+
+- [open-meteo API](https://jiechau.github.io/code_snippet_life/open_meteo/open-meteo.html)
+  — one call, raw JSON plus the request URL.
+- [open-meteo readable](https://jiechau.github.io/code_snippet_life/open_meteo/open-meteo_readable.html)
+  — the same call as an hour-by-hour grid.
+
+## The four models
+
+Every snippet in this folder sends the same `&models=` list, so this applies to
+all of them. These are four completely separate forecasting systems, each run by
+a different national or intergovernmental weather agency, not four views of one
+dataset:
+
+| id | Agency | Country | Global resolution | New run |
+| --- | --- | --- | --- | --- |
+| `ecmwf_ifs025` | ECMWF (European Centre for Medium-Range Weather Forecasts) | EU / intergovernmental | 0.25° ≈ 25 km | every 6 h |
+| `gfs_global` | NOAA / NCEP — Global Forecast System | USA | ~11–25 km | every 1 h |
+| `jma_gsm` | JMA — Global Spectral Model | Japan | ~20 km | every 3 h |
+| `icon_global` | DWD (Deutscher Wetterdienst) | Germany | ~11 km | every 3 h |
+
+Open-Meteo's docs list each model *family*, so its quoted resolution ranges fold
+in high-resolution regional nests (HRRR for GFS, ICON-D2 for ICON) that only
+cover the US and Europe. The `_global` variants are used here precisely because
+the regional nests do not cover Taiwan.
+
+**How independent are they?** Partially. They all assimilate largely the same
+raw observations — satellite radiances, radiosondes, aircraft reports, buoys —
+shared internationally over the WMO Global Telecommunication System. Where they
+genuinely diverge is data assimilation and **physics parameterization**. That
+second one is what matters here: clouds are mostly smaller than a grid cell, so
+no global model resolves them; each estimates cloud fraction from humidity,
+stability and convection with its own empirical scheme, and those schemes
+disagree a lot. Cloud cover is among the least skillful fields in numerical
+weather prediction, which is the whole reason for querying four models.
+
+Rough reputations:
+
+- **ECMWF** consistently verifies best in global headline scores — the model
+  meteorologists reach for first.
+- **ICON** has a good name specifically for cloud and boundary-layer detail.
+- **JMA GSM** has home-field advantage for East Asia and typhoons.
+- **GFS** is the freshest, updating hourly, and the most permissively open.
+
+### Weighting (`milkyway.py`)
+
+`sky_quality` is computed **separately for each of the four models** and then
+averaged — the per-model scores are the bottom rows of the hourly grid. The
+script averages all four with **equal weight**, treating them as peers.
+Given ECMWF's track record, weighting it higher would arguably be more accurate;
+equal weighting is kept because unequal weights are hard to justify without
+verifying against actual outcomes. It is a one-line change in `score_hours()`.
+
+Note this is a **multi-model** ensemble — four models, one run each — not a
+single-model ensemble, where one model runs 30–50 times with perturbed initial
+conditions. Open-Meteo exposes those separately via its Ensemble API
+(`ensemble-api.open-meteo.com`), which would allow a true "X% of members show
+clear sky" probability instead of the constructed score used here.
+
 ## `open-meteo.py`
 
 A minimal demonstration of one API call. Prints the **exact JSON Open-Meteo
@@ -63,12 +122,31 @@ Notes:
 
 ## `open-meteo.html`
 
-A browser port of `open-meteo.py` — the demo page published by Pages (see the
-root [`README.md`](../README.md#demo-pages)). Input boxes stand in for the
-command-line arguments (location, `forecast_days`, `timezone`, `hourly`,
-`models`, plus a free-form `key=value` box); submitting fetches and re-renders
-the result below, showing the same one-line request summary the script prints to
-stderr, the request URL as a clickable link, and the pretty-printed JSON.
+Listed as **open-meteo API** on the folder's index page. A browser port of
+`open-meteo.py` (see the root [`README.md`](../README.md#demo-pages)): submitting
+fetches and re-renders the result below, showing the same one-line request summary
+the script prints to stderr, the request URL as a clickable link, and the
+pretty-printed JSON.
+
+The form is the same one `open-meteo_readable.html` uses — both pages open on the
+identical request, so you can switch between raw JSON and the grid without
+retyping anything:
+
+- **location** — a `lat,lon` box, narrow because that is all it ever holds, with
+  the saved spots beside it: 三總, 瑞光路, 大崙頭山, 大武崙砲台, 東澳, 烏石港,
+  暗空公園. Clicking one fills the coordinates and refetches; the pressed button
+  shows which spot is displayed, and a hand-typed coordinate presses none. They
+  come from the `PLACES` array, whose first entry is also the default location, so
+  adding or reordering a spot is a one-line change **in both pages**.
+- **forecast_days** and **timezone** on the next line.
+- **hourly** and **models** — comma-separated; blank drops the parameter, which
+  for `models` means bare series keys instead of model-suffixed ones.
+- **extra params** — one `key=value` per line, prefilled with
+  `daily=sunrise,sunset,moon_phase`; an empty value drops a parameter.
+
+These three defaults deliberately differ from `open-meteo.py`: the location
+(三總 rather than Taipei), the cloud decks listed high → low, and the `daily=`
+line. The request *machinery* is still a byte-for-byte port.
 
 `index.html` is just the list page for this folder — one link per demo, reached
 from the root hub. Each demo page is named after the script it ports, so a new
@@ -80,16 +158,13 @@ build step and no dependencies.
 
 ## `open-meteo_readable.html`
 
-The **same request** as `open-meteo.html` — same form fields, the request core is
-copied verbatim — but the response is drawn as an hour-by-hour forecast grid
-instead of raw JSON. The raw JSON and the request URL are still there, in a
-collapsed `raw JSON & request URL` panel at the bottom.
+The **same request** as `open-meteo.html`, using the identical form (saved spots
+included — described under that page above), but the response is drawn as an
+hour-by-hour forecast grid instead of raw JSON. The raw JSON and the request URL
+are still there, in a collapsed `raw JSON & request URL` panel at the bottom.
 
-- **Saved spots beside the location box.** 三總, 瑞光路, 大崙頭山, 大武崙砲台,
-  東澳, 烏石港, 暗空公園 — clicking one fills the coordinates and refetches, and
-  the pressed button shows which spot is on screen (a hand-typed coordinate
-  presses none). They come from the `PLACES` array; the first entry is also the
-  page's default location, so adding or reordering a spot is a one-line change.
+What differs is everything below the form:
+
 - **One tab per model.** The tabs come from the `models` field, and switching
   re-reads that model's series. This is where the suffixing rule shows: with two
   or more models the keys are `cloud_cover_gfs_global`, with one (or with
@@ -127,14 +202,12 @@ collapsed `raw JSON & request URL` panel at the bottom.
   dips when moisture builds. It says nothing about upper-air transparency: a
   night can read 24140 and still be overcast at 8 km, which is what the 雲量
   rows are for.
-- **`daily=sunrise,sunset,moon_phase` is prefilled** in the extra-params box —
-  the only sun/moon figures Open-Meteo has, kept next to the page's own
-  calculations as a cross-check. It lives in that box rather than in the default
-  parameters so the request core stays identical to `open-meteo.py`. Note the
-  daily keys take the **same model suffixing as hourly ones**, so the four
-  default models return twelve series, and since these are pure astronomy every
-  model returns the identical `moon_phase` and sunrise/sunset within a minute.
-  Only the raw JSON panel shows them; the grid renders `hourly` alone. Clear the
+- **The prefilled `daily=sunrise,sunset,moon_phase`** is the only sun/moon data
+  Open-Meteo has, kept next to the page's own calculations as a cross-check.
+  Its keys take the **same model suffixing as hourly ones**, so the four default
+  models return twelve series — and since this is pure astronomy, every model
+  returns the identical `moon_phase` with sunrise/sunset within a minute. The grid
+  renders `hourly` alone, so this shows up in the raw JSON panel only; clear the
   box to drop the parameter.
 - **從現在開始** drops the already-past hours — `forecast_days` starts the series
   at 00:00 local, the same trim `score_hours()` does in `milkyway.py`. Untick it
@@ -164,6 +237,10 @@ uv run milkyway.py 24.1375,121.2745 3    # 3 days
 Input is `lat,lon` as `argv[1]`; `argv[2]` is the number of forecast days
 (default 7, max 16). The timezone is resolved from the coordinates by the API
 (`timezone=auto`), so it works anywhere, not just Taiwan.
+
+It scores each of the four models separately and averages them — see
+[The four models](#the-four-models) above for what they are and
+[Weighting](#weighting-milkywaypy) for why they are weighted equally.
 
 ### Output
 
@@ -261,54 +338,6 @@ spread means fog, haze and dew on the front element — the classic ruined
 session), relative humidity above 85%, visibility, and wind (strong wind shakes
 a tripod through a long exposure; dead calm with saturated air is how valleys
 fog in).
-
-### The four models
-
-`sky_quality` is computed **separately for each of the four models** and then
-averaged — the per-model scores are the bottom rows of the hourly grid. These
-are four completely separate forecasting systems, each run by a different
-national or intergovernmental weather agency, not four views of one dataset:
-
-| id | Agency | Country | Global resolution | New run |
-| --- | --- | --- | --- | --- |
-| `ecmwf_ifs025` | ECMWF (European Centre for Medium-Range Weather Forecasts) | EU / intergovernmental | 0.25° ≈ 25 km | every 6 h |
-| `gfs_global` | NOAA / NCEP — Global Forecast System | USA | ~11–25 km | every 1 h |
-| `jma_gsm` | JMA — Global Spectral Model | Japan | ~20 km | every 3 h |
-| `icon_global` | DWD (Deutscher Wetterdienst) | Germany | ~11 km | every 3 h |
-
-Open-Meteo's docs list each model *family*, so its quoted resolution ranges fold
-in high-resolution regional nests (HRRR for GFS, ICON-D2 for ICON) that only
-cover the US and Europe. The `_global` variants are used here precisely because
-the regional nests do not cover Taiwan.
-
-**How independent are they?** Partially. They all assimilate largely the same
-raw observations — satellite radiances, radiosondes, aircraft reports, buoys —
-shared internationally over the WMO Global Telecommunication System. Where they
-genuinely diverge is data assimilation and **physics parameterization**. That
-second one is what matters here: clouds are mostly smaller than a grid cell, so
-no global model resolves them; each estimates cloud fraction from humidity,
-stability and convection with its own empirical scheme, and those schemes
-disagree a lot. Cloud cover is among the least skillful fields in numerical
-weather prediction, which is the whole reason for querying four models.
-
-Rough reputations:
-
-- **ECMWF** consistently verifies best in global headline scores — the model
-  meteorologists reach for first.
-- **ICON** has a good name specifically for cloud and boundary-layer detail.
-- **JMA GSM** has home-field advantage for East Asia and typhoons.
-- **GFS** is the freshest, updating hourly, and the most permissively open.
-
-The script averages all four with **equal weight**, treating them as peers.
-Given ECMWF's track record, weighting it higher would arguably be more accurate;
-equal weighting is kept because unequal weights are hard to justify without
-verifying against actual outcomes. It is a one-line change in `score_hours()`.
-
-Note this is a **multi-model** ensemble — four models, one run each — not a
-single-model ensemble, where one model runs 30–50 times with perturbed initial
-conditions. Open-Meteo exposes those separately via its Ensemble API
-(`ensemble-api.open-meteo.com`), which would allow a true "X% of members show
-clear sky" probability instead of the constructed score used here.
 
 ### Confidence
 

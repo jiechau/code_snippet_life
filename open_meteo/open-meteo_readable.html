@@ -300,8 +300,9 @@ const DEFAULT_DAYS = 7;
 
 // Rows appear in the order the variables are requested, so the cloud decks are
 // listed high -> mid -> low here: top of the atmosphere downwards, the way a
-// forecast strip reads. open-meteo.py/.html list low -> high; only the order of
-// this list differs, the request asks for the same ten variables either way.
+// forecast strip reads. open-meteo.html copies this order so both pages open on
+// the same request; only open-meteo.py still lists low -> high, and even there
+// it is the order of the list that differs, not the ten variables asked for.
 const HOURLY_VARS = [
     "cloud_cover",
     "cloud_cover_high",

@@ -56,6 +56,30 @@
         }
         input:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 
+        /* location: a box just wide enough for "25.070602,121.592399", with the
+           saved spots sitting beside it rather than under it. */
+        .locrow { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+        .locrow input { width: 200px; flex: 0 0 auto; }
+        .places { display: flex; gap: 6px; flex-wrap: wrap; }
+        .place {
+            font: inherit;
+            font-size: 0.85rem;
+            font-weight: 600;
+            padding: 6px 12px;
+            border-radius: 999px;
+            border: 1px solid var(--line);
+            background: #f7f9fb;
+            color: var(--accent);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .place:hover { border-color: var(--accent); background: #eaf4fd; }
+        .place[aria-pressed="true"] {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
+
         .actions { margin-top: 18px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
         button {
             font: inherit;
@@ -118,9 +142,12 @@
 
         <form id="form">
             <div class="grid">
-                <div class="field">
-                    <label for="location">location <span class="hint">lat,lon</span></label>
-                    <input id="location" name="location" value="25.033,121.565" spellcheck="false">
+                <div class="field wide">
+                    <label for="location">location <span class="hint">lat,lon &mdash; or pick a spot</span></label>
+                    <div class="locrow">
+                        <input id="location" name="location" spellcheck="false">
+                        <div class="places" id="places"></div>
+                    </div>
                 </div>
                 <div class="field">
                     <label for="forecast_days">forecast_days</label>
@@ -140,7 +167,7 @@
                 </div>
                 <div class="field wide">
                     <label for="extra">extra params <span class="hint">one <code>key=value</code> per line; empty value drops a parameter</span></label>
-                    <textarea id="extra" name="extra" rows="2" spellcheck="false" placeholder="daily=sunrise,sunset"></textarea>
+                    <textarea id="extra" name="extra" rows="2" spellcheck="false" placeholder="forecast_hours=24"></textarea>
                 </div>
             </div>
 
@@ -160,19 +187,36 @@
 <script>
 "use strict";
 
-// Kept in step with open-meteo.py -- same endpoint, same defaults, same URL
-// construction, and the same "return the error body instead of throwing"
-// behaviour.
+// Kept in step with open-meteo.py -- same endpoint, same URL construction, and
+// the same "return the error body instead of throwing" behaviour. The block of
+// form defaults below is instead shared with open-meteo_readable.html, so the
+// two pages open on the same request; see the README for what that changes
+// relative to the script.
 const FORECAST_URL = "https://api.open-meteo.com/v1/forecast";
 
-const DEFAULT_LAT = 25.033, DEFAULT_LON = 121.565;
+// Saved spots, offered as buttons beside the location box. The first is the
+// default location, so reordering this list changes what the page opens on.
+const PLACES = [
+    ["三總", 25.070602, 121.592399],
+    ["瑞光路", 25.0781166, 121.5703769],
+    ["大崙頭山", 25.1069116, 121.5809382],
+    ["大武崙砲台", 25.1478735, 121.6547311],
+    ["東澳", 24.5145449, 121.8277122],
+    ["烏石港", 24.870683, 121.839613],
+    ["暗空公園", 24.1182852, 121.2350106],
+];
+
+const [, DEFAULT_LAT, DEFAULT_LON] = PLACES[0];
 const DEFAULT_DAYS = 7;
 
+// Cloud decks run high -> mid -> low to match the row order of the grid in
+// open-meteo_readable.html; open-meteo.py lists them low -> high. Same ten
+// variables either way.
 const HOURLY_VARS = [
     "cloud_cover",
-    "cloud_cover_low",
-    "cloud_cover_mid",
     "cloud_cover_high",
+    "cloud_cover_mid",
+    "cloud_cover_low",
     "visibility",
     "precipitation_probability",
     "relative_humidity_2m",
@@ -182,6 +226,13 @@ const HOURLY_VARS = [
 ];
 
 const MODELS = ["ecmwf_ifs025", "gfs_global", "jma_gsm", "icon_global"];
+
+// Prefilled into the "extra params" box rather than added to defaultParams(),
+// which stays identical to open-meteo.py. These are the only sun/moon figures
+// the API has -- moon_phase is a 0..1 cycle position, not an illuminated
+// fraction. Note daily keys get the same model suffixing as hourly ones, so four
+// models return twelve series, all identical since this is pure astronomy.
+const DEFAULT_EXTRA = "daily=sunrise,sunset,moon_phase";
 
 /** The request milkyway.py makes, as a plain object. */
 function defaultParams(lat, lon, days = DEFAULT_DAYS) {
@@ -301,7 +352,41 @@ function resetDefaults() {
     document.getElementById("timezone").value = "auto";
     document.getElementById("hourly").value = HOURLY_VARS.join(",");
     document.getElementById("models").value = MODELS.join(",");
-    document.getElementById("extra").value = "";
+    document.getElementById("extra").value = DEFAULT_EXTRA;
+    markActivePlace();
+}
+
+/**
+ * Highlight whichever saved spot matches the box, so after a click it is clear
+ * which one is showing -- and after a manual edit, that none of them is.
+ */
+function markActivePlace() {
+    const current = document.getElementById("location").value.trim();
+    for (const button of document.querySelectorAll(".place")) {
+        button.setAttribute("aria-pressed", String(button.dataset.coords === current));
+    }
+}
+
+/**
+ * One button per saved spot. Clicking fills the box and refetches: leaving the
+ * previous response on screen under a new location would just be misleading.
+ */
+function buildPlaces() {
+    const box = document.getElementById("places");
+    for (const [name, lat, lon] of PLACES) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "place";
+        button.textContent = name;
+        button.dataset.coords = `${lat},${lon}`;
+        button.title = `${lat}, ${lon}`;
+        button.addEventListener("click", () => {
+            document.getElementById("location").value = button.dataset.coords;
+            markActivePlace();
+            document.getElementById("form").requestSubmit();
+        });
+        box.appendChild(button);
+    }
 }
 
 function show({ meta, isError, url, json }) {
@@ -365,7 +450,9 @@ document.getElementById("form").addEventListener("submit", async (event) => {
 });
 
 document.getElementById("reset").addEventListener("click", resetDefaults);
+document.getElementById("location").addEventListener("input", markActivePlace);
 
+buildPlaces();
 resetDefaults();
 </script>
 </body>

@@ -82,8 +82,8 @@ both scripts relax `ssl.VERIFY_X509_STRICT` (Python 3.13 default) via a custom
 
 ## open_meteo specifics
 
-`open-meteo.html` is the browser port of `open-meteo.py` (see "Demo pages"); `index.html`
-is only this folder's list page. Form fields stand
+`open-meteo.html` is the browser port of `open-meteo.py` (see "Demo pages"), listed as
+**open-meteo API** on `index.html`, which is only this folder's list page. Form fields stand
 in for the CLI arguments and it reproduces the script's URL construction exactly —
 `encodeURIComponent` with `%2C` mapped back to a literal comma and `%20` to `+`, matching
 `urlencode(params, safe=",")` byte for byte — so `get_para` stays the real request URL.
@@ -101,27 +101,34 @@ the **literal string `"undefined"`** (so with the default four models, three of 
 local, so past hours are trimmed using `utc_offset_seconds` (the 從現在開始 checkbox).
 
 `DEFAULT_EXTRA` prefills `daily=sunrise,sunset,moon_phase` into the extra-params box —
-kept there, not in `defaultParams()`, so the request core stays identical to the other two.
+kept there, not in `defaultParams()`, so the request core stays identical to the script.
 **Model suffixing applies to `daily` as well as `hourly`**, so four models return twelve
 daily series; they are pure astronomy, so every model's `moon_phase` is byte-identical and
-sunrise/sunset differ only by grid-point rounding. The grid renders `hourly` only, so this
-data surfaces in the raw JSON panel alone.
+sunrise/sunset differ only by grid-point rounding. The readable grid renders `hourly` only,
+so this data surfaces in the raw JSON panel alone.
 
-What this page's defaults intentionally do **not** share with `open-meteo.py`/`.html` — the
-request *machinery* (`buildUrl`, `fetchForecast`, `paramsFromForm`) is still copied verbatim
-and any divergence there is a bug:
+**The two pages share their whole form**, so switching between raw JSON and the grid needs
+no retyping — `PLACES`, `DEFAULT_LAT`/`DEFAULT_LON`, `HOURLY_VARS`, `MODELS`,
+`DEFAULT_EXTRA`, the `.locrow`/`.place` CSS and `buildPlaces()`/`markActivePlace()` are
+duplicated verbatim in both. **Edit one and you must edit the other**; there is no shared
+file, by the one-folder-per-snippet rule.
+
+Three of those defaults intentionally differ from `open-meteo.py`. The request *machinery*
+(`buildUrl`, `fetchForecast`, `paramsFromForm`) is still a byte-for-byte port, and any
+divergence there is a bug:
 
 - `HOURLY_VARS` lists the cloud decks high → mid → low, because grid rows follow the order
-  of the `hourly` parameter; the other two list them low → high.
+  of the `hourly` parameter; the script lists them low → high.
 - `DEFAULT_LAT`/`DEFAULT_LON` come from `PLACES[0]` (the saved stargazing spots), not from
-  the Taipei coordinates the other two default to.
-- `DEFAULT_EXTRA` adds `daily=...`, which the other two do not send.
+  the Taipei coordinates the script defaults to.
+- `DEFAULT_EXTRA` adds `daily=...`, which the script does not send.
 
 `PLACES` drives both the default location and the buttons beside the location box; adding a
-spot is one row there and nothing else, and reordering it changes what the page opens on.
-Clicking a button fills the box **and refetches** — leaving a stale grid under a new
+spot is one row there and nothing else, and reordering it changes what the pages open on.
+Clicking a button fills the box **and refetches** — leaving a stale result under a new
 location would misrepresent it. The buttons only reflect the box, so a hand-typed
-coordinate leaves all of them unpressed.
+coordinate leaves all of them unpressed. Note a click while a fetch is in flight is a
+silent no-op: `requestSubmit()` does nothing while the submit button is disabled.
 
 Row labels are deliberately terse (`LABELS`, `API_SHORT`, `UNIT_SHORT`): the label column
 is `position: sticky`, so its width is subtracted from every scroll position — abbreviating
