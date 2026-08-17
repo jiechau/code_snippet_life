@@ -17,6 +17,10 @@
 # exact JSON the API returned with one key added -- get_para, the full request
 # URL -- so the same call can be replayed in a browser or with curl.
 #
+# API reference: https://open-meteo.com/en/docs -- the hourly variable names in
+# HOURLY_VARS, the model ids in MODELS, and anything passed as key=value all come
+# from there.
+#
 # Request metadata (status, content type, size, elapsed) goes to stderr, so
 # stdout stays clean JSON:
 #

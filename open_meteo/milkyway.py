@@ -15,6 +15,11 @@
 # astrophotography at a GPS location, combining Open-Meteo cloud/moisture
 # forecasts (multi-model ensemble) with locally computed astronomy:
 # astronomical darkness, galactic core altitude, and moon interference.
+#
+# API reference: https://open-meteo.com/en/docs -- source for the hourly variable
+# names in HOURLY_VARS and the model ids in MODELS. It does not cover the
+# astronomy: sun/moon altitude and galactic core position are computed here,
+# since the API offers only sunrise/sunset and daily=moon_phase.
 
 import math
 import sys
