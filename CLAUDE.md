@@ -107,10 +107,21 @@ daily series; they are pure astronomy, so every model's `moon_phase` is byte-ide
 sunrise/sunset differ only by grid-point rounding. The grid renders `hourly` only, so this
 data surfaces in the raw JSON panel alone.
 
-Grid rows follow the order of the `hourly` parameter, so this page's `HOURLY_VARS` lists
-the cloud decks high → mid → low while `open-meteo.py`/`.html` list them low → high. That
-listing order is the **only** intended difference between the three; treat any other
-divergence as a bug.
+What this page's defaults intentionally do **not** share with `open-meteo.py`/`.html` — the
+request *machinery* (`buildUrl`, `fetchForecast`, `paramsFromForm`) is still copied verbatim
+and any divergence there is a bug:
+
+- `HOURLY_VARS` lists the cloud decks high → mid → low, because grid rows follow the order
+  of the `hourly` parameter; the other two list them low → high.
+- `DEFAULT_LAT`/`DEFAULT_LON` come from `PLACES[0]` (the saved stargazing spots), not from
+  the Taipei coordinates the other two default to.
+- `DEFAULT_EXTRA` adds `daily=...`, which the other two do not send.
+
+`PLACES` drives both the default location and the buttons beside the location box; adding a
+spot is one row there and nothing else, and reordering it changes what the page opens on.
+Clicking a button fills the box **and refetches** — leaving a stale grid under a new
+location would misrepresent it. The buttons only reflect the box, so a hand-typed
+coordinate leaves all of them unpressed.
 
 Row labels are deliberately terse (`LABELS`, `API_SHORT`, `UNIT_SHORT`): the label column
 is `position: sticky`, so its width is subtracted from every scroll position — abbreviating

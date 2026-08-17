@@ -85,6 +85,11 @@ copied verbatim — but the response is drawn as an hour-by-hour forecast grid
 instead of raw JSON. The raw JSON and the request URL are still there, in a
 collapsed `raw JSON & request URL` panel at the bottom.
 
+- **Saved spots beside the location box.** 三總, 瑞光路, 大崙頭山, 大武崙砲台,
+  東澳, 烏石港, 暗空公園 — clicking one fills the coordinates and refetches, and
+  the pressed button shows which spot is on screen (a hand-typed coordinate
+  presses none). They come from the `PLACES` array; the first entry is also the
+  page's default location, so adding or reordering a spot is a one-line change.
 - **One tab per model.** The tabs come from the `models` field, and switching
   re-reads that model's series. This is where the suffixing rule shows: with two
   or more models the keys are `cloud_cover_gfs_global`, with one (or with
