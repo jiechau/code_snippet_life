@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex, nocache">
+    <title>open_meteo &mdash; code_snippet_life</title>
+    <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background-color: #f0f2f5;
+            margin: 0;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 500px;
+            width: 90%;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 8px;
+        }
+        p.sub {
+            color: #777;
+            margin-top: 0;
+            font-size: 0.9rem;
+        }
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        li {
+            margin: 15px 0;
+        }
+        a {
+            text-decoration: none;
+            color: #2196F3;
+            font-size: 1.2rem;
+            font-weight: bold;
+            padding: 10px 20px;
+            border: 2px solid #2196F3;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            display: inline-block;
+        }
+        a:hover {
+            background-color: #2196F3;
+            color: white;
+        }
+        li.todo a {
+            color: #aaa;
+            border-color: #ddd;
+            cursor: not-allowed;
+        }
+        li.todo a:hover {
+            background-color: #f7f7f7;
+            color: #aaa;
+        }
+        a.back {
+            font-size: 0.9rem;
+            font-weight: 400;
+            padding: 0;
+            border: none;
+            border-radius: 0;
+            display: block;
+            text-align: left;
+            margin-bottom: 10px;
+        }
+        a.back:hover {
+            background: none;
+            color: #2196F3;
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a class="back" href="../index.html">&larr; code_snippet_life</a>
+        <h1>open_meteo</h1>
+        <p class="sub">Open-Meteo weather API demos. No API key needed.</p>
+        <ul>
+            <li><a href="open-meteo.html">open-meteo</a></li>
+            <li><a href="open-meteo_readable.html">open-meteo readable</a></li>
+            <li class="todo"><a href="#" onclick="return false;">milkyway (todo)</a></li>
+        </ul>
+    </div>
+</body>
+</html>

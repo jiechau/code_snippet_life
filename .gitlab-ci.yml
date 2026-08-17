@@ -1,0 +1,14 @@
+pages:
+  stage: deploy
+  script:
+    - mkdir -p public
+    - cp *.html public/
+    - cp *.svg public/
+    - cp robots.txt public/
+    - cp -r open_meteo public/
+  artifacts:
+    paths:
+      - public
+  only:
+    - main
+    - master

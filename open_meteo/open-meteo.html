@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex, nocache">
+    <title>open-meteo &mdash; open_meteo</title>
+    <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+    <style>
+        :root {
+            --fg: #333;
+            --muted: #777;
+            --line: #e3e6ea;
+            --accent: #2196F3;
+            --err: #c0392b;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            color: var(--fg);
+            margin: 0;
+            padding: 24px 12px 60px;
+        }
+        .container {
+            background: white;
+            padding: 28px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        h1 { margin: 0 0 4px; font-size: 1.6rem; }
+        p.sub { margin: 0 0 22px; color: var(--muted); font-size: 0.9rem; }
+        p.sub code { background: #f0f2f5; padding: 1px 5px; border-radius: 4px; }
+        a.back { color: var(--accent); text-decoration: none; font-size: 0.9rem; }
+        a.back:hover { text-decoration: underline; }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+            gap: 14px;
+        }
+        .field { display: flex; flex-direction: column; }
+        .field.wide { grid-column: 1 / -1; }
+        label { font-size: 0.8rem; font-weight: 600; margin-bottom: 5px; }
+        label .hint { font-weight: 400; color: var(--muted); }
+        input, textarea {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.85rem;
+            padding: 8px 10px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: #fbfcfd;
+            color: var(--fg);
+            resize: vertical;
+        }
+        input:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+        .actions { margin-top: 18px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        button {
+            font: inherit;
+            font-weight: 600;
+            padding: 9px 22px;
+            border-radius: 8px;
+            border: 2px solid var(--accent);
+            background: var(--accent);
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        button:hover:not(:disabled) { background: #1976d2; border-color: #1976d2; }
+        button:disabled { opacity: 0.55; cursor: default; }
+        button.secondary { background: white; color: var(--accent); }
+        button.secondary:hover:not(:disabled) { background: var(--accent); color: white; }
+
+        .result { margin-top: 26px; border-top: 1px solid var(--line); padding-top: 20px; }
+        .meta {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.8rem;
+            color: var(--muted);
+            margin-bottom: 10px;
+        }
+        .meta.error { color: var(--err); }
+        .url {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.78rem;
+            word-break: break-all;
+            background: #f7f9fb;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin-bottom: 12px;
+        }
+        .url a { color: var(--accent); text-decoration: none; }
+        .url a:hover { text-decoration: underline; }
+        pre {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.78rem;
+            line-height: 1.45;
+            background: #f7f9fb;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 14px;
+            margin: 0;
+            max-height: 60vh;
+            overflow: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a class="back" href="index.html">&larr; open_meteo</a>
+        <h1>open-meteo</h1>
+        <p class="sub">
+            Browser port of <code>open-meteo.py</code>: one forecast call, printing the exact JSON the
+            API returned plus <code>get_para</code> (the full request URL). No API key needed.
+        </p>
+
+        <form id="form">
+            <div class="grid">
+                <div class="field">
+                    <label for="location">location <span class="hint">lat,lon</span></label>
+                    <input id="location" name="location" value="25.033,121.565" spellcheck="false">
+                </div>
+                <div class="field">
+                    <label for="forecast_days">forecast_days</label>
+                    <input id="forecast_days" name="forecast_days" value="7" spellcheck="false">
+                </div>
+                <div class="field">
+                    <label for="timezone">timezone</label>
+                    <input id="timezone" name="timezone" value="auto" spellcheck="false">
+                </div>
+                <div class="field wide">
+                    <label for="hourly">hourly <span class="hint">comma-separated; blank drops the parameter</span></label>
+                    <textarea id="hourly" name="hourly" rows="3" spellcheck="false"></textarea>
+                </div>
+                <div class="field wide">
+                    <label for="models">models <span class="hint">comma-separated; blank drops the parameter (bare keys, no model suffix)</span></label>
+                    <textarea id="models" name="models" rows="2" spellcheck="false"></textarea>
+                </div>
+                <div class="field wide">
+                    <label for="extra">extra params <span class="hint">one <code>key=value</code> per line; empty value drops a parameter</span></label>
+                    <textarea id="extra" name="extra" rows="2" spellcheck="false" placeholder="daily=sunrise,sunset"></textarea>
+                </div>
+            </div>
+
+            <div class="actions">
+                <button type="submit" id="submit">Fetch</button>
+                <button type="button" class="secondary" id="reset">Reset defaults</button>
+            </div>
+        </form>
+
+        <div class="result" id="result" hidden>
+            <div class="meta" id="meta"></div>
+            <div class="url" id="url"></div>
+            <pre id="json"></pre>
+        </div>
+    </div>
+
+<script>
+"use strict";
+
+// Kept in step with open-meteo.py -- same endpoint, same defaults, same URL
+// construction, and the same "return the error body instead of throwing"
+// behaviour.
+const FORECAST_URL = "https://api.open-meteo.com/v1/forecast";
+
+const DEFAULT_LAT = 25.033, DEFAULT_LON = 121.565;
+const DEFAULT_DAYS = 7;
+
+const HOURLY_VARS = [
+    "cloud_cover",
+    "cloud_cover_low",
+    "cloud_cover_mid",
+    "cloud_cover_high",
+    "visibility",
+    "precipitation_probability",
+    "relative_humidity_2m",
+    "dew_point_2m",
+    "wind_speed_10m",
+    "temperature_2m",
+];
+
+const MODELS = ["ecmwf_ifs025", "gfs_global", "jma_gsm", "icon_global"];
+
+/** The request milkyway.py makes, as a plain object. */
+function defaultParams(lat, lon, days = DEFAULT_DAYS) {
+    return {
+        latitude: lat,
+        longitude: lon,
+        hourly: HOURLY_VARS.join(","),
+        models: MODELS.join(","),
+        timezone: "auto",
+        forecast_days: days,
+    };
+}
+
+/**
+ * The full GET URL for a parameter object.
+ *
+ * Commas are left literal so the hourly/models lists stay readable and match
+ * Open-Meteo's own documented examples; encodeURIComponent would otherwise
+ * turn them into %2C. This exact string is what gets requested, so the
+ * get_para handed back is the real URL rather than a reconstruction of it.
+ * Spaces become "+" to match Python's urlencode.
+ */
+function buildUrl(params) {
+    const query = Object.entries(params)
+        .map(([key, value]) => {
+            const enc = (s) => encodeURIComponent(String(s))
+                .replace(/%2C/g, ",")
+                .replace(/%20/g, "+");
+            return `${enc(key)}=${enc(value)}`;
+        })
+        .join("&");
+    return `${FORECAST_URL}?${query}`;
+}
+
+/**
+ * Call the API and return {body, url, status, ok, bytes, seconds}.
+ *
+ * The body is exactly what Open-Meteo sent, decoded, plus the single added key
+ * get_para. Errors are returned rather than thrown: Open-Meteo answers a bad
+ * request with HTTP 400 and a JSON body like
+ * {"error": true, "reason": "Latitude must be in range of -90 to 90°..."},
+ * which is far more useful to see than a stack trace.
+ */
+async function fetchForecast(params, timeoutMs = 30000) {
+    const url = buildUrl(params);
+    const started = performance.now();
+    const resp = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+    const text = await resp.text();
+    const seconds = (performance.now() - started) / 1000;
+
+    let body;
+    try {
+        body = JSON.parse(text);
+    } catch {
+        // Not JSON at all -- hand back the raw text so the caller can see it.
+        body = { error: true, reason: "response was not JSON", text: text };
+    }
+    body.get_para = url;
+
+    return {
+        body,
+        url,
+        status: resp.status,
+        ok: resp.ok,
+        contentType: resp.headers.get("Content-Type"),
+        bytes: new TextEncoder().encode(text).length,
+        seconds,
+    };
+}
+
+/**
+ * Build the request parameters from the form, mirroring parse_args(): a
+ * "lat,lon" location plus key=value overrides, where an empty value drops the
+ * parameter entirely -- handy for seeing how the response shape changes when
+ * the model list goes away.
+ */
+function paramsFromForm() {
+    const el = (id) => document.getElementById(id);
+    const overrides = {};
+
+    const loc = el("location").value.trim();
+    let lat = DEFAULT_LAT, lon = DEFAULT_LON;
+    if (loc) {
+        const [latS, lonS] = loc.split(",");
+        lat = Number(latS);
+        lon = Number(lonS);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+            throw new Error(`Bad location "${loc}": expected "lat,lon"`);
+        }
+    }
+
+    for (const id of ["forecast_days", "timezone", "hourly", "models"]) {
+        overrides[id] = el(id).value.trim();
+    }
+
+    for (const line of el("extra").value.split("\n")) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        if (!trimmed.includes("=")) {
+            throw new Error(`Bad extra param "${trimmed}": expected "key=value"`);
+        }
+        const idx = trimmed.indexOf("=");
+        overrides[trimmed.slice(0, idx).trim()] = trimmed.slice(idx + 1).trim();
+    }
+
+    const params = defaultParams(lat, lon);
+    for (const [key, value] of Object.entries(overrides)) {
+        if (value === "") delete params[key];
+        else params[key] = value;
+    }
+    return params;
+}
+
+function resetDefaults() {
+    document.getElementById("location").value = `${DEFAULT_LAT},${DEFAULT_LON}`;
+    document.getElementById("forecast_days").value = String(DEFAULT_DAYS);
+    document.getElementById("timezone").value = "auto";
+    document.getElementById("hourly").value = HOURLY_VARS.join(",");
+    document.getElementById("models").value = MODELS.join(",");
+    document.getElementById("extra").value = "";
+}
+
+function show({ meta, isError, url, json }) {
+    const result = document.getElementById("result");
+    const metaEl = document.getElementById("meta");
+    const urlEl = document.getElementById("url");
+
+    result.hidden = false;
+    metaEl.textContent = meta;
+    metaEl.classList.toggle("error", Boolean(isError));
+
+    urlEl.hidden = !url;
+    if (url) {
+        urlEl.textContent = "";
+        const a = document.createElement("a");
+        a.href = url;
+        a.target = "_blank";
+        a.rel = "noopener";
+        a.textContent = url;
+        urlEl.appendChild(a);
+    }
+
+    document.getElementById("json").textContent = json || "";
+}
+
+document.getElementById("form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const button = document.getElementById("submit");
+
+    let params;
+    try {
+        params = paramsFromForm();
+    } catch (err) {
+        show({ meta: err.message, isError: true, url: "", json: "" });
+        return;
+    }
+
+    button.disabled = true;
+    show({ meta: "fetching...", url: buildUrl(params), json: "" });
+
+    try {
+        const r = await fetchForecast(params);
+        // Same one-line summary open-meteo.py prints to stderr.
+        show({
+            meta: `HTTP ${r.status}  ${r.contentType}  ${r.bytes} bytes  ${r.seconds.toFixed(2)}s`,
+            isError: !r.ok,
+            url: r.url,
+            json: JSON.stringify(r.body, null, 2),
+        });
+    } catch (err) {
+        // Network-level failure -- no response at all, so nothing to show but why.
+        show({
+            meta: `request failed: ${err.name === "TimeoutError" ? "timed out" : err.message}`,
+            isError: true,
+            url: buildUrl(params),
+            json: "",
+        });
+    } finally {
+        button.disabled = false;
+    }
+});
+
+document.getElementById("reset").addEventListener("click", resetDefaults);
+
+resetDefaults();
+</script>
+</body>
+</html>

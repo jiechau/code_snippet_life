@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex, nocache">
+    <title>open-meteo readable &mdash; open_meteo</title>
+    <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+    <style>
+        :root {
+            --fg: #333;
+            --muted: #777;
+            --line: #e3e6ea;
+            --accent: #2196F3;
+            --err: #c0392b;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            color: var(--fg);
+            margin: 0;
+            padding: 24px 12px 60px;
+        }
+        .container {
+            background: white;
+            padding: 28px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+        h1 { margin: 0 0 4px; font-size: 1.6rem; }
+        p.sub { margin: 0 0 22px; color: var(--muted); font-size: 0.9rem; }
+        p.sub code { background: #f0f2f5; padding: 1px 5px; border-radius: 4px; }
+        a.back { color: var(--accent); text-decoration: none; font-size: 0.9rem; }
+        a.back:hover { text-decoration: underline; }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+            gap: 14px;
+        }
+        .field { display: flex; flex-direction: column; }
+        .field.wide { grid-column: 1 / -1; }
+        label { font-size: 0.8rem; font-weight: 600; margin-bottom: 5px; }
+        label .hint { font-weight: 400; color: var(--muted); }
+        input, textarea {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.85rem;
+            padding: 8px 10px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: #fbfcfd;
+            color: var(--fg);
+            resize: vertical;
+        }
+        input:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+        .actions { margin-top: 18px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        button {
+            font: inherit;
+            font-weight: 600;
+            padding: 9px 22px;
+            border-radius: 8px;
+            border: 2px solid var(--accent);
+            background: var(--accent);
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        button:hover:not(:disabled) { background: #1976d2; border-color: #1976d2; }
+        button:disabled { opacity: 0.55; cursor: default; }
+        button.secondary { background: white; color: var(--accent); }
+        button.secondary:hover:not(:disabled) { background: var(--accent); color: white; }
+        .check { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; color: var(--muted); }
+        .check input { width: auto; }
+
+        .result { margin-top: 26px; border-top: 1px solid var(--line); padding-top: 20px; }
+        .meta {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.8rem;
+            color: var(--muted);
+            margin-bottom: 12px;
+        }
+        .meta.error { color: var(--err); }
+
+        /* Model tabs -- one per entry in the models parameter. */
+        .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+        .tab {
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+            padding: 7px 14px;
+            border-radius: 999px;
+            border: 1px solid var(--line);
+            background: #f7f9fb;
+            color: var(--muted);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .tab:hover { border-color: var(--accent); color: var(--accent); background: #f7f9fb; }
+        .tab[aria-selected="true"] {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
+
+        /* Hours run off the right edge; the label column stays pinned. */
+        .scroller {
+            overflow-x: auto;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            background: #fbfcfd;
+        }
+        table { border-collapse: separate; border-spacing: 0; font-size: 0.8rem; }
+        th, td {
+            padding: 6px 4px;
+            text-align: center;
+            white-space: nowrap;
+            border-bottom: 1px solid var(--line);
+            min-width: 46px;
+        }
+        tr:last-child th, tr:last-child td { border-bottom: none; }
+        th.label {
+            position: sticky;
+            left: 0;
+            z-index: 2;
+            background: #f2f5f8;
+            text-align: right;
+            padding: 6px 12px 6px 14px;
+            border-right: 1px solid var(--line);
+            min-width: 130px;
+        }
+        th.label .name { font-weight: 700; }
+        th.label .api {
+            display: block;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.65rem;
+            font-weight: 400;
+            color: var(--muted);
+        }
+        /* Rows computed in the page rather than returned by the API. */
+        tr.calc th.label .api { font-style: italic; color: #9aa4ae; }
+        /* A day boundary gets a rule down the whole grid, as on a forecast strip. */
+        td.daybreak, th.daybreak { border-left: 2px solid #b9c2cc; }
+        tr.date td { font-weight: 700; color: var(--muted); text-align: left; padding-left: 8px; }
+        tr.hour td { font-weight: 700; background: #eef2f6; }
+        tr.hour td.now { background: var(--accent); color: white; border-radius: 4px; }
+        tr.icon td { font-size: 1.1rem; padding: 4px; }
+        tr.icon .moon { position: relative; display: inline-block; }
+        tr.icon .moon .cloud {
+            position: absolute;
+            left: 38%;
+            bottom: -22%;
+            font-size: 0.85em;
+        }
+        td.na { color: #bbb; }
+
+        details { margin-top: 18px; }
+        summary { cursor: pointer; font-size: 0.85rem; color: var(--muted); }
+        summary:hover { color: var(--accent); }
+        .url {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.78rem;
+            word-break: break-all;
+            background: #f7f9fb;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin: 10px 0;
+        }
+        .url a { color: var(--accent); text-decoration: none; }
+        .url a:hover { text-decoration: underline; }
+        pre {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.78rem;
+            line-height: 1.45;
+            background: #f7f9fb;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 14px;
+            margin: 0;
+            max-height: 50vh;
+            overflow: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a class="back" href="index.html">&larr; open_meteo</a>
+        <h1>open-meteo <span style="color:#777;font-weight:400;">readable</span></h1>
+        <p class="sub">
+            The same call as <a href="open-meteo.html">open-meteo.html</a>, drawn as an hour-by-hour
+            grid instead of raw JSON, with locally computed sun and moon angles added on top. One tab
+            per model; scroll the grid sideways for later hours. No API key needed.
+        </p>
+
+        <form id="form">
+            <div class="grid">
+                <div class="field wide">
+                    <label for="location">location <span class="hint">lat,lon</span></label>
+                    <input id="location" name="location" value="24.12,121.64" spellcheck="false">
+                </div>
+                <div class="field">
+                    <label for="forecast_days">forecast_days</label>
+                    <input id="forecast_days" name="forecast_days" value="7" spellcheck="false">
+                </div>
+                <div class="field">
+                    <label for="timezone">timezone</label>
+                    <input id="timezone" name="timezone" value="auto" spellcheck="false">
+                </div>
+                <div class="field wide">
+                    <label for="hourly">hourly <span class="hint">comma-separated; one row per variable</span></label>
+                    <textarea id="hourly" name="hourly" rows="3" spellcheck="false"></textarea>
+                </div>
+                <div class="field wide">
+                    <label for="models">models <span class="hint">comma-separated; one tab per model, blank for the default single model</span></label>
+                    <textarea id="models" name="models" rows="2" spellcheck="false"></textarea>
+                </div>
+                <div class="field wide">
+                    <label for="extra">extra params <span class="hint">one <code>key=value</code> per line; empty value drops a parameter</span></label>
+                    <textarea id="extra" name="extra" rows="2" spellcheck="false" placeholder="daily=sunrise,sunset"></textarea>
+                </div>
+            </div>
+
+            <div class="actions">
+                <button type="submit" id="submit">Fetch</button>
+                <button type="button" class="secondary" id="reset">Reset defaults</button>
+                <label class="check"><input type="checkbox" id="fromNow" checked> 從現在開始 (hide past hours)</label>
+            </div>
+        </form>
+
+        <div class="result" id="result" hidden>
+            <div class="meta" id="meta"></div>
+            <div id="tabs" class="tabs"></div>
+            <div class="scroller" id="scroller"></div>
+            <details id="raw" hidden>
+                <summary>raw JSON &amp; request URL</summary>
+                <div class="url" id="url"></div>
+                <pre id="json"></pre>
+            </details>
+        </div>
+    </div>
+
+<script>
+"use strict";
+
+/* ------------------------------------------------------------------ *
+ * Request core -- identical to open-meteo.html, which is itself the
+ * browser port of open-meteo.py. Keep all three in step.
+ * ------------------------------------------------------------------ */
+
+const FORECAST_URL = "https://api.open-meteo.com/v1/forecast";
+
+// Su-Hua Highway, matching the stargazing screenshot this grid is modelled on.
+const DEFAULT_LAT = 24.12, DEFAULT_LON = 121.64;
+const DEFAULT_DAYS = 7;
+
+// Rows appear in the order the variables are requested, so the cloud decks are
+// listed high -> mid -> low here: top of the atmosphere downwards, the way a
+// forecast strip reads. open-meteo.py/.html list low -> high; only the order of
+// this list differs, the request asks for the same ten variables either way.
+const HOURLY_VARS = [
+    "cloud_cover",
+    "cloud_cover_high",
+    "cloud_cover_mid",
+    "cloud_cover_low",
+    "visibility",
+    "precipitation_probability",
+    "relative_humidity_2m",
+    "dew_point_2m",
+    "wind_speed_10m",
+    "temperature_2m",
+];
+
+const MODELS = ["ecmwf_ifs025", "gfs_global", "jma_gsm", "icon_global"];
+
+/** The request milkyway.py makes, as a plain object. */
+function defaultParams(lat, lon, days = DEFAULT_DAYS) {
+    return {
+        latitude: lat,
+        longitude: lon,
+        hourly: HOURLY_VARS.join(","),
+        models: MODELS.join(","),
+        timezone: "auto",
+        forecast_days: days,
+    };
+}
+
+/**
+ * The full GET URL for a parameter object.
+ *
+ * Commas are left literal so the hourly/models lists stay readable and match
+ * Open-Meteo's own documented examples; encodeURIComponent would otherwise
+ * turn them into %2C. This exact string is what gets requested, so the
+ * get_para handed back is the real URL rather than a reconstruction of it.
+ * Spaces become "+" to match Python's urlencode.
+ */
+function buildUrl(params) {
+    const query = Object.entries(params)
+        .map(([key, value]) => {
+            const enc = (s) => encodeURIComponent(String(s))
+                .replace(/%2C/g, ",")
+                .replace(/%20/g, "+");
+            return `${enc(key)}=${enc(value)}`;
+        })
+        .join("&");
+    return `${FORECAST_URL}?${query}`;
+}
+
+/**
+ * Call the API and return {body, url, status, ok, bytes, seconds}.
+ *
+ * Errors are returned rather than thrown: Open-Meteo answers a bad request
+ * with HTTP 400 and a JSON body like
+ * {"error": true, "reason": "Latitude must be in range of -90 to 90°..."},
+ * which is far more useful to see than a stack trace.
+ */
+async function fetchForecast(params, timeoutMs = 30000) {
+    const url = buildUrl(params);
+    const started = performance.now();
+    const resp = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+    const text = await resp.text();
+    const seconds = (performance.now() - started) / 1000;
+
+    let body;
+    try {
+        body = JSON.parse(text);
+    } catch {
+        body = { error: true, reason: "response was not JSON", text: text };
+    }
+    body.get_para = url;
+
+    return {
+        body,
+        url,
+        status: resp.status,
+        ok: resp.ok,
+        contentType: resp.headers.get("Content-Type"),
+        bytes: new TextEncoder().encode(text).length,
+        seconds,
+    };
+}
+
+/**
+ * Build the request parameters from the form, mirroring parse_args(): a
+ * "lat,lon" location plus key=value overrides, where an empty value drops the
+ * parameter entirely.
+ */
+function paramsFromForm() {
+    const el = (id) => document.getElementById(id);
+    const overrides = {};
+
+    const loc = el("location").value.trim();
+    let lat = DEFAULT_LAT, lon = DEFAULT_LON;
+    if (loc) {
+        const [latS, lonS] = loc.split(",");
+        lat = Number(latS);
+        lon = Number(lonS);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+            throw new Error(`Bad location "${loc}": expected "lat,lon"`);
+        }
+    }
+
+    for (const id of ["forecast_days", "timezone", "hourly", "models"]) {
+        overrides[id] = el(id).value.trim();
+    }
+
+    for (const line of el("extra").value.split("\n")) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        if (!trimmed.includes("=")) {
+            throw new Error(`Bad extra param "${trimmed}": expected "key=value"`);
+        }
+        const idx = trimmed.indexOf("=");
+        overrides[trimmed.slice(0, idx).trim()] = trimmed.slice(idx + 1).trim();
+    }
+
+    const params = defaultParams(lat, lon);
+    for (const [key, value] of Object.entries(overrides)) {
+        if (value === "") delete params[key];
+        else params[key] = value;
+    }
+    return params;
+}
+
+/* ------------------------------------------------------------------ *
+ * Astronomy: low-precision solar/lunar positions (Meeus, "Astronomical
+ * Algorithms"), ported from milkyway.py -- same series, same terms, so
+ * the two agree to well under a degree. Sun is good to ~0.01 deg, moon
+ * to ~0.3 deg in longitude: far more than enough to say "is it dark"
+ * and "is the moon up".
+ *
+ * Open-Meteo offers only sunrise/sunset and daily=moon_phase, so these
+ * angles are computed locally rather than fetched. They depend on place
+ * and time alone, so they are identical on every model tab.
+ * ------------------------------------------------------------------ */
+
+const DEG = Math.PI / 180;
+const sin = (d) => Math.sin(d * DEG);
+const cos = (d) => Math.cos(d * DEG);
+const clamp1 = (x) => Math.min(1, Math.max(-1, x));
+const mod360 = (x) => ((x % 360) + 360) % 360;
+
+/**
+ * Julian Day from a UTC timestamp in milliseconds.
+ *
+ * The Unix epoch is JD 2440587.5 by definition, which makes this exactly
+ * equivalent to milkyway.py's calendar-based julian_day() without repeating
+ * the Gregorian bookkeeping.
+ */
+function julianDay(utcMs) {
+    return utcMs / 86400000 + 2440587.5;
+}
+
+/** Mean obliquity of the ecliptic, in degrees. */
+function obliquity(jd) {
+    return 23.439291 - 0.0130042 * ((jd - 2451545.0) / 36525);
+}
+
+/** Ecliptic (lon, lat) in degrees -> {ra, dec} in degrees. */
+function eclipticToEquatorial(lon, lat, eps) {
+    const x = cos(lat) * cos(lon);
+    const y = cos(eps) * cos(lat) * sin(lon) - sin(eps) * sin(lat);
+    const z = sin(eps) * cos(lat) * sin(lon) + cos(eps) * sin(lat);
+    return {
+        ra: mod360(Math.atan2(y, x) / DEG),
+        dec: Math.asin(clamp1(z)) / DEG,
+    };
+}
+
+/** Solar right ascension, declination and ecliptic longitude, in degrees. */
+function sunPosition(jd) {
+    const n = jd - 2451545.0;
+    const meanLon = mod360(280.460 + 0.9856474 * n);
+    const meanAnom = mod360(357.528 + 0.9856003 * n);
+    const eclLon = mod360(
+        meanLon + 1.915 * sin(meanAnom) + 0.020 * sin(2 * meanAnom),
+    );
+    const { ra, dec } = eclipticToEquatorial(eclLon, 0.0, obliquity(jd));
+    return { ra, dec, eclLon };
+}
+
+/** Lunar right ascension, declination, distance (km) and ecliptic longitude. */
+function moonPosition(jd) {
+    const t = (jd - 2451545.0) / 36525;
+    const lp = mod360(218.3164477 + 481267.88123421 * t);   // mean longitude
+    const d = mod360(297.8501921 + 445267.1114034 * t);     // elongation
+    const m = mod360(357.5291092 + 35999.0502909 * t);      // sun anomaly
+    const mp = mod360(134.9633964 + 477198.8675055 * t);    // moon anomaly
+    const f = mod360(93.2720950 + 483202.0175233 * t);      // arg of latitude
+
+    const eclLon = mod360(
+        lp
+        + 6.289 * sin(mp)
+        + 1.274 * sin(2 * d - mp)
+        + 0.658 * sin(2 * d)
+        + 0.214 * sin(2 * mp)
+        - 0.186 * sin(m)
+        - 0.114 * sin(2 * f)
+        + 0.059 * sin(2 * d - 2 * mp)
+        + 0.057 * sin(2 * d - m - mp)
+        + 0.053 * sin(2 * d + mp)
+        + 0.046 * sin(2 * d - m)
+        - 0.041 * sin(m - mp)
+        - 0.035 * sin(d)
+        - 0.031 * sin(m + mp),
+    );
+    const eclLat =
+        5.128 * sin(f)
+        + 0.281 * sin(mp + f)
+        - 0.278 * sin(f - mp)
+        - 0.173 * sin(2 * d - f)
+        + 0.055 * sin(2 * d + f - mp)
+        - 0.046 * sin(2 * d - f - mp)
+        + 0.033 * sin(2 * d + f)
+        + 0.017 * sin(2 * mp + f);
+    const dist =
+        385000.56
+        - 20905.355 * cos(mp)
+        - 3699.111 * cos(2 * d - mp)
+        - 2955.968 * cos(2 * d)
+        - 569.925 * cos(2 * mp);
+
+    const { ra, dec } = eclipticToEquatorial(eclLon, eclLat, obliquity(jd));
+    return { ra, dec, dist, eclLon };
+}
+
+/** Local apparent sidereal time in degrees. */
+function localSiderealTime(jd, lonDeg) {
+    const t = (jd - 2451545.0) / 36525;
+    const gmst =
+        280.46061837
+        + 360.98564736629 * (jd - 2451545.0)
+        + 0.000387933 * t * t;
+    return mod360(gmst + lonDeg);
+}
+
+/** Equatorial (ra, dec) -> {alt, az} in degrees, azimuth measured from north. */
+function altAz(ra, dec, lat, lst) {
+    const ha = mod360(lst - ra);
+    const sinAlt = sin(lat) * sin(dec) + cos(lat) * cos(dec) * cos(ha);
+    const alt = Math.asin(clamp1(sinAlt)) / DEG;
+    const az = mod360(
+        Math.atan2(
+            -cos(dec) * sin(ha),
+            sin(dec) * cos(lat) - sin(lat) * cos(dec) * cos(ha),
+        ) / DEG,
+    );
+    return { alt, az };
+}
+
+/** Great-circle angle between two equatorial positions, in degrees. */
+function angularSeparation(ra1, dec1, ra2, dec2) {
+    const cosSep = sin(dec1) * sin(dec2) + cos(dec1) * cos(dec2) * cos(ra1 - ra2);
+    return Math.acos(clamp1(cosSep)) / DEG;
+}
+
+/** Illuminated fraction of the lunar disk, 0..1. */
+function moonIllumination(sunRa, sunDec, moonRa, moonDec, moonDist) {
+    const elong = angularSeparation(sunRa, sunDec, moonRa, moonDec);
+    const auKm = 149597870.7;
+    // Phase angle of the moon as seen from Earth (Meeus 48.2).
+    const phase = Math.atan2(
+        auKm * sin(elong),
+        moonDist - auKm * cos(elong),
+    );
+    return (1 + Math.cos(phase)) / 2;
+}
+
+/** Sun and moon for one hour, at the grid point the forecast is for. */
+function astroAt(utcMs, lat, lon) {
+    const jd = julianDay(utcMs);
+    const lst = localSiderealTime(jd, lon);
+    const sun = sunPosition(jd);
+    const moon = moonPosition(jd);
+    return {
+        sunAlt: altAz(sun.ra, sun.dec, lat, lst).alt,
+        moonAlt: altAz(moon.ra, moon.dec, lat, lst).alt,
+        moonIllum: moonIllumination(sun.ra, sun.dec, moon.ra, moon.dec, moon.dist) * 100,
+    };
+}
+
+/**
+ * Astronomy for every hour in the response.
+ *
+ * hourly.time is local wall time (timezone=auto), so utc_offset_seconds turns
+ * it back into the UTC instant the series above expect. Latitude/longitude come
+ * from the response, i.e. the grid point actually forecast rather than the point
+ * that was asked for.
+ */
+function astroSeries(body) {
+    const offset = Number(body.utc_offset_seconds) || 0;
+    const lat = Number(body.latitude);
+    const lon = Number(body.longitude);
+    return body.hourly.time.map((t) => {
+        const utcMs = Date.parse(`${t}:00Z`) - offset * 1000;
+        return astroAt(utcMs, lat, lon);
+    });
+}
+
+/* ------------------------------------------------------------------ *
+ * Presentation -- everything below is specific to this readable view.
+ * ------------------------------------------------------------------ */
+
+// Chinese label per hourly variable; anything unlisted falls back to its API
+// name, so adding a variable to the hourly box still produces a usable row.
+const LABELS = {
+    cloud_cover: "雲量",
+    cloud_cover_low: "低雲",
+    cloud_cover_mid: "中雲",
+    cloud_cover_high: "高雲",
+    visibility: "能見度",
+    precipitation_probability: "降雨機率",
+    relative_humidity_2m: "濕度",
+    dew_point_2m: "露點",
+    temperature_2m: "氣溫",
+    wind_speed_10m: "風速",
+    wind_gusts_10m: "陣風",
+    wind_direction_10m: "風向",
+    pressure_msl: "氣壓",
+    precipitation: "降水量",
+    is_day: "日夜",
+};
+
+// Locally computed sun/moon rows, drawn above the API variables. Scales are
+// read for stargazing: sun well below the horizon, moon down, moon dark.
+const ASTRO_ROWS = [
+    { key: "sunAlt", label: "太陽高度 (°)", scale: [-18, 0, true] },
+    { key: "moonAlt", label: "月亮高度 (°)", scale: [-6, 45, true] },
+    { key: "moonIllum", label: "月相 (%)", scale: [0, 100, true] },
+];
+
+// [min, max, higherIsWorse] -- drives the green-to-red cell tint. A variable
+// with no entry is rendered without colour rather than on a wrong scale.
+const SCALES = {
+    cloud_cover: [0, 100, true],
+    cloud_cover_low: [0, 100, true],
+    cloud_cover_mid: [0, 100, true],
+    cloud_cover_high: [0, 100, true],
+    precipitation_probability: [0, 100, true],
+    precipitation: [0, 10, true],
+    relative_humidity_2m: [40, 100, true],
+    visibility: [0, 24000, false],
+    temperature_2m: [0, 38, true],
+    dew_point_2m: [0, 28, true],
+    wind_speed_10m: [0, 40, true],
+    wind_gusts_10m: [0, 60, true],
+};
+
+/**
+ * Which models the response carries, read back off the request.
+ *
+ * Open-Meteo only suffixes the series keys (cloud_cover_gfs_global) when two
+ * or more models are asked for; a single model returns bare keys. Both shapes
+ * are handled by seriesKey() below.
+ */
+function modelsFromParams(params) {
+    const raw = String(params.models || "").trim();
+    return raw ? raw.split(",").map((m) => m.trim()).filter(Boolean) : [];
+}
+
+function varsFromParams(params) {
+    const raw = String(params.hourly || "").trim();
+    return raw ? raw.split(",").map((v) => v.trim()).filter(Boolean) : [];
+}
+
+/** The key a variable lives under for a given model, or null if absent. */
+function seriesKey(hourly, name, model, multi) {
+    if (multi && Object.hasOwn(hourly, `${name}_${model}`)) return `${name}_${model}`;
+    if (Object.hasOwn(hourly, name)) return name;
+    return null;
+}
+
+/** Green-to-red tint. t = 0 is good, t = 1 is bad; hue sweeps 145° -> 0°. */
+function tint(value, scale) {
+    if (value === null || value === undefined || !scale) return null;
+    const [min, max, higherIsWorse] = scale;
+    let t = (Number(value) - min) / (max - min);
+    if (!Number.isFinite(t)) return null;
+    t = Math.min(1, Math.max(0, t));
+    if (!higherIsWorse) t = 1 - t;
+    const hue = 145 * (1 - t);
+    return {
+        background: `hsl(${hue}, 82%, 80%)`,
+        color: `hsl(${hue}, 55%, 22%)`,
+    };
+}
+
+function formatValue(value) {
+    if (value === null || value === undefined) return "-";
+    if (typeof value !== "number") return String(value);
+    return Number.isInteger(value) ? String(value) : String(Math.round(value * 10) / 10);
+}
+
+/**
+ * A sun/moon glyph shaded by cloud cover.
+ *
+ * Day or night is the locally computed solar altitude, so it is right at every
+ * latitude and season. Decorative only -- the 雲量 row carries the number.
+ */
+function skyIcon(cover, isDay) {
+    const span = document.createElement("span");
+    if (cover === null || cover === undefined) {
+        span.textContent = "";
+        return span;
+    }
+    if (isDay) {
+        span.textContent = cover < 20 ? "☀️" : cover < 50 ? "🌤️" : cover < 80 ? "⛅" : "☁️";
+        return span;
+    }
+    if (cover >= 80) {
+        span.textContent = "☁️";
+        return span;
+    }
+    span.className = "moon";
+    span.textContent = "🌙";
+    if (cover >= 20) {
+        const cloud = document.createElement("span");
+        cloud.className = "cloud";
+        cloud.textContent = "☁️";
+        cloud.style.opacity = cover < 50 ? "0.55" : "1";
+        span.appendChild(cloud);
+    }
+    return span;
+}
+
+/**
+ * Indices of the hours to display.
+ *
+ * forecast_days starts the series at 00:00 local, so with "from now" ticked
+ * the already-past hours are dropped -- the same trim score_hours() does in
+ * milkyway.py. Local now is derived from utc_offset_seconds, and ISO strings
+ * compare correctly as plain strings.
+ */
+function visibleIndices(body, fromNow) {
+    const times = body.hourly.time;
+    if (!fromNow) return times.map((_, i) => i);
+    const offset = Number(body.utc_offset_seconds) || 0;
+    const localNow = new Date(Date.now() + offset * 1000).toISOString().slice(0, 13);
+    const first = times.findIndex((t) => t.slice(0, 13) >= localNow);
+    return times.map((_, i) => i).slice(first === -1 ? times.length : first);
+}
+
+function buildTable(body, params, model, fromNow) {
+    const hourly = body.hourly;
+    const units = body.hourly_units || {};
+    const models = modelsFromParams(params);
+    const multi = models.length >= 2;
+    const indices = visibleIndices(body, fromNow);
+    // Cheap enough (a few hundred hours of closed-form series) to just redo on
+    // every tab switch rather than cache.
+    const astro = astroSeries(body);
+
+    const table = document.createElement("table");
+
+    const addRow = (labelName, apiName, className) => {
+        const tr = table.insertRow();
+        if (className) tr.className = className;
+        const th = document.createElement("th");
+        th.className = "label";
+        th.scope = "row";
+        const name = document.createElement("span");
+        name.className = "name";
+        name.textContent = labelName;
+        th.appendChild(name);
+        if (apiName) {
+            const api = document.createElement("span");
+            api.className = "api";
+            api.textContent = apiName;
+            th.appendChild(api);
+        }
+        tr.appendChild(th);
+        return tr;
+    };
+
+    // A column starts a new day when its date differs from the previous one.
+    const dayStart = new Set();
+    let previousDate = null;
+    for (const i of indices) {
+        const date = hourly.time[i].slice(0, 10);
+        if (date !== previousDate) dayStart.add(i);
+        previousDate = date;
+    }
+    const markBreak = (cell, i) => {
+        if (dayStart.has(i) && i !== indices[0]) cell.classList.add("daybreak");
+    };
+
+    // 日期 -- the day number, printed once per day like a forecast strip.
+    const dateRow = addRow("日期", "", "date");
+    for (const i of indices) {
+        const td = dateRow.insertCell();
+        markBreak(td, i);
+        if (dayStart.has(i)) td.textContent = `${Number(hourly.time[i].slice(8, 10))}日`;
+    }
+
+    // 時間 -- hour of day, with the current hour picked out.
+    const offset = Number(body.utc_offset_seconds) || 0;
+    const localNow = new Date(Date.now() + offset * 1000).toISOString().slice(0, 13);
+    const hourRow = addRow("時間", "", "hour");
+    for (const i of indices) {
+        const td = hourRow.insertCell();
+        markBreak(td, i);
+        td.textContent = hourly.time[i].slice(11, 13);
+        if (hourly.time[i].slice(0, 13) === localNow) td.className += " now";
+    }
+
+    // 天氣 -- only when cloud cover was actually requested.
+    const coverKey = seriesKey(hourly, "cloud_cover", model, multi);
+    if (coverKey) {
+        const iconRow = addRow("天氣", "", "icon");
+        for (const i of indices) {
+            const td = iconRow.insertCell();
+            markBreak(td, i);
+            td.appendChild(skyIcon(hourly[coverKey][i], astro[i].sunAlt > 0));
+        }
+    }
+
+    // Sun and moon -- computed here, not fetched, so identical on every tab.
+    for (const spec of ASTRO_ROWS) {
+        const row = addRow(spec.label, "computed", "calc");
+        for (const i of indices) {
+            const td = row.insertCell();
+            markBreak(td, i);
+            const value = astro[i][spec.key];
+            td.textContent = String(Math.round(value));
+            const style = tint(value, spec.scale);
+            if (style) {
+                td.style.background = style.background;
+                td.style.color = style.color;
+            }
+        }
+    }
+
+    // One row per requested variable, in the order they were asked for.
+    for (const name of varsFromParams(params)) {
+        const key = seriesKey(hourly, name, model, multi);
+        if (!key) continue;
+        // A model that does not publish a variable still gets a key, with the
+        // literal string "undefined" as its unit and nulls all the way down.
+        const rawUnit = units[key];
+        const unit = rawUnit && rawUnit !== "undefined" ? ` (${rawUnit})` : "";
+        const row = addRow((LABELS[name] || name) + unit, name);
+        const scale = SCALES[name];
+        for (const i of indices) {
+            const td = row.insertCell();
+            markBreak(td, i);
+            const value = hourly[key][i];
+            td.textContent = formatValue(value);
+            if (value === null || value === undefined) {
+                td.className += " na";
+                continue;
+            }
+            const style = tint(value, scale);
+            if (style) {
+                td.style.background = style.background;
+                td.style.color = style.color;
+            }
+        }
+    }
+
+    return table;
+}
+
+/* ------------------------------------------------------------------ *
+ * Wiring
+ * ------------------------------------------------------------------ */
+
+let lastResponse = null;   // {body, params, ...} from the most recent fetch
+let activeModel = null;
+
+function renderGrid() {
+    const scroller = document.getElementById("scroller");
+    scroller.textContent = "";
+    if (!lastResponse || !lastResponse.body.hourly) return;
+    const fromNow = document.getElementById("fromNow").checked;
+    scroller.appendChild(buildTable(lastResponse.body, lastResponse.params, activeModel, fromNow));
+}
+
+function renderTabs() {
+    const tabs = document.getElementById("tabs");
+    tabs.textContent = "";
+    const models = modelsFromParams(lastResponse.params);
+    // With no models parameter the API returns its default single model and
+    // bare series keys -- one tab, so the layout stays the same either way.
+    const names = models.length ? models : ["default"];
+    if (!names.includes(activeModel)) activeModel = names[0];
+
+    for (const name of names) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "tab";
+        button.textContent = name.replace(/_.*$/, "");
+        button.title = name;
+        button.setAttribute("aria-selected", String(name === activeModel));
+        button.addEventListener("click", () => {
+            activeModel = name;
+            renderTabs();
+            renderGrid();
+        });
+        tabs.appendChild(button);
+    }
+}
+
+function showError(message, url) {
+    document.getElementById("result").hidden = false;
+    const meta = document.getElementById("meta");
+    meta.textContent = message;
+    meta.classList.add("error");
+    document.getElementById("tabs").textContent = "";
+    document.getElementById("scroller").textContent = "";
+    const raw = document.getElementById("raw");
+    raw.hidden = !url;
+    if (url) setUrl(url);
+    document.getElementById("json").textContent = "";
+}
+
+function setUrl(url) {
+    const urlEl = document.getElementById("url");
+    urlEl.textContent = "";
+    const a = document.createElement("a");
+    a.href = url;
+    a.target = "_blank";
+    a.rel = "noopener";
+    a.textContent = url;
+    urlEl.appendChild(a);
+}
+
+function resetDefaults() {
+    document.getElementById("location").value = `${DEFAULT_LAT},${DEFAULT_LON}`;
+    document.getElementById("forecast_days").value = String(DEFAULT_DAYS);
+    document.getElementById("timezone").value = "auto";
+    document.getElementById("hourly").value = HOURLY_VARS.join(",");
+    document.getElementById("models").value = MODELS.join(",");
+    document.getElementById("extra").value = "";
+}
+
+document.getElementById("form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const button = document.getElementById("submit");
+
+    let params;
+    try {
+        params = paramsFromForm();
+    } catch (err) {
+        showError(err.message, "");
+        return;
+    }
+
+    button.disabled = true;
+    document.getElementById("result").hidden = false;
+    document.getElementById("meta").textContent = "fetching...";
+    document.getElementById("meta").classList.remove("error");
+
+    try {
+        const r = await fetchForecast(params);
+        setUrl(r.url);
+        document.getElementById("json").textContent = JSON.stringify(r.body, null, 2);
+        document.getElementById("raw").hidden = false;
+
+        if (!r.ok || !r.body.hourly) {
+            // Same policy as open-meteo.html: show the API's own error body.
+            showError(
+                `HTTP ${r.status} — ${r.body.reason || "no hourly data in response"}`,
+                r.url,
+            );
+            document.getElementById("json").textContent = JSON.stringify(r.body, null, 2);
+            return;
+        }
+
+        lastResponse = { body: r.body, params };
+        const meta = document.getElementById("meta");
+        meta.classList.remove("error");
+        meta.textContent =
+            `HTTP ${r.status}  ${r.contentType}  ${r.bytes} bytes  ${r.seconds.toFixed(2)}s  ` +
+            `— ${r.body.timezone} (${r.body.timezone_abbreviation}), ` +
+            `${r.body.latitude}°, ${r.body.longitude}°, ${r.body.elevation} m`;
+        renderTabs();
+        renderGrid();
+    } catch (err) {
+        showError(
+            `request failed: ${err.name === "TimeoutError" ? "timed out" : err.message}`,
+            buildUrl(params),
+        );
+    } finally {
+        button.disabled = false;
+    }
+});
+
+document.getElementById("reset").addEventListener("click", resetDefaults);
+document.getElementById("fromNow").addEventListener("change", renderGrid);
+
+resetDefaults();
+</script>
+</body>
+</html>
