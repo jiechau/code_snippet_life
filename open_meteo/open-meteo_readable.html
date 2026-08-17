@@ -31,6 +31,7 @@
         }
         h1 { margin: 0 0 4px; font-size: 1.6rem; }
         p.sub { margin: 0 0 22px; color: var(--muted); font-size: 0.9rem; }
+        p.sub a { color: var(--accent); }
         p.sub code { background: #f0f2f5; padding: 1px 5px; border-radius: 4px; }
         a.back { color: var(--accent); text-decoration: none; font-size: 0.9rem; }
         a.back:hover { text-decoration: underline; }
@@ -221,6 +222,9 @@
             The same call as <a href="open-meteo.html">open-meteo.html</a>, drawn as an hour-by-hour
             grid instead of raw JSON, with locally computed sun and moon angles added on top. One tab
             per model; scroll the grid sideways for later hours. No API key needed.
+            Variable names for <code>hourly</code>/<code>daily</code> and the model ids come from
+            the <a href="https://open-meteo.com/en/docs" target="_blank" rel="noopener">Open-Meteo
+            API docs</a>.
         </p>
 
         <form id="form">

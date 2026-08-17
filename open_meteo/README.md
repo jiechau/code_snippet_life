@@ -6,6 +6,11 @@ Snippets built on the [Open-Meteo](https://open-meteo.com/) weather API.
 weather variables counts as more than one call, so one `milkyway.py` run (10
 variables × 4 models) bills as a few calls.
 
+**API reference: <https://open-meteo.com/en/docs>** — every variable name used in
+`hourly=` / `daily=`, the model ids for `models=`, the units each field comes back
+in, and the interactive URL builder. Worth opening alongside the demo pages: it is
+the list to pick from when editing their `hourly` or `extra params` boxes.
+
 **Live demo:** https://jiechau.github.io/code_snippet_life/open_meteo/
 
 - [open-meteo API](https://jiechau.github.io/code_snippet_life/open_meteo/open-meteo.html)
