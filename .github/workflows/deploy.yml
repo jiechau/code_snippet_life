@@ -15,17 +15,22 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+      # Action majors below are the first that run on Node 24. Node 20 was
+      # deprecated on GitHub-hosted runners in Sept 2025, and older majors are
+      # force-run on Node 24 with a warning. Note upload-pages-artifact is a
+      # composite action: v4 pins upload-artifact v4.6.2 (Node 20, the source
+      # of that warning), v5 pins v7.0.0 (Node 24).
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Pages
-        uses: actions/configure-pages@v4
+        uses: actions/configure-pages@v6
 
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: '.'
 
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

@@ -2,6 +2,8 @@
 
 A collection of small, self-contained code snippets. Each snippet lives in its own folder with its own `README.md` describing what it does and how to run it.
 
+**Live demo:** https://jiechau.github.io/code_snippet_life/index.html
+
 ## Snippets
 
 | Snippet | Description |
@@ -13,8 +15,16 @@ A collection of small, self-contained code snippets. Each snippet lives in its o
 ## Demo pages
 
 Some snippets have a browser demo. Pushing to `main` publishes the repo as a
-static site — GitLab Pages via [`.gitlab-ci.yml`](.gitlab-ci.yml), GitHub Pages
-via [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml).
+static site to both hosts:
+
+| Host | Config | URL |
+| --- | --- | --- |
+| GitHub Pages | [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) | https://jiechau.github.io/code_snippet_life/index.html |
+| GitLab Pages | [`.gitlab-ci.yml`](.gitlab-ci.yml) | https://jiechau.gitlab.io/code_snippet_life/index.html |
+
+The GitLab URL has Pages access control on, so it redirects to a GitLab login
+rather than serving anonymously. `origin` also pushes to Bitbucket, which offers
+no Pages hosting — it is a mirror only.
 
 Pages are two levels of list: the root [`index.html`](index.html) links to one
 `<snippet>/index.html` per snippet folder, and that folder list links to one page
