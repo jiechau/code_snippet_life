@@ -337,14 +337,18 @@ const FORECAST_URL = "https://api.open-meteo.com/v1/forecast";
 // loaded just above. Add or reorder a spot there, not here.
 const DEFAULT_DAYS = 7;
 
-// Only the cloud decks: this page drops 能見度/降雨/濕度/露點/風速/氣溫, which the
-// score does not look at. Listed high -> mid -> low because rows follow the order
-// of the hourly parameter, so the grid reads top of the atmosphere downwards.
+// The cloud decks plus 降雨 and 氣溫: this page drops 能見度/濕度/露點/風速, which
+// nothing on it reads. The two survivors are not score inputs either -- astroScore()
+// looks at cloud_cover alone -- they are there to be read by eye when picking a
+// night out. Clouds are listed high -> mid -> low because rows follow the order of
+// the hourly parameter, so the grid reads top of the atmosphere downwards.
 const HOURLY_VARS = [
     "cloud_cover",
     "cloud_cover_high",
     "cloud_cover_mid",
     "cloud_cover_low",
+    "precipitation_probability",
+    "temperature_2m",
 ];
 
 // One model, so there are no tabs to choose between and the score has a single
@@ -737,6 +741,8 @@ const LABELS = {
     cloud_cover_low: "低雲",
     cloud_cover_mid: "中雲",
     cloud_cover_high: "高雲",
+    precipitation_probability: "降雨",
+    temperature_2m: "氣溫",
 };
 
 // Abbreviated API name for the second line of the label. The unabbreviated name
@@ -748,6 +754,8 @@ const API_SHORT = {
     cloud_cover_low: "cloud lo",
     cloud_cover_mid: "cloud mid",
     cloud_cover_high: "cloud hi",
+    precipitation_probability: "precip",
+    temperature_2m: "temp",
 };
 
 // Units as the API reports them -> what fits in the label column.
@@ -772,6 +780,8 @@ const SCALES = {
     cloud_cover_low: [0, 100, true],
     cloud_cover_mid: [0, 100, true],
     cloud_cover_high: [0, 100, true],
+    precipitation_probability: [0, 100, true],
+    temperature_2m: [0, 38, true],
 };
 
 /**

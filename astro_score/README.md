@@ -111,10 +111,12 @@ does not feed it removed.
   unambiguous 雲量 instead of four to reconcile. A single model makes Open-Meteo
   return **bare** series keys (`cloud_cover`, not `cloud_cover_icon_global`),
   which `seriesKey()` already handles.
-- **Four variables, not ten.** The cloud decks only —
-  能見度/降雨/濕度/露點/風速/氣溫 are dropped, along with the `daily=` and
-  `past_days=` extras. A 7-day response is about **5.7 KB / 168 hours**, versus
-  ~64 KB / 336 hours on `open_meteo/open-meteo_readable.html`.
+- **Six variables, not ten.** The cloud decks plus 降雨 and 氣溫 —
+  能見度/濕度/露點/風速 are dropped, along with the `daily=` and `past_days=`
+  extras. 降雨 and 氣溫 are not score inputs (`astroScore()` reads `cloud_cover`
+  alone); they are on screen to be read by eye when picking a night out. A 7-day
+  response is about **7.0 KB / 168 hours**, versus ~64 KB / 336 hours on
+  `open_meteo/open-meteo_readable.html`.
 - **A row per variable**, labelled in Chinese with the unit and an abbreviated
   API name underneath. The label column is frozen while the hours scroll, so its
   width costs a column of forecast at every scroll position — keep new labels to

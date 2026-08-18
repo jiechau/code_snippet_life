@@ -246,11 +246,13 @@ is `觀星 (%)` with the API sub-label `AstroScore`, and the scoring function is
 is correct: that file kept its name.
 
 `astro-score_readable.html` is the `*_readable` grid stripped to what stargazing needs. It
-fixes `hourly` (the four cloud decks only), `models` (`icon_global` alone) and drops
+fixes `hourly` (the four cloud decks, plus `precipitation_probability` and
+`temperature_2m` — 降雨 and 氣溫, which `astroScore()` does not read but a human picking a
+night does), `models` (`icon_global` alone) and drops
 `DEFAULT_EXTRA` entirely, removing those three textareas from the form; only
 `forecast_days`, `timezone` and the location remain. One model means no tabs and **bare
 series keys**, which `seriesKey()` already resolves, and the response drops to
-~5.7 KB / 168 hours from ~64 KB / 336. The 觀星 row goes between 時間 and 天氣, green
+~7.0 KB / 168 hours from ~64 KB / 336. The 觀星 row goes between 時間 and 天氣, green
 label, tinted `[0, 100, false]` so 100 is green. Its score is
 `(100 − 雲量) × (100 − moonPenalty) / 100`, zeroed outright when the sun is above −10°,
 where `moonPenalty` ramps 0→100 as moon altitude goes 0°→10° (`MOON_KILL_ALT`) and is 0
