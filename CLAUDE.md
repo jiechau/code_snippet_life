@@ -126,6 +126,19 @@ file, by the one-folder-per-snippet rule. `milkyway_readable.html` is a third co
 `PLACES`, the saved-spot CSS and `buildPlaces()`/`markActivePlace()` — but *not* of
 `HOURLY_VARS`/`MODELS`/`DEFAULT_EXTRA`, which it deliberately overrides.
 
+All three pages also carry a verbatim copy of `reverseGeocode()`/`appendPlaceName()`,
+which puts `countryName/principalSubdivision/city/locality` (e.g.
+中華民國/宜蘭縣/南澳鄉/蘇澳鎮) on a **second meta line** from BigDataCloud's keyless,
+CORS-enabled `reverse-geocode-client`. The break is a `<br>` node appended to the
+element, not a `\n` in the text — `.meta` wraps normally, so a newline would render
+as a space. It is sent the **requested** lat/lon, not the
+response's grid point — the two can name different townships. The lookup is fired
+after the result renders and never awaited, so it re-checks the meta text before
+appending and skips it if a newer fetch has replaced the line; any failure resolves
+to an empty string and leaves the line alone. It is a label, never data: nothing on
+screen depends on it, and `open-meteo.py` has no equivalent, so this is the one place
+`open-meteo.html`'s meta line deliberately says more than the script's stderr summary.
+
 Three of those defaults intentionally differ from `open-meteo.py`. The request *machinery*
 (`buildUrl`, `fetchForecast`, `paramsFromForm`) is still a byte-for-byte port, and any
 divergence there is a bug:

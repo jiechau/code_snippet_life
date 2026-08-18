@@ -146,8 +146,9 @@ Notes:
 Listed as **open-meteo API** on the folder's index page. A browser port of
 `open-meteo.py` (see the root [`README.md`](../README.md#demo-pages)): submitting
 fetches and re-renders the result below, showing the same one-line request summary
-the script prints to stderr, the request URL as a clickable link, and the
-pretty-printed JSON.
+the script prints to stderr — with the place name appended, see
+[The place name](#the-place-name) below — the request URL as a clickable link, and
+the pretty-printed JSON.
 
 The form is the same one `open-meteo_readable.html` uses — both pages open on the
 identical request, so you can switch between raw JSON and the grid without
@@ -187,6 +188,44 @@ These three defaults deliberately differ from `open-meteo.py`: the location
 (三總 rather than Taipei), the cloud decks listed high → low, and the `daily=`
 line. The request *machinery* is still a byte-for-byte port.
 
+### The place name
+
+All three pages name the place the coordinates fall in, so a bare
+`24.5145,121.8277` reads as somewhere. It goes on a **second line** under the
+request summary, which is long enough already:
+
+```
+HTTP 200  application/json; charset=utf-8  64087 bytes  1.19s  — Asia/Taipei (GMT+8), 24.625°, 121.75°, 37 m
+中華民國/宜蘭縣/南澳鄉/蘇澳鎮
+```
+
+It is a second API — [BigDataCloud](https://www.bigdatacloud.com/)'s
+`reverse-geocode-client` endpoint — chosen for the same two reasons Open-Meteo
+is usable here: **no key** and `access-control-allow-origin: *`, so it works
+from static hosting. One request per fetch, `localityLanguage=zh`, and the four
+fields `countryName` / `principalSubdivision` / `city` / `locality` joined with
+`/`. Points at sea return a country-less answer (`0,0` is just 大西洋) and the
+last two fields sometimes repeat each other (臺北市 as both), so empty and
+duplicate parts are dropped.
+
+Two things worth knowing:
+
+- **The coordinates sent are the requested ones, not the response's.**
+  Open-Meteo snaps to its model grid, and the gap matters at this zoom level:
+  東澳 (24.5145, 121.8277) is 南澳鄉/蘇澳鎮, while the 24.625, 121.75 grid point
+  the forecast came back on is 冬山鄉 — a different township ~6 km away. The
+  meta line therefore prints the grid point as coordinates and the requested
+  point as a name.
+- **It is a label, never data.** The lookup is fired after the forecast is
+  already on screen, and a failure, a timeout or an empty answer simply leaves
+  the meta block at one line. It also never overwrites a line a newer fetch has since
+  written, so clicking through saved spots cannot leave the wrong name attached.
+
+Results are cached per coordinate for the life of the page, so re-fetching the
+same spot costs nothing. The helper (`reverseGeocode()` / `appendPlaceName()`) is
+duplicated verbatim in all three pages, like the request core — change one,
+change all three.
+
 `index.html` is just the list page for this folder — one link per demo, reached
 from the root hub. Each demo page is named after the script it ports, so a new
 demo means a new `<script-name>.html` plus a row on `index.html`.
@@ -200,7 +239,9 @@ build step and no dependencies.
 The **same request** as `open-meteo.html`, using the identical form (saved spots
 included — described under that page above), but the response is drawn as an
 hour-by-hour forecast grid instead of raw JSON. The raw JSON and the request URL
-are still there, in a collapsed `raw JSON & request URL` panel at the bottom.
+are still there, in a collapsed `raw JSON & request URL` panel at the bottom. The
+meta line above the grid adds the response's timezone, coordinates and elevation
+to the request summary, then the place name ([The place name](#the-place-name)).
 
 What differs is everything below the form:
 
@@ -269,7 +310,8 @@ rather than throwing. Change one and mirror it in the other.
 
 `open-meteo_readable.html` cut down to one question: **which hours are worth
 going out for.** Same grid, same colouring, same 從現在開始 trim, same saved
-spots, same collapsed raw JSON panel — with a 銀河 score added and everything
+spots, same collapsed raw JSON panel, same place name on the meta line
+([The place name](#the-place-name)) — with a 銀河 score added and everything
 that does not feed it removed.
 
 - **The form is two fields and a location.** `hourly`, `models` and `extra

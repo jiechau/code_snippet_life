@@ -32,7 +32,7 @@ per demo, each named after the script it ports.
 
 | Page | Demo of |
 | --- | --- |
-| [open_meteo/open-meteo.html](open_meteo/open-meteo.html) | `open_meteo/open-meteo.py` — fill in the arguments, submit, see the request URL and the returned JSON. |
+| [open_meteo/open-meteo.html](open_meteo/open-meteo.html) | `open_meteo/open-meteo.py` — fill in the arguments, submit, see the request URL and the returned JSON. All three Open-Meteo pages also name the place the coordinates fall in (中華民國/宜蘭縣/南澳鄉/蘇澳鎮) via a second keyless API, BigDataCloud's reverse geocoder. |
 | [open_meteo/open-meteo_readable.html](open_meteo/open-meteo_readable.html) | The same request, drawn as an hour-by-hour forecast grid: a tab per model, a row per variable, plus locally computed sun/moon angles — colour-coded and scrollable. |
 | [open_meteo/milkyway_readable.html](open_meteo/milkyway_readable.html) | The same grid cut down to what stargazing needs: one model, the cloud decks only, and a 銀河 score per hour — `(100 − 雲量) × (100 − 月亮扣分) / 100`, zeroed while the sun is above −10°, where 月亮扣分 ramps 0 → 100 as the moon climbs 0° → 10°. Loosely after `open_meteo/milkyway.py`. |
 | [google_news_url/google_new_url.html](google_news_url/google_new_url.html) | `google_news_url/google_new_url.py` — search the Google News RSS feed for a keyword, sort by `<pubDate>`, and resolve the newest N redirect links to real article URLs. **Requires a CORS proxy** (picked in the page). |
