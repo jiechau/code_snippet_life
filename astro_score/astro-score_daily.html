@@ -1,0 +1,1055 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex, nocache">
+    <title>AstroScore daily &mdash; astro_score</title>
+    <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+    <style>
+        :root {
+            --fg: #333;
+            --muted: #777;
+            --line: #e3e6ea;
+            --accent: #2196F3;
+            --err: #c0392b;
+            --ok: #1e8449;
+            /* Fainter than --line: these rule every column, so at --line's weight
+               they read as a cage around the glyphs rather than a guide to them. */
+            --grid: #eef1f4;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            color: var(--fg);
+            margin: 0;
+            padding: 24px 12px 60px;
+        }
+        .container {
+            background: white;
+            padding: 28px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+        h1 { margin: 0 0 4px; font-size: 1.6rem; }
+        p.sub { margin: 0 0 22px; color: var(--muted); font-size: 0.9rem; }
+        p.sub a { color: var(--accent); }
+        p.sub code { background: #f0f2f5; padding: 1px 5px; border-radius: 4px; }
+        a.back { color: var(--accent); text-decoration: none; font-size: 0.9rem; }
+        a.back:hover { text-decoration: underline; }
+
+        /* The reading key. Four glyphs in a cell is a notation, not a number, so
+           the page has to teach it before the grid is any use. */
+        .rule {
+            margin: 0 0 22px;
+            padding: 12px 16px;
+            border-left: 3px solid var(--ok);
+            border-radius: 0 8px 8px 0;
+            background: #f2f8f5;
+            font-size: 0.85rem;
+            color: var(--fg);
+        }
+        .rule .formula {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--ok);
+            display: block;
+            margin-bottom: 4px;
+        }
+        .rule .formula .gloss {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-weight: 400;
+            color: var(--muted);
+        }
+        .rule .example {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.78rem;
+            color: var(--muted);
+            margin-top: 10px;
+            border-top: 1px dashed #cfe0d6;
+            padding-top: 8px;
+            overflow-x: auto;
+        }
+        .rule .example div { white-space: pre; margin: 2px 0; }
+        .rule .example b { color: var(--ok); font-weight: 700; font-size: 1.05em; }
+        .rule ul { margin: 8px 0 0; padding-left: 20px; color: var(--muted); }
+        .rule li { margin: 3px 0; }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+            gap: 14px;
+        }
+        .field { display: flex; flex-direction: column; }
+        .field.wide { grid-column: 1 / -1; }
+        label { font-size: 0.8rem; font-weight: 600; margin-bottom: 5px; }
+        label .hint { font-weight: 400; color: var(--muted); }
+        input, textarea {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.85rem;
+            padding: 8px 10px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: #fbfcfd;
+            color: var(--fg);
+            resize: vertical;
+        }
+        input:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+        .actions { margin-top: 18px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        button {
+            font: inherit;
+            font-weight: 600;
+            padding: 9px 22px;
+            border-radius: 8px;
+            border: 2px solid var(--accent);
+            background: var(--accent);
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        button:hover:not(:disabled) { background: #1976d2; border-color: #1976d2; }
+        button:disabled { opacity: 0.55; cursor: default; }
+        button.secondary { background: white; color: var(--accent); }
+        button.secondary:hover:not(:disabled) { background: var(--accent); color: white; }
+        .check { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; color: var(--muted); }
+        .check input { width: auto; }
+
+        .result { margin-top: 26px; border-top: 1px solid var(--line); padding-top: 20px; }
+        .meta {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.8rem;
+            color: var(--muted);
+            margin-bottom: 12px;
+        }
+        .meta.error { color: var(--err); }
+
+        /* Far fewer columns than the hourly grid -- a week fits on a phone -- but
+           forecast_days goes to 16, so keep the same pinned label column. */
+        .scroller {
+            overflow-x: auto;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            background: #fbfcfd;
+        }
+        table { border-collapse: separate; border-spacing: 0; font-size: 0.8rem; }
+        th, td {
+            padding: 6px 4px;
+            text-align: center;
+            white-space: nowrap;
+            border-bottom: 1px solid var(--line);
+            /* No min-width: with two glyphs a column is ~31px of content, and a
+               floor wider than that would reintroduce as dead space exactly the
+               gap the tight packing is meant to remove. What sets the width now is
+               the wider of the two glyphs and the MM/DD header, which is why the
+               header is set small below. */
+        }
+        tr:last-child th, tr:last-child td { border-bottom: none; }
+        /* Column rules. Four glyphs sitting in open space give the eye nothing to
+           say where one day ends, so a good evening at one place bleeds into the
+           next day's cell; these bound each cell without competing with the bars.
+           The last column is left open so the grid does not end in a stray line. */
+        td, thead th.day { border-right: 1px solid var(--grid); }
+        tr > *:last-child { border-right: none; }
+        /* Today gets the heavier rule down the full height -- the same idiom as
+           astro-score_readable.html's .daybreak, and the one division on this grid
+           worth more than a hairline: left of it is what happened, right of it is
+           what is forecast. Only drawn when there is a past column to divide from. */
+        td.todaybreak, th.todaybreak { border-left: 2px solid #b9c2cc; }
+        th.label {
+            position: sticky;
+            left: 0;
+            z-index: 2;
+            background: #f2f5f8;
+            text-align: right;
+            padding: 6px 8px 6px 10px;
+            border-right: 1px solid var(--line);
+            min-width: 84px;
+        }
+        th.label .name { font-weight: 700; }
+        th.label .api {
+            display: block;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.65rem;
+            font-weight: 400;
+            color: var(--muted);
+        }
+        /* The date stacks -- 08 over 18, not 08/18 -- so the header is two characters
+           wide like the two glyphs under it, and every column in the grid is a
+           2-character column. Before this the header was the widest thing in the
+           column and it, not the bars, set the width. Monospace so the digits line
+           up down the header row as well as across it. */
+        thead th.day {
+            background: #eef2f6;
+            font-weight: 700;
+            color: var(--muted);
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            /* Matches the table's own font-size. The bars are what set the column
+               width now (two 1.5rem mono cells, ~29px); the header sits centred
+               and narrower inside that. Raising this to 1.5rem would make the two
+               digits span the bars exactly, at the cost of a heavy header row. */
+            font-size: 0.8rem;
+            line-height: 1.2;
+            padding: 5px 2px;
+        }
+        thead th.day span { display: block; }
+        thead th.day.today { background: var(--accent); color: white; }
+
+        /* Zero horizontal padding, so the two glyphs fill the cell edge to edge and
+           the only thing between one day's bars and the next day's is the 1px
+           column rule. font-size: 0 kills any stray inline gap; .bar sets its own
+           size back in rem, which is absolute and so unaffected. */
+        td.blocks { padding: 5px 0; font-size: 0; }
+        /* One block glyph. A fixed-width span rather than a run of text: a blank
+           block is an empty span, and an empty string would collapse and shift the
+           glyph beside it. */
+        .bar {
+            display: inline-block;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 1.5rem;
+            line-height: 1;
+            /* Exactly one character cell wide. In a monospace face every glyph
+               shares that advance, so the block characters tile with no seam --
+               where the old 0.62em was a guess at it and left a hairline gap.
+               letter-spacing is zeroed in case the page font stack ever sets it. */
+            width: 1ch;
+            letter-spacing: 0;
+            /* The glyphs sit on the text baseline, so they grow upwards out of a
+               common floor and read as a bar chart rather than as letters. */
+            vertical-align: baseline;
+            /* One green for every bar, at every height. Height already encodes the
+               score, so grading the colour by the same number said it twice -- and
+               said it worse: the green-to-red sweep this used to use turned a short
+               bar brown, which read as a different *kind* of thing rather than as
+               less of the same one. Now only height varies and the eye compares
+               bars instead of decoding hues. */
+            color: var(--ok);
+        }
+        td.na { color: #bbb; }
+        td.err { color: var(--err); font-size: 0.72rem; }
+
+        details { margin-top: 18px; }
+        summary { cursor: pointer; font-size: 0.85rem; color: var(--muted); }
+        summary:hover { color: var(--accent); }
+        .url {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.78rem;
+            word-break: break-all;
+            background: #f7f9fb;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin: 10px 0;
+        }
+        .url a { color: var(--accent); text-decoration: none; }
+        .url a:hover { text-decoration: underline; }
+        .url .who { color: var(--fg); font-weight: 700; display: block; margin-bottom: 2px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a class="back" href="index.html">&larr; astro_score</a>
+        <h1>AstroScore <span style="color:#777;font-weight:400;">daily</span></h1>
+        <p class="sub">
+            The whole week for every saved spot at once: a row per place, a column per day, and each
+            cell a four-block sparkline of the night. Same
+            <strong style="color:#1e8449;">觀星</strong> score as
+            <a href="astro-score_readable.html">astro-score_readable.html</a> &mdash; this page just
+            asks it of all <span id="placeCount">nine</span> saved places and folds each day's 24 hours
+            into two half-day blocks. Read it to pick <em>where and when</em>, then open the readable
+            grid for the hour-by-hour detail. No API key needed.
+        </p>
+
+        <div class="rule">
+            <span class="formula">每格 = 2 blocks &mdash; 00&ndash;11 &middot; 12&ndash;23
+                <span class="gloss">&nbsp; local time; left = after midnight, right = this evening</span></span>
+            <span class="formula">block = max 觀星 over its 12 hours
+                <span class="gloss">&nbsp; the best single hour in it, 0&ndash;100</span></span>
+            <div class="example">
+                <div><b>█</b>  &gt; 90   drop everything and drive</div>
+                <div><b>▆</b>  &gt; 70</div>
+                <div><b>▄</b>  &gt; 50</div>
+                <div><b>▂</b>  &gt; 30</div>
+                <div>   &le; 30   blank &mdash; nothing worth the trip</div>
+            </div>
+            <ul>
+                <li>Each block is half a day, so each holds exactly one dark stretch: the small hours
+                    fall in 00&ndash;11 and the evening in 12&ndash;23, while their daylight halves
+                    score 0 and cannot touch a maximum.</li>
+                <li><b>A night straddles midnight, so it reads across two cells</b> &mdash; the right
+                    glyph of one day (that evening) and the left glyph of the next (its small hours).
+                    <b>█</b> on the right of 08/18 next to <b>█</b> on the left of 08/19 is
+                    <em>one</em> clear night. A single cell showing <b>██</b> is instead the tail of
+                    the night just gone beside the head of the one coming.</li>
+                <li>The <b>best</b> hour, not a total or an average &mdash; one clear hour is worth
+                    the drive even when the rest of the night clouds over, and a sum would average it
+                    away. It also means a bar says nothing about <em>how long</em> the window lasts:
+                    open the readable grid for that.</li>
+                <li><b>從今天開始</b> hides whole days before today; it never shortens a day it
+                    shows. Today's column always covers the full 24 hours, hours already gone
+                    included, so a block does not shrink as the afternoon wears on. Untick it to
+                    bring back whatever <code>past_days</code> asked for. Hover any cell for the
+                    exact sums.</li>
+                <li>The score itself is <code>(100 &minus; 雲量) &times; (100 &minus; 月亮扣分) / 100</code>,
+                    zeroed while the sun is above &minus;10&deg;, 月亮扣分 ramping 0 &rarr; 100 as the
+                    moon climbs 0&deg; &rarr; 10&deg;. Cloud is <code>icon_global</code>; sun and moon
+                    are computed in the page. See
+                    <a href="astro-score_readable.html">astro-score_readable.html</a> for the worked
+                    examples.</li>
+            </ul>
+        </div>
+
+        <form id="form">
+            <div class="grid">
+                <div class="field">
+                    <label for="forecast_days">forecast_days <span class="hint">1&ndash;16</span></label>
+                    <input id="forecast_days" name="forecast_days" value="7" spellcheck="false">
+                </div>
+                <div class="field">
+                    <label for="timezone">timezone</label>
+                    <input id="timezone" name="timezone" value="auto" spellcheck="false">
+                </div>
+                <div class="field wide">
+                    <label for="extra">extra params <span class="hint">one <code>key=value</code> per line; empty value drops a parameter. <code>past_days</code> adds columns to the <em>left</em> of today &mdash; untick 從今天開始 to show them. It takes 0&ndash;93, but the models only keep about 61 days of history</span></label>
+                    <textarea id="extra" name="extra" rows="2" spellcheck="false" placeholder="forecast_hours=24"></textarea>
+                </div>
+            </div>
+
+            <div class="actions">
+                <button type="submit" id="submit">Fetch</button>
+                <button type="button" class="secondary" id="reset">Reset defaults</button>
+                <label class="check"><input type="checkbox" id="hidePast" checked> 從今天開始 (hide past days)</label>
+            </div>
+        </form>
+
+        <div class="result" id="result" hidden>
+            <div class="meta" id="meta"></div>
+            <div class="scroller" id="scroller"></div>
+            <details id="raw" hidden>
+                <summary>request URLs</summary>
+                <div class="url" id="url"></div>
+            </details>
+        </div>
+    </div>
+
+<script src="../places.js"></script>
+<script>
+"use strict";
+
+/* ------------------------------------------------------------------ *
+ * Request core -- identical to astro-score_readable.html and both
+ * open_meteo/ pages, which are the browser ports of
+ * open_meteo/open-meteo.py. buildUrl/fetchForecast are byte-for-byte
+ * the same functions; any divergence there is a bug.
+ *
+ * What is new here is that the page issues one request PER SAVED SPOT
+ * rather than one for the location in a box -- the rows of this grid are
+ * the places, so there is no location field and no paramsFromForm().
+ * ------------------------------------------------------------------ */
+
+const FORECAST_URL = "https://api.open-meteo.com/v1/forecast";
+
+// PLACES -- the saved spots -- comes from ../places.js, loaded just above. On the
+// other pages it fills buttons beside a location box; here it IS the row list, so
+// adding a spot there adds a row here. DEFAULT_LAT/DEFAULT_LON from that file are
+// unused on this page: nothing picks a single place.
+const DEFAULT_DAYS = 7;
+
+// cloud_cover alone. astroScore() reads nothing else, and this page shows no
+// numbers a human reads directly -- 降雨/氣溫, which astro-score_readable.html
+// carries for exactly that reason, would be one response per place of data nothing
+// on screen draws. One variable × one model puts each response at ~4.0 KB / 168
+// hours (mostly the timestamps), so at nine saved spots that is ~36 KB the round.
+const HOURLY_VARS = ["cloud_cover"];
+
+// One model, as on astro-score_readable.html: a single unambiguous 雲量, and bare
+// (unsuffixed) series keys, which is what seriesKey() below resolves.
+const MODELS = ["icon_global"];
+
+// Prefilled into the "extra params" box rather than added to defaultParams(). One
+// key=value per line; clear a line to drop that parameter. Applied to every request
+// alike, so a typo here costs one call per saved place rather than one call.
+//
+// past_days= extends the series backwards, which on this grid means extra columns
+// to the LEFT of today -- the week just gone, for checking a forecast against what
+// the sky actually did. They are hidden until 從今天開始 is unticked, so the
+// default view is unchanged by this line and only the response size shows it:
+// each past day is another ~540 bytes per place, taking a nine-place round from
+// ~36 KB to ~69 KB.
+const DEFAULT_EXTRA = [
+    "past_days=7",
+].join("\n");
+
+/** The request for one spot, as a plain object. */
+function defaultParams(lat, lon, days = DEFAULT_DAYS) {
+    return {
+        latitude: lat,
+        longitude: lon,
+        hourly: HOURLY_VARS.join(","),
+        models: MODELS.join(","),
+        timezone: "auto",
+        forecast_days: days,
+    };
+}
+
+/**
+ * The full GET URL for a parameter object.
+ *
+ * Commas are left literal so the hourly/models lists stay readable and match
+ * Open-Meteo's own documented examples; encodeURIComponent would otherwise
+ * turn them into %2C. Spaces become "+" to match Python's urlencode.
+ */
+function buildUrl(params) {
+    const query = Object.entries(params)
+        .map(([key, value]) => {
+            const enc = (s) => encodeURIComponent(String(s))
+                .replace(/%2C/g, ",")
+                .replace(/%20/g, "+");
+            return `${enc(key)}=${enc(value)}`;
+        })
+        .join("&");
+    return `${FORECAST_URL}?${query}`;
+}
+
+/**
+ * Call the API and return {body, url, status, ok, bytes, seconds}.
+ *
+ * Errors are returned rather than thrown: Open-Meteo answers a bad request
+ * with HTTP 400 and a JSON body like
+ * {"error": true, "reason": "Latitude must be in range of -90 to 90°..."},
+ * which is far more useful to see than a stack trace.
+ */
+async function fetchForecast(params, timeoutMs = 30000) {
+    const url = buildUrl(params);
+    const started = performance.now();
+    const resp = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+    const text = await resp.text();
+    const seconds = (performance.now() - started) / 1000;
+
+    let body;
+    try {
+        body = JSON.parse(text);
+    } catch {
+        body = { error: true, reason: "response was not JSON", text: text };
+    }
+    body.get_para = url;
+
+    return {
+        body,
+        url,
+        status: resp.status,
+        ok: resp.ok,
+        contentType: resp.headers.get("Content-Type"),
+        bytes: new TextEncoder().encode(text).length,
+        seconds,
+    };
+}
+
+/**
+ * The two form fields, applied to one spot's parameters.
+ *
+ * The other pages read a location out of a box here too; this one takes it from
+ * PLACES instead, so lat/lon are arguments rather than parsed input. An empty
+ * field drops the key entirely and lets the API default it, as elsewhere.
+ */
+function paramsFor(lat, lon) {
+    const overrides = {};
+    for (const id of ["forecast_days", "timezone"]) {
+        overrides[id] = document.getElementById(id).value.trim();
+    }
+
+    // The same key=value loop the open_meteo/ pages run, and it throws the same
+    // way. Thrown from inside the per-place map, so the submit handler catches it
+    // before any request goes out rather than after six of them have.
+    for (const line of document.getElementById("extra").value.split("\n")) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        if (!trimmed.includes("=")) {
+            throw new Error(`Bad extra param "${trimmed}": expected "key=value"`);
+        }
+        const idx = trimmed.indexOf("=");
+        overrides[trimmed.slice(0, idx).trim()] = trimmed.slice(idx + 1).trim();
+    }
+
+    const params = defaultParams(lat, lon);
+    for (const [key, value] of Object.entries(overrides)) {
+        if (value === "") delete params[key];
+        else params[key] = value;
+    }
+    return params;
+}
+
+/* ------------------------------------------------------------------ *
+ * Astronomy: low-precision solar/lunar positions (Meeus, "Astronomical
+ * Algorithms"), ported from milkyway.py -- same series, same terms, so
+ * the two agree to well under a degree. Sun is good to ~0.01 deg, moon
+ * to ~0.3 deg in longitude: far more than enough to say "is it dark"
+ * and "is the moon up", which is exactly what the score asks.
+ *
+ * Verbatim from astro-score_readable.html apart from the galactic core,
+ * which this page has no row for. Open-Meteo offers only sunrise/sunset
+ * and daily=moon_phase, so these angles are computed locally.
+ * ------------------------------------------------------------------ */
+
+const DEG = Math.PI / 180;
+const sin = (d) => Math.sin(d * DEG);
+const cos = (d) => Math.cos(d * DEG);
+const clamp1 = (x) => Math.min(1, Math.max(-1, x));
+const mod360 = (x) => ((x % 360) + 360) % 360;
+
+/**
+ * Julian Day from a UTC timestamp in milliseconds.
+ *
+ * The Unix epoch is JD 2440587.5 by definition, which makes this exactly
+ * equivalent to milkyway.py's calendar-based julian_day() without repeating
+ * the Gregorian bookkeeping.
+ */
+function julianDay(utcMs) {
+    return utcMs / 86400000 + 2440587.5;
+}
+
+/** Mean obliquity of the ecliptic, in degrees. */
+function obliquity(jd) {
+    return 23.439291 - 0.0130042 * ((jd - 2451545.0) / 36525);
+}
+
+/** Ecliptic (lon, lat) in degrees -> {ra, dec} in degrees. */
+function eclipticToEquatorial(lon, lat, eps) {
+    const x = cos(lat) * cos(lon);
+    const y = cos(eps) * cos(lat) * sin(lon) - sin(eps) * sin(lat);
+    const z = sin(eps) * cos(lat) * sin(lon) + cos(eps) * sin(lat);
+    return {
+        ra: mod360(Math.atan2(y, x) / DEG),
+        dec: Math.asin(clamp1(z)) / DEG,
+    };
+}
+
+/** Solar right ascension, declination and ecliptic longitude, in degrees. */
+function sunPosition(jd) {
+    const n = jd - 2451545.0;
+    const meanLon = mod360(280.460 + 0.9856474 * n);
+    const meanAnom = mod360(357.528 + 0.9856003 * n);
+    const eclLon = mod360(
+        meanLon + 1.915 * sin(meanAnom) + 0.020 * sin(2 * meanAnom),
+    );
+    const { ra, dec } = eclipticToEquatorial(eclLon, 0.0, obliquity(jd));
+    return { ra, dec, eclLon };
+}
+
+/** Lunar right ascension, declination, distance (km) and ecliptic longitude. */
+function moonPosition(jd) {
+    const t = (jd - 2451545.0) / 36525;
+    const lp = mod360(218.3164477 + 481267.88123421 * t);   // mean longitude
+    const d = mod360(297.8501921 + 445267.1114034 * t);     // elongation
+    const m = mod360(357.5291092 + 35999.0502909 * t);      // sun anomaly
+    const mp = mod360(134.9633964 + 477198.8675055 * t);    // moon anomaly
+    const f = mod360(93.2720950 + 483202.0175233 * t);      // arg of latitude
+
+    const eclLon = mod360(
+        lp
+        + 6.289 * sin(mp)
+        + 1.274 * sin(2 * d - mp)
+        + 0.658 * sin(2 * d)
+        + 0.214 * sin(2 * mp)
+        - 0.186 * sin(m)
+        - 0.114 * sin(2 * f)
+        + 0.059 * sin(2 * d - 2 * mp)
+        + 0.057 * sin(2 * d - m - mp)
+        + 0.053 * sin(2 * d + mp)
+        + 0.046 * sin(2 * d - m)
+        - 0.041 * sin(m - mp)
+        - 0.035 * sin(d)
+        - 0.031 * sin(m + mp),
+    );
+    const eclLat =
+        5.128 * sin(f)
+        + 0.281 * sin(mp + f)
+        - 0.278 * sin(f - mp)
+        - 0.173 * sin(2 * d - f)
+        + 0.055 * sin(2 * d + f - mp)
+        - 0.046 * sin(2 * d - f - mp)
+        + 0.033 * sin(2 * d + f)
+        + 0.017 * sin(2 * mp + f);
+    const dist =
+        385000.56
+        - 20905.355 * cos(mp)
+        - 3699.111 * cos(2 * d - mp)
+        - 2955.968 * cos(2 * d)
+        - 569.925 * cos(2 * mp);
+
+    const { ra, dec } = eclipticToEquatorial(eclLon, eclLat, obliquity(jd));
+    return { ra, dec, dist, eclLon };
+}
+
+/** Local apparent sidereal time in degrees. */
+function localSiderealTime(jd, lonDeg) {
+    const t = (jd - 2451545.0) / 36525;
+    const gmst =
+        280.46061837
+        + 360.98564736629 * (jd - 2451545.0)
+        + 0.000387933 * t * t;
+    return mod360(gmst + lonDeg);
+}
+
+/** Equatorial (ra, dec) -> {alt, az} in degrees, azimuth measured from north. */
+function altAz(ra, dec, lat, lst) {
+    const ha = mod360(lst - ra);
+    const sinAlt = sin(lat) * sin(dec) + cos(lat) * cos(dec) * cos(ha);
+    const alt = Math.asin(clamp1(sinAlt)) / DEG;
+    const az = mod360(
+        Math.atan2(
+            -cos(dec) * sin(ha),
+            sin(dec) * cos(lat) - sin(lat) * cos(dec) * cos(ha),
+        ) / DEG,
+    );
+    return { alt, az };
+}
+
+/**
+ * Sun and moon altitude for one hour, at the grid point the forecast is for.
+ *
+ * astro-score_readable.html also returns the galactic core altitude and the
+ * lunar illuminated fraction; both are display-only rows there, and this page
+ * has neither row, so neither is computed.
+ */
+function astroAt(utcMs, lat, lon) {
+    const jd = julianDay(utcMs);
+    const lst = localSiderealTime(jd, lon);
+    const sun = sunPosition(jd);
+    const moon = moonPosition(jd);
+    return {
+        sunAlt: altAz(sun.ra, sun.dec, lat, lst).alt,
+        moonAlt: altAz(moon.ra, moon.dec, lat, lst).alt,
+    };
+}
+
+/* ------------------------------------------------------------------ *
+ * The score -- identical to astro-score_readable.html.
+ * ------------------------------------------------------------------ */
+
+// Sun this far below the horizon or lower counts as dark. -10° is well into
+// nautical twilight: the sky is not yet fully dark at -10, so this is generous
+// on purpose, and the hour either side of it is the one to distrust.
+const DARK_SUN_ALT = -10;
+
+// Moon altitude at which its glow is treated as ruining the sky outright.
+// Below it the penalty ramps in linearly rather than switching on at the
+// horizon: a moon 2° up is nothing like a moon 10° up, and rounding both to
+// "moon is up, score 0" threw away the best hour of many nights.
+const MOON_KILL_ALT = 10;
+
+/**
+ * How much the moon spoils the sky, 0..100.
+ *
+ * 0 with the moon at or below the horizon, 100 from MOON_KILL_ALT up, linear in
+ * between. Altitude alone -- a thin crescent and a full moon at the same height
+ * are penalised the same.
+ */
+function moonPenalty(moonAlt) {
+    if (moonAlt <= 0) return 0;
+    return Math.min(100, (moonAlt / MOON_KILL_ALT) * 100);
+}
+
+/**
+ * 觀星, 0..100 -- deliberately much simpler than milkyway.py's sky_quality().
+ *
+ * Daylight or twilight is out flat; what is left is the clear fraction of the
+ * sky, scaled down by how high the moon is. Null cloud cover scores nothing
+ * rather than 100.
+ */
+function astroScore(sunAlt, moonAlt, cover) {
+    if (cover === null || cover === undefined) return null;
+    if (sunAlt > DARK_SUN_ALT) return 0;
+    return (100 - Number(cover)) * (100 - moonPenalty(moonAlt)) / 100;
+}
+
+/* ------------------------------------------------------------------ *
+ * Folding hours into blocks
+ * ------------------------------------------------------------------ */
+
+// Two twelve-hour blocks per day, in the order they are drawn in a cell. They
+// split the day at noon, which on a stargazing grid splits the *night*: 00-11
+// holds the small hours of this date (its daylight half scores 0 and cannot
+// affect a maximum), 12-23 holds the evening. So the left glyph is "after
+// midnight" and the right one is "this evening".
+const BLOCK_HOURS = 12;
+const BLOCKS = 24 / BLOCK_HOURS;
+const BLOCK_LABELS = ["00-11", "12-23"];
+
+// Block peak -> glyph. Highest threshold first, so the first match wins; a peak
+// at or below the last threshold has no glyph and the cell shows a gap. Bands are
+// on the 觀星 scale directly (0..100), because the block's value is the best
+// single hour in it rather than a total. Strictly greater, as specified: a peak of
+// exactly 90 draws ▆, not █.
+const BARS = [
+    [90, "█"],   // FULL BLOCK
+    [70, "▆"],   // LOWER THREE QUARTERS BLOCK
+    [50, "▄"],   // LOWER HALF BLOCK
+    [30, "▂"],   // LOWER ONE QUARTER BLOCK
+];
+
+/** The glyph for a block's peak 觀星, or "" below the lowest band. */
+function barFor(peak) {
+    for (const [threshold, glyph] of BARS) {
+        if (peak > threshold) return glyph;
+    }
+    return "";
+}
+
+/**
+ * One spot's response -> Map of "YYYY-MM-DD" -> array of BLOCKS block records.
+ *
+ * Each record is {peak, hours, scored}: the best 觀星 in the block, how many of
+ * the twelve hours the response actually carried, and how many of those carried a
+ * cloud figure rather than a null. A block short on either count can peak low for
+ * a reason that is not "cloudy", which the cell title spells out.
+ *
+ * A maximum, not a total: the question this grid answers is "is there an hour
+ * worth going out for", and one excellent hour is worth the drive even when the
+ * rest of the night is clouded in. A sum would average that hour away.
+ *
+ * Every hour present is scored, including hours already gone. This page hides
+ * past *days* rather than past hours (see visibleDates), so today's column is
+ * always a whole 24 hours and its blocks do not shrink through the day -- a
+ * column that is drawn is a column that is complete.
+ *
+ * hourly.time is local wall time (timezone=auto), so utc_offset_seconds turns it
+ * back into the UTC instant the astronomy expects, and the date/hour can be read
+ * straight off the string. Latitude/longitude come from the response, i.e. the
+ * grid point actually forecast rather than the point that was asked for.
+ */
+function blocksByDate(body) {
+    const hourly = body.hourly;
+    const key = seriesKey(hourly, "cloud_cover");
+    const days = new Map();
+    if (!key) return days;
+
+    const offset = Number(body.utc_offset_seconds) || 0;
+    const lat = Number(body.latitude);
+    const lon = Number(body.longitude);
+
+    hourly.time.forEach((t, i) => {
+        const date = t.slice(0, 10);
+        if (!days.has(date)) {
+            days.set(date, Array.from({ length: BLOCKS }, () => ({ peak: 0, hours: 0, scored: 0 })));
+        }
+        const block = days.get(date)[Math.floor(Number(t.slice(11, 13)) / BLOCK_HOURS)];
+        block.hours += 1;
+        const utcMs = Date.parse(`${t}:00Z`) - offset * 1000;
+        const { sunAlt, moonAlt } = astroAt(utcMs, lat, lon);
+        const score = astroScore(sunAlt, moonAlt, hourly[key][i]);
+        if (score === null) return;   // null cloud cover: no data, not a zero
+        block.peak = Math.max(block.peak, score);
+        block.scored += 1;
+    });
+    return days;
+}
+
+/**
+ * The key cloud_cover lives under.
+ *
+ * MODELS has one entry, so Open-Meteo returns a bare key -- it only suffixes
+ * with the model name (cloud_cover_icon_global) for two or more models. Both
+ * spellings are accepted so adding a model to MODELS keeps working.
+ */
+function seriesKey(hourly, name) {
+    if (Object.hasOwn(hourly, name)) return name;
+    for (const model of MODELS) {
+        if (Object.hasOwn(hourly, `${name}_${model}`)) return `${name}_${model}`;
+    }
+    return null;
+}
+
+/* ------------------------------------------------------------------ *
+ * Presentation
+ * ------------------------------------------------------------------ */
+
+/** "2026-08-17" -> "08/17". Used for the cell tooltip, which has room for a slash. */
+function formatDate(date) {
+    return `${date.slice(5, 7)}/${date.slice(8, 10)}`;
+}
+
+/** "2026-08-17" -> ["08", "17"], the two stacked lines of a column header. */
+function dateLines(date) {
+    return [date.slice(5, 7), date.slice(8, 10)];
+}
+
+/**
+ * Today's date at the forecast location, as "YYYY-MM-DD".
+ *
+ * Taken from the response's utc_offset_seconds rather than the browser clock, so
+ * a spot in another zone -- or a hand-typed timezone= in the extra params -- puts
+ * the "today" column where the forecast thinks today is, not where the laptop
+ * does.
+ */
+function localToday(body) {
+    const offset = Number(body.utc_offset_seconds) || 0;
+    return new Date(Date.now() + offset * 1000).toISOString().slice(0, 10);
+}
+
+/**
+ * The day columns to draw, oldest first.
+ *
+ * With 從今天開始 ticked, days wholly in the past are dropped -- the same idea as
+ * astro-score_readable.html's 從現在開始, moved up from hours to days because a
+ * column here is a day. Dropping rather than zeroing matters once past_days is
+ * set: a hidden day takes no width, where a zeroed one drew as blank glyphs and
+ * pushed today off the right of a phone screen. ISO dates compare correctly as
+ * plain strings.
+ */
+function visibleDates(dates, today, hidePast) {
+    return hidePast ? dates.filter((d) => d >= today) : dates;
+}
+
+// No tint() here, unlike the other three Open-Meteo pages: this grid draws bars,
+// not tinted number cells, and the bar's height is already the value. Colour is
+// fixed in CSS (.bar) rather than computed per cell.
+
+/** The four glyphs for one day at one place, as a table cell. */
+function blocksCell(place, date, blocks) {
+    const td = document.createElement("td");
+    td.className = "blocks";
+    const detail = [];
+    for (let b = 0; b < BLOCKS; b += 1) {
+        const { peak, hours, scored } = blocks[b];
+        const span = document.createElement("span");
+        span.className = "bar";
+        span.textContent = barFor(peak);
+        // No text node between the spans: appended straight onto the cell, they
+        // have no whitespace to collapse into a gap, so the glyphs tile.
+        td.appendChild(span);
+        // A block short of twelve scored hours can peak low for a reason that is
+        // not "cloudy" -- a null cloud figure, or a response that stopped early --
+        // so say so rather than letting a missing bar be misread.
+        const short = scored < BLOCK_HOURS ? ` (${scored}/${hours || BLOCK_HOURS} hr)` : "";
+        detail.push(`${BLOCK_LABELS[b]}  peak ${String(Math.round(peak)).padStart(3)}${short}`);
+    }
+    td.title = `${place} — ${formatDate(date)}\n${detail.join("\n")}`;
+    return td;
+}
+
+/**
+ * The grid: a header row of days, then one row per place.
+ *
+ * `results` is one entry per PLACES row, in order, each {place, lat, lon, body,
+ * error}. Rows whose fetch failed keep their place in the table and say so
+ * rather than vanishing -- with one independent request per place, one rate-limited
+ * response should not silently shorten the list.
+ */
+function buildTable(results, hidePast) {
+    // Every spot is in the same timezone, but the dates are taken as a union
+    // anyway: a place across a date line, or a response one day short, would
+    // otherwise shift a whole row sideways against the header.
+    const folded = results.map((r) => (r.body ? blocksByDate(r.body) : null));
+    const all = [...new Set(folded.flatMap((m) => (m ? [...m.keys()] : [])))].sort();
+    const today = localToday(results.find((r) => r.body).body);
+    const dates = visibleDates(all, today, hidePast);
+
+    const table = document.createElement("table");
+    const thead = table.createTHead();
+    const headRow = thead.insertRow();
+    const corner = document.createElement("th");
+    corner.className = "label";
+    corner.scope = "col";
+    const cornerName = document.createElement("span");
+    cornerName.className = "name";
+    cornerName.textContent = "地點";
+    corner.appendChild(cornerName);
+    const cornerApi = document.createElement("span");
+    cornerApi.className = "api";
+    cornerApi.textContent = "00-11 12-23";
+    corner.appendChild(cornerApi);
+    headRow.appendChild(corner);
+
+    // The divider only means something with a past column to its left, which is
+    // exactly when 從今天開始 is unticked and past_days brought some back.
+    const breakAt = dates[0] !== today && dates.includes(today) ? today : null;
+    const markBreak = (cell, date) => {
+        if (date === breakAt) cell.classList.add("todaybreak");
+    };
+
+    for (const date of dates) {
+        const th = document.createElement("th");
+        th.scope = "col";
+        th.className = date === today ? "day today" : "day";
+        markBreak(th, date);
+        for (const line of dateLines(date)) {
+            const span = document.createElement("span");
+            span.textContent = line;
+            th.appendChild(span);
+        }
+        headRow.appendChild(th);
+    }
+
+    const tbody = table.createTBody();
+    results.forEach((r, index) => {
+        const tr = tbody.insertRow();
+        const th = document.createElement("th");
+        th.className = "label";
+        th.scope = "row";
+        const name = document.createElement("span");
+        name.className = "name";
+        name.textContent = r.place;
+        th.appendChild(name);
+        const api = document.createElement("span");
+        api.className = "api";
+        api.textContent = `${r.lat}, ${r.lon}`;
+        th.appendChild(api);
+        tr.appendChild(th);
+
+        const days = folded[index];
+        if (!days) {
+            const td = tr.insertCell();
+            td.className = "err";
+            td.colSpan = Math.max(1, dates.length);
+            td.textContent = r.error;
+            return;
+        }
+        for (const date of dates) {
+            const blocks = days.get(date);
+            if (!blocks) {
+                const td = tr.insertCell();
+                td.className = "na";
+                td.textContent = "-";
+                markBreak(td, date);
+                continue;
+            }
+            const td = blocksCell(r.place, date, blocks);
+            markBreak(td, date);
+            tr.appendChild(td);
+        }
+    });
+
+    return table;
+}
+
+/* ------------------------------------------------------------------ *
+ * Wiring
+ * ------------------------------------------------------------------ */
+
+let lastResults = null;   // the array buildTable() takes, from the most recent fetch
+
+function renderGrid() {
+    const scroller = document.getElementById("scroller");
+    scroller.textContent = "";
+    if (!lastResults) return;
+    scroller.appendChild(buildTable(lastResults, document.getElementById("hidePast").checked));
+}
+
+function showError(message) {
+    document.getElementById("result").hidden = false;
+    const meta = document.getElementById("meta");
+    meta.textContent = message;
+    meta.classList.add("error");
+    document.getElementById("scroller").textContent = "";
+}
+
+/** One labelled link per request, so every URL stays inspectable. */
+function setUrls(results) {
+    const urlEl = document.getElementById("url");
+    urlEl.textContent = "";
+    for (const r of results) {
+        const who = document.createElement("span");
+        who.className = "who";
+        who.textContent = r.place;
+        urlEl.appendChild(who);
+        const a = document.createElement("a");
+        a.href = r.url;
+        a.target = "_blank";
+        a.rel = "noopener";
+        a.textContent = r.url;
+        urlEl.appendChild(a);
+        urlEl.appendChild(document.createElement("br"));
+    }
+    document.getElementById("raw").hidden = false;
+}
+
+function resetDefaults() {
+    document.getElementById("forecast_days").value = String(DEFAULT_DAYS);
+    document.getElementById("timezone").value = "auto";
+    document.getElementById("extra").value = DEFAULT_EXTRA;
+}
+
+document.getElementById("form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const button = document.getElementById("submit");
+
+    // Read the form once, not once per place: N identical reads of the same
+    // inputs, and a request whose URL is rebuilt from the boxes afterwards could
+    // disagree with the one actually sent. Built before the button is disabled, so
+    // a malformed extra param reports itself without any requests going out and
+    // leaves the button usable for the corrected retry.
+    let requests;
+    try {
+        requests = PLACES.map(([, lat, lon]) => paramsFor(lat, lon));
+    } catch (err) {
+        showError(err.message);
+        return;
+    }
+
+    button.disabled = true;
+    document.getElementById("result").hidden = false;
+    document.getElementById("meta").textContent = `fetching ${PLACES.length} places...`;
+    document.getElementById("meta").classList.remove("error");
+
+    const started = performance.now();
+    // All spots at once: one independent GET per place against a keyless endpoint, and
+    // the grid cannot draw until the last of them lands anyway. allSettled, not
+    // all, so one failure costs one row rather than the whole table.
+    const settled = await Promise.allSettled(requests.map((p) => fetchForecast(p)));
+    const seconds = (performance.now() - started) / 1000;
+
+    const results = PLACES.map(([place, lat, lon], i) => {
+        const outcome = settled[i];
+        if (outcome.status === "rejected") {
+            const err = outcome.reason;
+            return {
+                place, lat, lon, url: buildUrl(requests[i]), bytes: 0, body: null,
+                error: `request failed: ${err.name === "TimeoutError" ? "timed out" : err.message}`,
+            };
+        }
+        const r = outcome.value;
+        if (!r.ok || !r.body.hourly) {
+            // Same policy as open_meteo/open-meteo.py: show the API's own reason.
+            return {
+                place, lat, lon, url: r.url, bytes: r.bytes, body: null,
+                error: `HTTP ${r.status} — ${r.body.reason || "no hourly data in response"}`,
+            };
+        }
+        return { place, lat, lon, url: r.url, bytes: r.bytes, body: r.body, error: null };
+    });
+
+    setUrls(results);
+
+    const ok = results.filter((r) => r.body);
+    if (!ok.length) {
+        showError(`all ${results.length} requests failed — ${results[0].error}`);
+        button.disabled = false;
+        return;
+    }
+
+    lastResults = results;
+    const meta = document.getElementById("meta");
+    meta.classList.remove("error");
+    const bytes = results.reduce((sum, r) => sum + r.bytes, 0);
+    const failed = results.length - ok.length;
+    meta.textContent =
+        `${ok.length}/${results.length} places  ${bytes} bytes  ${seconds.toFixed(2)}s  ` +
+        `— ${ok[0].body.timezone} (${ok[0].body.timezone_abbreviation}), ` +
+        `models=${MODELS.join(",")}` +
+        (failed ? `  — ${failed} failed, see the rows` : "");
+    renderGrid();
+    button.disabled = false;
+});
+
+document.getElementById("reset").addEventListener("click", resetDefaults);
+document.getElementById("hidePast").addEventListener("change", renderGrid);
+
+document.getElementById("placeCount").textContent = String(PLACES.length);
+resetDefaults();
+</script>
+</body>
+</html>

@@ -247,7 +247,7 @@
             <a href="../open_meteo/open-meteo_readable.html">open-meteo_readable.html</a> with a
             <strong style="color:#1e8449;">觀星</strong> score on top. Dark sky, moon low or down, few
             clouds &mdash; nothing else. The variables, the model and the extra parameters are fixed, so the
-            only things to set are the place and how far ahead to look. Scroll the grid sideways for
+            only things to set are the place, how far ahead to look, and any extra parameters. Scroll the grid sideways for
             later hours. No API key needed. Variable names and model ids come from the
             <a href="https://open-meteo.com/en/docs" target="_blank" rel="noopener">Open-Meteo API
             docs</a>.
@@ -293,6 +293,10 @@
                 <div class="field">
                     <label for="timezone">timezone</label>
                     <input id="timezone" name="timezone" value="auto" spellcheck="false">
+                </div>
+                <div class="field wide">
+                    <label for="extra">extra params <span class="hint">one <code>key=value</code> per line; empty value drops a parameter. <code>past_days</code> extends the grid backwards &mdash; untick 從現在開始 to see it. It takes 0&ndash;93, but the models only keep about 61 days of history &mdash; past that the hours come back empty</span></label>
+                    <textarea id="extra" name="extra" rows="2" spellcheck="false" placeholder="forecast_hours=24"></textarea>
                 </div>
                 <div class="field wide">
                     <label for="location">location <span class="hint">lat,lon &mdash; or pick a spot</span></label>
@@ -361,6 +365,24 @@ const HOURLY_VARS = [
 // (cloud_cover_icon_global) when two or more models are asked for -- with one it
 // returns bare keys, which is what seriesKey() below resolves.
 const MODELS = ["icon_global"];
+
+// Prefilled into the "extra params" box rather than added to defaultParams(),
+// which stays the same request open-meteo.py makes. One key=value per line;
+// clear a line to drop that parameter.
+//
+// past_days= extends the series backwards, which is how you check a forecast
+// against what actually happened: score a night, then come back and see what the
+// sky did. It is invisible until 從現在開始 is unticked, since that trim is what
+// hides past hours. Not free -- 7 past days takes the response from ~7.0 KB /
+// 168 hours to ~13 KB / 336, and Open-Meteo bills by time range as well as
+// variable count. The API accepts 0..93, but the models' rolling archive only
+// reaches about 61 days back, so beyond that the hours come back null.
+//
+// This page fixes hourly/models rather than exposing them, so unlike the
+// open_meteo/ pages this is the only free-form parameter box on the form.
+const DEFAULT_EXTRA = [
+    "past_days=7",
+].join("\n");
 
 /** The request, as a plain object. */
 function defaultParams(lat, lon, days = DEFAULT_DAYS) {
@@ -509,6 +531,16 @@ function paramsFromForm() {
 
     for (const id of ["forecast_days", "timezone"]) {
         overrides[id] = el(id).value.trim();
+    }
+
+    for (const line of el("extra").value.split("\n")) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        if (!trimmed.includes("=")) {
+            throw new Error(`Bad extra param "${trimmed}": expected "key=value"`);
+        }
+        const idx = trimmed.indexOf("=");
+        overrides[trimmed.slice(0, idx).trim()] = trimmed.slice(idx + 1).trim();
     }
 
     const params = defaultParams(lat, lon);
@@ -1137,6 +1169,7 @@ function resetDefaults() {
     document.getElementById("location").value = `${DEFAULT_LAT},${DEFAULT_LON}`;
     document.getElementById("forecast_days").value = String(DEFAULT_DAYS);
     document.getElementById("timezone").value = "auto";
+    document.getElementById("extra").value = DEFAULT_EXTRA;
     markActivePlace();
 }
 

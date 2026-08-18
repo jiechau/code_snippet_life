@@ -21,6 +21,78 @@ here mainly when changing those constants; the adjustable form is
 
 - [AstroScore readable](https://jiechau.github.io/code_snippet_life/astro_score/astro-score_readable.html)
   — an hour-by-hour grid with a 觀星 score per hour.
+- [AstroScore daily](https://jiechau.github.io/code_snippet_life/astro_score/astro-score_daily.html)
+  — the same score folded into a week-at-a-glance grid: a row per saved spot, a
+  column per day, two block glyphs per cell.
+
+## The two pages
+
+`astro-score_readable.html` answers *which hour tonight*, for one place.
+`astro-score_daily.html` answers *which place, which night* — it asks the same
+question of every spot in [`places.js`](../places.js) at once (one request each)
+and folds each day's 24 hourly scores into 2 half-day blocks:
+
+| block | hours (local) | what it is |
+| --- | --- | --- |
+| 1st glyph | 00–11 | the small hours of that date |
+| 2nd glyph | 12–23 | that evening |
+
+Every bar is the same green at every height: the height is the value, so
+colouring it by that value as well only restated it — and the green-to-red scale
+this first used turned a low bar brown, which looked like a different kind of
+thing rather than less of the same one.
+
+Column headers stack the date — `08` over `18` — so a header is two characters
+wide like the two glyphs below it and every column is a 2-character column. Laid
+out flat as `08/18` the header was wider than the bars and set the column width,
+holding them apart.
+
+Its checkbox is **從今天開始 (hide past days)** — the readable page's 從現在開始
+moved up from hours to days, since a column here is a day. It hides days before
+today outright rather than blanking them, and never shortens a day it does show:
+today's column is always a full 24 hours, so a block does not shrink as the
+afternoon wears on.
+
+A block's value is the **maximum** 觀星 in it — its best single hour, on the
+plain 0–100 scale — and that peak picks one of five heights:
+
+| peak 觀星 | glyph |
+| --- | --- |
+| > 90 | `█` |
+| > 70 | `▆` |
+| > 50 | `▄` |
+| > 30 | `▂` |
+| ≤ 30 | blank |
+
+Max rather than sum or average is the point: the grid answers *is there an hour
+worth going out for*, and one excellent hour justifies the drive even when the
+rest of the night clouds over. The cost is that a bar says nothing about how
+**long** the window lasts — open the readable page for that.
+
+**A night straddles midnight, so it reads across two cells:** the right glyph of
+one day is that evening, the left glyph of the next is its small hours. One clear
+night looks like `…█|█…` spanning a column rule, not `██` inside one cell. A cell
+showing `██` is the tail of the night just gone beside the head of the one
+coming.
+
+Both pages carry an **extra params** box prefilled `past_days=7` (one `key=value`
+per line; an empty value drops a parameter). It extends the series backwards, so
+you can put a forecast next to what the sky actually did. On
+`astro-score_readable.html` that is extra hours off the left of the grid,
+invisible until 從現在開始 is unticked; on `astro-score_daily.html` it is extra
+day columns to the left of today, hidden until 從今天開始 is unticked.
+`past_days` accepts 0–93, but the models only keep about 61 days of rolling
+archive; past that the hours come back null.
+
+The score, the Meeus astronomy and the request core are copies of
+`astro-score_readable.html`'s — change one, change the other. What the daily page
+drops is everything it has no row for: the galactic core altitude, lunar
+illumination, 降雨/氣溫, the place-name lookup, and the location box (the rows
+*are* the places). It asks for `cloud_cover` alone, so each response is ~4.0 KB /
+168 hours — mostly timestamps — and at the nine spots currently saved ~36 KB, against the
+readable page's ~7.0 KB for one place with six variables. The default
+`past_days=7` doubles both: ~69 KB for the round, ~13 KB for the one. The totals track
+`places.js`, so they move whenever a spot is added.
 
 ## The four models
 
