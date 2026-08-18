@@ -121,7 +121,7 @@ does not feed it removed.
   API name underneath. The label column is frozen while the hours scroll, so its
   width costs a column of forecast at every scroll position — keep new labels to
   two or three CJK characters. The unabbreviated name is on the cell's `title`.
-- **Sun and moon rows** (`太陽`, `月亮`, `月相`) sit above the weather rows, set
+- **Sun, moon and core rows** (`太陽`, `月亮`, `月相`, `銀心`) sit above the weather rows, set
   in italics because they are not fetched: Open-Meteo offers only sunrise/sunset
   and `daily=moon_phase`, neither of which is an hourly altitude. The Meeus
   low-precision series from `milkyway.py` are ported to JavaScript here and agree
@@ -130,11 +130,20 @@ does not feed it removed.
   the JavaScript port and `milkyway.py` are now the only two implementations to keep
   in step. Solar altitude also decides day vs night for the 天氣 icons, which is why
   the glyphs flip to a moon exactly at sunset, and it is what the 觀星 score gates on.
+  `銀心` needs no ephemeris at all — the core is a fixed point (J2000 RA 17h45m40.04s,
+  Dec −29°00′28″, the same `GC_RA`/`GC_DEC` as `milkyway.py`), so only the sidereal
+  time moves it.
 - **從現在開始** drops the already-past hours — `forecast_days` starts the series
   at 00:00 local, the same trim `score_hours()` does in `milkyway.py`. Local "now"
   comes from `utc_offset_seconds`.
 - **The 觀星 row** sits directly under 時間, above 天氣, its label in green. Cells
   are tinted on the usual scale, inverted — 100 is green.
+- **The 銀心 row** sits between 觀星 and 天氣: the second thing to look at after the
+  score, since it says whether the Milky Way core is even up. Altitude in degrees,
+  tinted green from **+25°** — the top of `milkyway.py`'s `core_up` ramp, below which
+  the core is shot through too much airmass to photograph. From Taiwan it peaks near
+  +37° and is up for only part of the night. It is **not** a score input: 觀星 rates a
+  dark, clear, moonless sky, which is worth going out for with or without the core.
 
 It talks to Open-Meteo **straight from the browser**; Pages is static hosting and
 cannot run the Python. That works only because Open-Meteo needs no API key (a key

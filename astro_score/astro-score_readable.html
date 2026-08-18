@@ -271,7 +271,12 @@
                     alike, so read the 月相 row alongside it.</li>
                 <li><b>雲量</b> is total cloud cover from <code>icon_global</code>; the deck rows below are
                     for context and do not enter the score.</li>
-                <li>The <b>太陽/月亮/月相</b> rows are computed from the location with this page's own
+                <li><b>銀心</b> is the altitude of the Milky Way core (Sgr A*, RA 17h45m, Dec &minus;29&deg;),
+                    which from Taiwan peaks near +37&deg; and is up only part of the night. It does
+                    <b>not</b> enter the score &mdash; a dark clear hour is worth going out for either
+                    way &mdash; but below roughly +25&deg; the core is shot through too much airmass to
+                    photograph, so read it beside a high 觀星 before packing for the core.</li>
+                <li>The <b>太陽/月亮/月相/銀心</b> rows are computed from the location with this page's own
                     astronomy, not read from the response &mdash; Open-Meteo returns only sunrise/sunset
                     and a daily <code>moon_phase</code>, neither of which is an hourly altitude. They are
                     the same Meeus series <code>milkyway.py</code> uses, and they are what the score above
@@ -531,6 +536,13 @@ const cos = (d) => Math.cos(d * DEG);
 const clamp1 = (x) => Math.min(1, Math.max(-1, x));
 const mod360 = (x) => ((x % 360) + 360) % 360;
 
+// Galactic center, J2000: RA 17h45m40.04s, Dec -29deg00'28" -- the same pair
+// milkyway.py uses, and for the same reason: precession since J2000 moves it by
+// well under a degree, far below the accuracy of the moon series below. Fixed
+// equatorial coordinates, so only the sidereal time makes its altitude move.
+const GC_RA = 266.41683;
+const GC_DEC = -29.00781;
+
 /**
  * Julian Day from a UTC timestamp in milliseconds.
  *
@@ -657,7 +669,12 @@ function moonIllumination(sunRa, sunDec, moonRa, moonDec, moonDist) {
     return (1 + Math.cos(phase)) / 2;
 }
 
-/** Sun and moon for one hour, at the grid point the forecast is for. */
+/**
+ * Sun, moon and galactic core for one hour, at the grid point the forecast is for.
+ *
+ * The core is a fixed point, so its altitude needs no ephemeris at all -- just
+ * the same sidereal time the other two are converted with.
+ */
 function astroAt(utcMs, lat, lon) {
     const jd = julianDay(utcMs);
     const lst = localSiderealTime(jd, lon);
@@ -666,6 +683,7 @@ function astroAt(utcMs, lat, lon) {
     return {
         sunAlt: altAz(sun.ra, sun.dec, lat, lst).alt,
         moonAlt: altAz(moon.ra, moon.dec, lat, lst).alt,
+        gcAlt: altAz(GC_RA, GC_DEC, lat, lst).alt,
         moonIllum: moonIllumination(sun.ra, sun.dec, moon.ra, moon.dec, moon.dist) * 100,
     };
 }
@@ -767,6 +785,14 @@ const UNIT_SHORT = {
 // it is what the page is for, then the three inputs it is made of. Scales are
 // read for stargazing: sun well below the horizon, moon down, moon dark.
 const SCORE_ROW = { label: "觀星 (%)", api: "AstroScore", scale: [0, 100, false] };
+
+// 銀心 -- how high the Milky Way core is, drawn right under the score because it
+// decides whether the sky the score is describing has anything in it. Not a score
+// input: 觀星 rates a dark clear sky, which is worth going out for with or without
+// the core. Green from 25° up, the altitude milkyway.py's core_up ramp tops out
+// at -- lower than that and the core is looking through too much airmass to
+// photograph, whatever the clouds are doing. From Taiwan it peaks near 37°.
+const GC_ROW = { key: "gcAlt", label: "銀心 (°)", api: "A* alt", scale: [0, 25, false] };
 const ASTRO_ROWS = [
     { key: "sunAlt", label: "太陽 (°)", api: "sun alt", scale: [-18, 0, true] },
     { key: "moonAlt", label: "月亮 (°)", api: "moon alt", scale: [-6, 45, true] },
@@ -999,19 +1025,9 @@ function buildTable(body, params, fromNow) {
         }
     }
 
-    // 天氣 -- only when cloud cover was actually requested.
-    if (coverKey) {
-        const iconRow = addRow("天氣", "", "icon");
-        for (const i of indices) {
-            const td = iconRow.insertCell();
-            markBreak(td, i);
-            td.appendChild(skyIcon(hourly[coverKey][i], astro[i].sunAlt > 0));
-        }
-    }
-
-    // Sun and moon -- computed here, not fetched. The italic second line is what
-    // marks them as not coming from the API.
-    for (const spec of ASTRO_ROWS) {
+    // A locally computed angle/percentage row. The italic second line is what
+    // marks these as not coming from the API.
+    const drawAstroRow = (spec) => {
         const row = addRow(spec.label, spec.api, "calc", "computed in the page, not returned by Open-Meteo");
         for (const i of indices) {
             const td = row.insertCell();
@@ -1024,7 +1040,25 @@ function buildTable(body, params, fromNow) {
                 td.style.color = style.color;
             }
         }
+    };
+
+    // 銀心 -- above 天氣 rather than with the other computed rows: it says whether
+    // the core is even up, which is the second thing to look at after the score.
+    drawAstroRow(GC_ROW);
+
+    // 天氣 -- only when cloud cover was actually requested.
+    if (coverKey) {
+        const iconRow = addRow("天氣", "", "icon");
+        for (const i of indices) {
+            const td = iconRow.insertCell();
+            markBreak(td, i);
+            td.appendChild(skyIcon(hourly[coverKey][i], astro[i].sunAlt > 0));
+        }
     }
+
+    // Sun, moon and core all render the same way, so 銀心 above 天氣 and the three
+    // rows below it share one routine.
+    for (const spec of ASTRO_ROWS) drawAstroRow(spec);
 
     // One row per requested variable, in the order they were asked for.
     for (const name of varsFromParams(params)) {

@@ -206,7 +206,7 @@ of them:
 | `PLACES`, `DEFAULT_LAT`/`DEFAULT_LON` | **not duplicated** — root `places.js`, loaded by all 4 pages |
 | The `countryName/principalSubdivision/city/locality` join | `astro_score/astro-score_readable.html` (`reverseGeocode()`) + `bigdatacloud/reverse-geocode.html` (`placeName()`) |
 | `reverseGeocode()` / `appendPlaceName()` (the *deferred, never-awaited* lookup) | `astro_score/astro-score_readable.html` only; **never** either `open_meteo/` page |
-| Meeus solar/lunar series (`太陽`/`月亮`/`月相` rows) | `astro_score/astro-score_readable.html` + `astro_score/milkyway.py` — both in `astro_score/`, none in `open_meteo/` |
+| Meeus solar/lunar series + `GC_RA`/`GC_DEC` (`太陽`/`月亮`/`月相`/`銀心` rows) | `astro_score/astro-score_readable.html` + `astro_score/milkyway.py` — both in `astro_score/`, none in `open_meteo/` |
 | `LABELS`, `API_SHORT`, `UNIT_SHORT`, grid rendering | the 2 grid pages |
 | `HOURLY_VARS`, `MODELS`, `DEFAULT_EXTRA`, `DEFAULT_LAT`/`DEFAULT_LON` | `open-meteo*.html` only — `astro-score_readable.html` deliberately overrides all of these |
 
@@ -253,7 +253,11 @@ night does), `models` (`icon_global` alone) and drops
 `forecast_days`, `timezone` and the location remain. One model means no tabs and **bare
 series keys**, which `seriesKey()` already resolves, and the response drops to
 ~7.0 KB / 168 hours from ~64 KB / 336. The 觀星 row goes between 時間 and 天氣, green
-label, tinted `[0, 100, false]` so 100 is green. Its score is
+label, tinted `[0, 100, false]` so 100 is green, and the `銀心` row sits between the
+two — galactic core altitude from the same `GC_RA`/`GC_DEC` as `milkyway.py`, tinted
+`[0, 25, false]` after that file's `core_up` ramp. It is drawn by `drawAstroRow()`,
+the same routine the `ASTRO_ROWS` below 天氣 use, and is **display only**:
+`astroScore()` does not read it, so a core below the horizon does not lower the score. Its score is
 `(100 − 雲量) × (100 − moonPenalty) / 100`, zeroed outright when the sun is above −10°,
 where `moonPenalty` ramps 0→100 as moon altitude goes 0°→10° (`MOON_KILL_ALT`) and is 0
 below the horizon — altitude only, so 月相 is left on screen to judge illumination by eye.
