@@ -13,7 +13,9 @@ what it does and how to run it.
 ## Conventions when adding or editing snippets
 
 - **One folder per snippet.** Keep everything a snippet needs inside its folder. Do not
-  introduce cross-snippet imports or a shared root package.
+  introduce cross-snippet imports or a shared root package. **There is exactly one
+  sanctioned exception:** root `places.js`, the saved stargazing spots shared by all
+  three demo pages (see below). Do not widen it — nothing else moves to the root.
 - **Each snippet folder gets its own `README.md`**, and the new snippet must be added as a
   row to the table in the root `README.md`.
 - **Parallel implementations stay equivalent.** Some snippets ship the same logic in
@@ -30,13 +32,16 @@ what it does and how to run it.
 ## Demo pages (GitLab / GitHub Pages)
 
 The repo root is also published as a static site: `.gitlab-ci.yml` copies the HTML,
-`favicon.svg`, `robots.txt` and each demo folder into `public/`, while
+`favicon.svg`, `places.js`, `robots.txt` and each demo folder into `public/`, while
 `.github/workflows/deploy.yml` uploads the whole tree — both on push to `main`/`master`.
 Navigation is two levels of list page: root `index.html` links to one
 `<snippet>/index.html` per snippet folder, and that folder list links to one page per
 demo, **named after the script it ports** (`open_meteo/open-meteo.html` ports
 `open_meteo/open-meteo.py`); an alternate view of the same script adds a `_suffix`
-(`open-meteo_readable.html`). List pages carry no logic — they are the same small card
+(`open-meteo_readable.html`). The one exception is
+`astro_score/astro-score_readable.html`, a re-scoped fork of
+`open_meteo/open-meteo_readable.html` rather than a port of one script, so it takes
+its folder's name. List pages carry no logic — they are the same small card
 markup, differing only in title and links.
 
 **Adding a demo means: a `<snippet>/<script-name>.html` page, a link on that folder's
@@ -82,15 +87,42 @@ both scripts relax `ssl.VERIFY_X509_STRICT` (Python 3.13 default) via a custom
 
 ## open_meteo specifics
 
-`open-meteo.html` is the browser port of `open-meteo.py` (see "Demo pages"), listed as
-**open-meteo API** on `index.html`, which is only this folder's list page. Form fields stand
-in for the CLI arguments and it reproduces the script's URL construction exactly —
+Plain Open-Meteo API demo: `open-meteo.py` and its two browser ports,
+`open-meteo.html` (raw JSON, listed as **open-meteo API**) and
+`open-meteo_readable.html` (hour-by-hour grid). The stargazing scorer that used to
+live here is now `astro_score/` — see below; the two folders are deliberately
+independent copies, not a shared library, per the one-folder-per-snippet rule.
+
+**`open-meteo.html` shows the API response and nothing else.** It has no
+`reverseGeocode()` / `appendPlaceName()` — that was deliberately stripped so the
+page reflects only what Open-Meteo returned.
+
+**Neither `open_meteo/` page shows anything Open-Meteo did not return.** The same
+rule was then applied to `open-meteo_readable.html`: its place name and its
+`太陽`/`月亮`/`月相` rows are gone too, and the Meeus astronomy went with them. What
+the grid draws is API series and nothing else. Do not reintroduce a second service
+or a locally computed row here — `astro_score/astro-score_readable.html` is where
+both belong, and it still has them.
+
+That is why `is_day` is in `HOURLY_VARS`: the 天氣 glyphs need day from night, and
+with no local solar altitude left, the API's own series is the only source. It is
+the eleventh variable, one more than `open-meteo.py` asks for. If `is_day` is
+dropped from the hourly box the glyphs fall back to the daytime set rather than
+guessing from the hour.
+
+`open-meteo.py` is the bare API demo: it builds the request URL itself with
+`urlencode(params, safe=",")` and requests that exact string, so the `get_para` key it
+adds to the response is the real URL rather than a reconstruction (`requests` would
+percent-encode the commas in the `hourly`/`models` lists). It returns API errors instead
+of raising, prints request metadata to stderr so stdout stays pipeable JSON, and exits 1
+on a non-2xx. Note the filename is hyphenated, so it is a script only — not importable.
+
+`open-meteo.html` reproduces the script's URL construction exactly —
 `encodeURIComponent` with `%2C` mapped back to a literal comma and `%20` to `+`, matching
 `urlencode(params, safe=",")` byte for byte — so `get_para` stays the real request URL.
 Like the script, it displays an API error body instead of throwing.
 
-`open-meteo_readable.html` issues the same request (its request core is copied from
-`open-meteo.html` verbatim — change one, change all three) and renders the response as an
+`open-meteo_readable.html` issues the same request and renders the response as an
 hour-by-hour grid: a tab per model, a row per `hourly` variable, colour-graded cells, a
 sticky label column and horizontal scroll. It is the page that has to cope with the
 suffixing rule at runtime, so `seriesKey()` accepts both `<var>_<model>` and bare `<var>`.
@@ -100,6 +132,13 @@ the **literal string `"undefined"`** (so with the default four models, three of 
 `visibility` tabs are a row of dashes) — and `forecast_days` starts the series at 00:00
 local, so past hours are trimmed using `utc_offset_seconds` (the 從現在開始 checkbox).
 
+Row labels are deliberately terse (`LABELS`, `API_SHORT`, `UNIT_SHORT`): the label column
+is `position: sticky`, so its width is subtracted from every scroll position — abbreviating
+took it from 184px to 103px and bought two more hours on screen, which matters most on a
+phone. The full API name lives on the `title` attribute, and an unlisted variable falls
+back to its own (long, but never wrong) name. Keep new labels to two or three CJK
+characters.
+
 `DEFAULT_EXTRA` prefills two lines into the extra-params box — kept there, not in
 `defaultParams()`, so the request core stays identical to the script:
 
@@ -107,9 +146,9 @@ local, so past hours are trimmed using `utc_offset_seconds` (the 從現在開始
   `hourly`**, so four models return twelve daily series; they are pure astronomy, so every
   model's `moon_phase` is byte-identical and sunrise/sunset differ only by grid-point
   rounding. The readable grid renders `hourly` only, so this surfaces in the raw JSON panel
-  alone — it is a cross-check, never a data source: the 太陽/月亮/月相 rows come from the
-  page's own Meeus port, so clearing the line changes nothing on screen. The extra-params
-  hint says so, on both pages.
+  alone — no `open_meteo/` page reads it, so clearing the line changes nothing on screen.
+  It is pure cross-check material now that the grid has no sun/moon rows of its own; the
+  extra-params hint on both pages says so.
 - `past_days=7`, which takes the response from ~33 KB / 168 hours to ~64 KB / 336 hours
   (billing counts time range, not just variables). The API accepts `past_days` up to **93**,
   but the models keep only a rolling ~2-month archive (the JMA models shortest,
@@ -117,27 +156,6 @@ local, so past hours are trimmed using `utc_offset_seconds` (the 從現在開始
   the response is ~300 KB / 1632 hours and the 從現在開始 trim is what keeps the grid usable:
   unticked that is 68 day groups, ~24,500 cells. Anything iterating the whole series should
   assume that scale is reachable from the form.
-
-**The two pages share their whole form**, so switching between raw JSON and the grid needs
-no retyping — `PLACES`, `DEFAULT_LAT`/`DEFAULT_LON`, `HOURLY_VARS`, `MODELS`,
-`DEFAULT_EXTRA`, the `.locrow`/`.place` CSS and `buildPlaces()`/`markActivePlace()` are
-duplicated verbatim in both. **Edit one and you must edit the other**; there is no shared
-file, by the one-folder-per-snippet rule. `milkyway_readable.html` is a third copy of
-`PLACES`, the saved-spot CSS and `buildPlaces()`/`markActivePlace()` — but *not* of
-`HOURLY_VARS`/`MODELS`/`DEFAULT_EXTRA`, which it deliberately overrides.
-
-All three pages also carry a verbatim copy of `reverseGeocode()`/`appendPlaceName()`,
-which puts `countryName/principalSubdivision/city/locality` (e.g.
-中華民國/宜蘭縣/南澳鄉/蘇澳鎮) on a **second meta line** from BigDataCloud's keyless,
-CORS-enabled `reverse-geocode-client`. The break is a `<br>` node appended to the
-element, not a `\n` in the text — `.meta` wraps normally, so a newline would render
-as a space. It is sent the **requested** lat/lon, not the
-response's grid point — the two can name different townships. The lookup is fired
-after the result renders and never awaited, so it re-checks the meta text before
-appending and skips it if a newer fetch has replaced the line; any failure resolves
-to an empty string and leaves the line alone. It is a label, never data: nothing on
-screen depends on it, and `open-meteo.py` has no equivalent, so this is the one place
-`open-meteo.html`'s meta line deliberately says more than the script's stderr summary.
 
 Three of those defaults intentionally differ from `open-meteo.py`. The request *machinery*
 (`buildUrl`, `fetchForecast`, `paramsFromForm`) is still a byte-for-byte port, and any
@@ -153,38 +171,79 @@ The location field sits **last in the form, directly above Fetch**, out of norma
 parameter order on purpose: it is the only field a user changes, so it belongs next to the
 button rather than at the top above five fields nobody edits. Keep it there.
 
-`PLACES` drives both the default location and the buttons beside the location box; adding a
-spot is one row there and nothing else, and reordering it changes what the pages open on.
+`PLACES` drives both the default location and the buttons beside the location box, and it
+lives in **root `places.js`**, not in the pages — each page loads it with
+`<script src="../places.js"></script>` immediately before its own inline script, and
+`DEFAULT_LAT`/`DEFAULT_LON` are destructured from `PLACES[0]` in that same file. Adding,
+removing or reordering a spot is a one-line change there and nowhere else, and reordering
+changes what every page opens on. It is a **classic script on purpose** — `type="module"`
+would be fetched under CORS rules and break `file://`, which the READMEs offer as a way to
+run the pages with no server; a top-level `const` in a classic script is visible to the
+inline script that follows it. Because it sits outside the demo folders, `.gitlab-ci.yml`
+needs its own `cp places.js public/` line (the GitHub workflow uploads the whole tree).
 Clicking a button fills the box **and refetches** — leaving a stale result under a new
 location would misrepresent it. The buttons only reflect the box, so a hand-typed
 coordinate leaves all of them unpressed. Note a click while a fetch is in flight is a
 silent no-op: `requestSubmit()` does nothing while the submit button is disabled.
 
-Row labels are deliberately terse (`LABELS`, `API_SHORT`, `UNIT_SHORT`): the label column
-is `position: sticky`, so its width is subtracted from every scroll position — abbreviating
-took it from 184px to 103px and bought two more hours on screen, which matters most on a
-phone. The full API name lives on the `title` attribute, and an unlisted variable falls
-back to its own (long, but never wrong) name. Keep new labels to two or three CJK
-characters.
+## What is duplicated across open_meteo/ and astro_score/
 
-It also carries a JavaScript port of the Meeus solar/lunar series from `milkyway.py` (sun
-and moon altitude, moon illumination) for the 太陽/月亮/月相 rows, which Open-Meteo
-cannot supply — it offers only sunrise/sunset and `daily=moon_phase`. **This is a fourth
-parallel implementation: it is verified to agree with `milkyway.py` to four decimal places,
-so changing the astronomy in either means re-checking both.** `julianDay()` uses the Unix
-epoch (JD 2440587.5) instead of the Python's Gregorian calendar arithmetic; the two are
-exactly equivalent. Because these rows depend only on place and time they are identical on
-every model tab, and the solar altitude — not an `is_day` series or an hour-of-day rule —
-is what makes the 天氣 icons switch between sun and moon.
+There are **three demo pages** built on one request core, and no shared file — by the
+one-folder-per-snippet rule, keeping them in step is a manual discipline. The three are
+`open_meteo/open-meteo.html`, `open_meteo/open-meteo_readable.html` and
+`astro_score/astro-score_readable.html`. Know which blocks are copies before editing any
+of them:
 
-`milkyway_readable.html` is that grid stripped to what stargazing needs, and so is a
-**fourth copy of the request core and a third copy of the Meeus astronomy** — the same
-edit-one-edit-all rule applies to both. It fixes `hourly` (the four cloud decks only),
-`models` (`icon_global` alone) and drops `DEFAULT_EXTRA` entirely, removing those three
-textareas from the form; only `forecast_days`, `timezone` and the location remain. One
-model means no tabs and **bare series keys**, which `seriesKey()` already resolves, and the
-response drops to ~5.7 KB / 168 hours from ~64 KB / 336. The 銀河 row goes between 時間
-and 天氣, green label, tinted `[0, 100, false]` so 100 is green. Its score is
+| Block | Copies |
+| --- | --- |
+| Request core (`buildUrl`, `fetchForecast`, `paramsFromForm`, `FORECAST_URL`) | all 3 pages + `open_meteo/open-meteo.py` |
+| `.locrow`/`.place` CSS, `buildPlaces()` / `markActivePlace()` | all 3 pages |
+| `PLACES`, `DEFAULT_LAT`/`DEFAULT_LON` | **not duplicated** — root `places.js`, loaded by all 3 pages |
+| `reverseGeocode()` / `appendPlaceName()` | **not duplicated** — `astro_score/astro-score_readable.html` only; **never** either `open_meteo/` page |
+| Meeus solar/lunar series (`太陽`/`月亮`/`月相` rows) | `astro_score/astro-score_readable.html` + `astro_score/milkyway.py` — both in `astro_score/`, none in `open_meteo/` |
+| `LABELS`, `API_SHORT`, `UNIT_SHORT`, grid rendering | the 2 grid pages |
+| `HOURLY_VARS`, `MODELS`, `DEFAULT_EXTRA`, `DEFAULT_LAT`/`DEFAULT_LON` | `open-meteo*.html` only — `astro-score_readable.html` deliberately overrides all of these |
+
+**Edit one and you must edit the others in its row.**
+
+The Meeus row is the strictest: the JavaScript is **verified to agree with `milkyway.py`
+to four decimal places**, so changing the astronomy in either means re-checking both. `julianDay()` uses the Unix epoch (JD 2440587.5) instead of the Python's
+Gregorian calendar arithmetic; the two are exactly equivalent.
+
+`reverseGeocode()` puts `countryName/principalSubdivision/city/locality` (e.g.
+中華民國/宜蘭縣/南澳鄉/蘇澳鎮) on a **second meta line** from BigDataCloud's keyless,
+CORS-enabled `reverse-geocode-client`. The break is a `<br>` node appended to the
+element, not a `\n` in the text — `.meta` wraps normally, so a newline would render
+as a space. It is sent the **requested** lat/lon, not the response's grid point — the two
+can name different townships. The lookup is fired after the result renders and never
+awaited, so it re-checks the meta text before appending and skips it if a newer fetch has
+replaced the line; any failure resolves to an empty string and leaves the line alone. It
+is a label, never data: nothing on screen depends on it. Only
+`astro_score/astro-score_readable.html` has it; both `open_meteo/` pages deliberately do
+not, so their meta line says exactly what `open-meteo.py` prints to stderr and no more.
+
+## astro_score specifics
+
+Stargazing and Milky Way scoring: `milkyway.py` and one demo page,
+`astro-score_readable.html` (listed as **AstroScore readable**). That page was
+`milkyway_readable.html` until the folder was renamed; two carried-over forks of the
+`open_meteo/` pages were deleted at the same time, so the folder now holds exactly one
+page. It is named after the folder rather than a script because it is a re-scoped fork of
+`open_meteo/open-meteo_readable.html`, not a port of one script. See the duplication table
+above before editing it.
+
+**Its user-facing vocabulary is 觀星 / AstroScore, not 銀河 / milky way** — the score row
+is `觀星 (%)` with the API sub-label `AstroScore`, and the scoring function is
+`astroScore()`. Only comments that point at the Python file still say `milkyway.py`, which
+is correct: that file kept its name.
+
+`astro-score_readable.html` is the `*_readable` grid stripped to what stargazing needs. It
+fixes `hourly` (the four cloud decks only), `models` (`icon_global` alone) and drops
+`DEFAULT_EXTRA` entirely, removing those three textareas from the form; only
+`forecast_days`, `timezone` and the location remain. One model means no tabs and **bare
+series keys**, which `seriesKey()` already resolves, and the response drops to
+~5.7 KB / 168 hours from ~64 KB / 336. The 觀星 row goes between 時間 and 天氣, green
+label, tinted `[0, 100, false]` so 100 is green. Its score is
 `(100 − 雲量) × (100 − moonPenalty) / 100`, zeroed outright when the sun is above −10°,
 where `moonPenalty` ramps 0→100 as moon altitude goes 0°→10° (`MOON_KILL_ALT`) and is 0
 below the horizon — altitude only, so 月相 is left on screen to judge illumination by eye.
@@ -194,13 +253,6 @@ is **deliberately not** a port of `sky_quality()` — a rule of thumb the user i
 revising, so the two are free to disagree. The astronomy underneath it is the shared part,
 and is not.
 
-`open-meteo.py` is the bare API demo: it builds the request URL itself with
-`urlencode(params, safe=",")` and requests that exact string, so the `get_para` key it
-adds to the response is the real URL rather than a reconstruction (`requests` would
-percent-encode the commas in the `hourly`/`models` lists). It returns API errors instead
-of raising, prints request metadata to stderr so stdout stays pipeable JSON, and exits 1
-on a non-2xx. Note the filename is hyphenated, so it is a script only — not importable.
-
 `milkyway.py` scores each upcoming hour for Milky Way astrophotography at a `lat,lon`.
 No API key — Open-Meteo's free tier is keyless (10,000 calls/day), so there is nothing to
 read from `config.yml`. It queries `hourly=` cloud/moisture variables with
@@ -208,10 +260,11 @@ read from `config.yml`. It queries `hourly=` cloud/moisture variables with
 its model name (`cloud_cover_gfs_global`) — and not every model publishes every variable
 (of the four, **only gfs returns `visibility`**; `precipitation_probability` is null for
 jma), so `_hour_vars()` fills gaps from the ensemble mean, which for `visibility` means
-gfs on its own. The model list is shared by `open-meteo.py` and both `open-meteo*.html`
-pages (**not** `milkyway_readable.html`, which fixes `icon_global` alone), and its order is
-the order rows/tabs appear in, so keep the four in step. `jma_seamless` rather than
-`jma_msm` is deliberate: MSM is 0.05° ≈ 5 km over Taiwan but its domain stops near
+gfs on its own. The model list is shared with `open_meteo/open-meteo.py` and both
+`open_meteo/open-meteo*.html` pages (**not** `astro-score_readable.html`, which fixes
+`icon_global` alone), and its order is the order rows/tabs appear in, so keep the four in
+step across both folders. `jma_seamless` rather
+than `jma_msm` is deliberate: MSM is 0.05° ≈ 5 km over Taiwan but its domain stops near
 22.4°N/120°E and it runs dry after ~3 days, and outside either bound the key is **missing
 from the response entirely**, which `fetch_forecast()` would reject; `jma_seamless` is
 identical to MSM where MSM reaches and falls back to GSM elsewhere, so the key always

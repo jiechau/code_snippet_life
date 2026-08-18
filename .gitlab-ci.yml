@@ -4,8 +4,10 @@ pages:
     - mkdir -p public
     - cp *.html public/
     - cp *.svg public/
+    - cp places.js public/
     - cp robots.txt public/
     - cp -r open_meteo public/
+    - cp -r astro_score public/
     - cp -r google_news_url public/
   artifacts:
     paths:

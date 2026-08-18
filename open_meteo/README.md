@@ -3,7 +3,7 @@
 Snippets built on the [Open-Meteo](https://open-meteo.com/) weather API.
 **No API key required** — the free tier allows 10,000 calls/day, 5,000/hour and
 600/minute for non-commercial use. Requests are billed fractionally: more than 10
-weather variables counts as more than one call, so one `milkyway.py` run (10
+weather variables counts as more than one call, so one `open-meteo.py` run (10
 variables × 4 models) bills as a few calls.
 
 **API reference: <https://open-meteo.com/en/docs>** — every variable name used in
@@ -17,13 +17,15 @@ the list to pick from when editing their `hourly` or `extra params` boxes.
   — one call, raw JSON plus the request URL.
 - [open-meteo readable](https://jiechau.github.io/code_snippet_life/open_meteo/open-meteo_readable.html)
   — the same call as an hour-by-hour grid.
-- [milkyway readable](https://jiechau.github.io/code_snippet_life/open_meteo/milkyway_readable.html)
-  — that grid cut down to a stargazing score per hour.
+
+The stargazing scorer that used to live here — `milkyway.py` and its grid — moved
+to [`astro_score/`](../astro_score/README.md); this folder is now the plain API
+demo and nothing else.
 
 ## The four models
 
-Everything in this folder sends the same `&models=` list except
-`milkyway_readable.html`, which asks for `icon_global` alone. These are four
+Everything in this folder sends the same `&models=` list, as does
+`astro_score/milkyway.py`. These are four
 completely separate forecasting systems, each run by
 a different national or intergovernmental weather agency, not four views of one
 dataset:
@@ -71,20 +73,12 @@ Rough reputations:
   `jma_seamless` the finest grid of the four over Taiwan.
 - **GFS** is the freshest, updating hourly, and the most permissively open.
 
-### Weighting (`milkyway.py`)
-
-`sky_quality` is computed **separately for each of the four models** and then
-averaged — the per-model scores are the bottom rows of the hourly grid. The
-script averages all four with **equal weight**, treating them as peers.
-Given ECMWF's track record, weighting it higher would arguably be more accurate;
-equal weighting is kept because unequal weights are hard to justify without
-verifying against actual outcomes. It is a one-line change in `score_hours()`.
-
 Note this is a **multi-model** ensemble — four models, one run each — not a
 single-model ensemble, where one model runs 30–50 times with perturbed initial
 conditions. Open-Meteo exposes those separately via its Ensemble API
-(`ensemble-api.open-meteo.com`), which would allow a true "X% of members show
-clear sky" probability instead of the constructed score used here.
+(`ensemble-api.open-meteo.com`). Nothing in this folder combines the four into a
+single number; `astro_score/milkyway.py` does, and
+[explains how](../astro_score/README.md#weighting-milkywaypy).
 
 ## `open-meteo.py`
 
@@ -98,7 +92,7 @@ uv run open-meteo.py 24.1375,121.2745 forecast_hours=24 # override any query par
 uv run open-meteo.py models= hourly=cloud_cover        # empty value drops a param
 ```
 
-With no arguments it submits the same request `milkyway.py` makes. A bare
+With no arguments it submits the same request `astro_score/milkyway.py` makes. A bare
 `lat,lon` argument sets the location; any `key=value` argument overrides or adds
 a query parameter, and an empty value (`models=`) drops one entirely — useful
 for watching the response shape change when the model list goes away.
@@ -146,9 +140,9 @@ Notes:
 Listed as **open-meteo API** on the folder's index page. A browser port of
 `open-meteo.py` (see the root [`README.md`](../README.md#demo-pages)): submitting
 fetches and re-renders the result below, showing the same one-line request summary
-the script prints to stderr — with the place name appended, see
-[The place name](#the-place-name) below — the request URL as a clickable link, and
-the pretty-printed JSON.
+the script prints to stderr, the request URL as a clickable link, and the
+pretty-printed JSON. **Nothing else** — see
+[Nothing but the API](#nothing-but-the-api), which applies to both pages here.
 
 The form is the same one `open-meteo_readable.html` uses — both pages open on the
 identical request, so you can switch between raw JSON and the grid without
@@ -163,7 +157,7 @@ retyping anything:
     only place they are used: they are echoed in the JSON as a cross-check, while
     the `太陽`/`月亮`/`月相` rows of `open-meteo_readable.html` are computed from
     the location by the page's own astronomy (the Meeus series ported from
-    `milkyway.py`), never read from the response. Clear the line and the grid is
+    `astro_score/milkyway.py`), never read from the response. Clear the line and the grid is
     unchanged.
   - `past_days=7` — extends the series backwards a week, so a forecast can be read
     against what actually happened. It is not free: the response goes from
@@ -180,51 +174,32 @@ retyping anything:
   narrow because that is all it ever holds, with the saved spots beside it: 三總,
   瑞光路, 大崙頭山, 大武崙砲台, 東澳, 烏石港, 暗空公園. Clicking one fills the
   coordinates and refetches; the pressed button shows which spot is displayed, and
-  a hand-typed coordinate presses none. They come from the `PLACES` array, whose
-  first entry is also the default location, so adding or reordering a spot is a
-  one-line change **in both pages**.
+  a hand-typed coordinate presses none. They come from the `PLACES` array in
+  [`../places.js`](../places.js), shared by every demo page in the repo, whose first
+  entry is also the default location — so adding, removing or reordering a spot is a
+  one-line change **in that one file**, and it changes what all three pages open on.
 
-These three defaults deliberately differ from `open-meteo.py`: the location
-(三總 rather than Taipei), the cloud decks listed high → low, and the `daily=`
-line. The request *machinery* is still a byte-for-byte port.
+Four defaults deliberately differ from `open-meteo.py`: the location (三總 rather
+than Taipei), the cloud decks listed high → low, the `daily=` line, and the extra
+`is_day` variable — an eleventh alongside the script's ten, which
+`open-meteo_readable.html` needs to tell day from night for its 天氣 glyphs and
+which is kept here too so both pages still open on the identical request. The
+request *machinery* is still a byte-for-byte port.
 
-### The place name
+### Nothing but the API
 
-All three pages name the place the coordinates fall in, so a bare
-`24.5145,121.8277` reads as somewhere. It goes on a **second line** under the
-request summary, which is long enough already:
+Neither page here shows anything Open-Meteo did not return. There is no reverse
+geocoding of the coordinates into a place name and no locally computed sun/moon
+row: what is on screen is the response, and the meta line says exactly what
+`open-meteo.py` prints to stderr. Both of those features exist — they are on
+[`astro_score/astro-score_readable.html`](../astro_score/README.md), which is the
+page that wants them. Keeping them out of this folder is the point of the split,
+so please do not add a second service's data back in here.
 
-```
-HTTP 200  application/json; charset=utf-8  64087 bytes  1.19s  — Asia/Taipei (GMT+8), 24.625°, 121.75°, 37 m
-中華民國/宜蘭縣/南澳鄉/蘇澳鎮
-```
-
-It is a second API — [BigDataCloud](https://www.bigdatacloud.com/)'s
-`reverse-geocode-client` endpoint — chosen for the same two reasons Open-Meteo
-is usable here: **no key** and `access-control-allow-origin: *`, so it works
-from static hosting. One request per fetch, `localityLanguage=zh`, and the four
-fields `countryName` / `principalSubdivision` / `city` / `locality` joined with
-`/`. Points at sea return a country-less answer (`0,0` is just 大西洋) and the
-last two fields sometimes repeat each other (臺北市 as both), so empty and
-duplicate parts are dropped.
-
-Two things worth knowing:
-
-- **The coordinates sent are the requested ones, not the response's.**
-  Open-Meteo snaps to its model grid, and the gap matters at this zoom level:
-  東澳 (24.5145, 121.8277) is 南澳鄉/蘇澳鎮, while the 24.625, 121.75 grid point
-  the forecast came back on is 冬山鄉 — a different township ~6 km away. The
-  meta line therefore prints the grid point as coordinates and the requested
-  point as a name.
-- **It is a label, never data.** The lookup is fired after the forecast is
-  already on screen, and a failure, a timeout or an empty answer simply leaves
-  the meta block at one line. It also never overwrites a line a newer fetch has since
-  written, so clicking through saved spots cannot leave the wrong name attached.
-
-Results are cached per coordinate for the life of the page, so re-fetching the
-same spot costs nothing. The helper (`reverseGeocode()` / `appendPlaceName()`) is
-duplicated verbatim in all three pages, like the request core — change one,
-change all three.
+The one consequence worth knowing: with no solar altitude computed in the page,
+the 天氣 glyphs get day-vs-night from the API's own `is_day` series instead, which
+is why `is_day` is in the default `hourly` list. Drop it from the box and the
+glyphs fall back to the daytime set rather than guessing from the hour.
 
 `index.html` is just the list page for this folder — one link per demo, reached
 from the root hub. Each demo page is named after the script it ports, so a new
@@ -241,7 +216,8 @@ included — described under that page above), but the response is drawn as an
 hour-by-hour forecast grid instead of raw JSON. The raw JSON and the request URL
 are still there, in a collapsed `raw JSON & request URL` panel at the bottom. The
 meta line above the grid adds the response's timezone, coordinates and elevation
-to the request summary, then the place name ([The place name](#the-place-name)).
+to the request summary. That is the whole meta line — see
+[Nothing but the API](#nothing-but-the-api).
 
 What differs is everything below the form:
 
@@ -258,16 +234,15 @@ What differs is everything below the form:
   falls back to its full API name, so adding one to the `hourly` box still
   works. Because
   row order follows request order, the default lists the cloud decks
-  高雲 → 中雲 → 低雲 (top of the atmosphere downwards); `open-meteo.py` and
-  `open-meteo.html` list them low → high. Same ten variables, different listing
-  order — reorder the `hourly` box to reorder the grid.
-- **Sun and moon rows** (`太陽`, `月亮`, `月相`) sit above the weather rows, their
-  second line set in italics because they are not fetched: Open-Meteo offers only
-  sunrise/sunset and `daily=moon_phase`. The Meeus low-precision series from
-  `milkyway.py` are ported to JavaScript here and agree with the Python to four
-  decimal places. They depend on place and time alone, so they are identical on
-  every model tab. Solar altitude also decides day vs night for the 天氣 icons,
-  which is why the glyphs flip to a moon exactly at sunset.
+  高雲 → 中雲 → 低雲 (top of the atmosphere downwards); `open-meteo.py` lists them
+  low → high. Reorder the `hourly` box to reorder the grid.
+- **A 天氣 glyph row** above the variables, from `cloud_cover` for the sky and the
+  API's `is_day` for day vs night, so the icons switch to a moon after sunset. Both
+  come out of the response; nothing on this grid is computed from the location.
+  There are no `太陽`/`月亮`/`月相` rows — Open-Meteo has no hourly sun or moon
+  altitude, only sunrise/sunset and a daily `moon_phase`, so those rows live on
+  [`astro_score/astro-score_readable.html`](../astro_score/README.md) where they
+  are computed from the Meeus series instead.
 - **Colour is per variable**, green (good) to red (bad) on a per-variable range;
   a variable with no defined range is left uncoloured rather than tinted on a
   wrong scale.
@@ -290,7 +265,7 @@ What differs is everything below the form:
   returns the identical `moon_phase` with sunrise/sunset within a minute. The grid
   renders `hourly` alone, so this shows up in the raw JSON panel only.
 - **從現在開始** drops the already-past hours — `forecast_days` starts the series
-  at 00:00 local, the same trim `score_hours()` does in `milkyway.py`. Local "now"
+  at 00:00 local, the same trim `score_hours()` does in `astro_score/milkyway.py`. Local "now"
   comes from `utc_offset_seconds`. With the default `past_days=7` it hides the 168
   past hours, leaving ~150 of ~336; raise `past_days` to its practical maximum of
   61 and unticking shows all 1632, which is 68 day groups and around 24,500 cells —
@@ -305,206 +280,3 @@ defaults, the same literal-comma URL construction (`encodeURIComponent` with
 `%2C` restored, matching `urlencode(params, safe=",")` byte for byte), the same
 added `get_para` key, and the same policy of *displaying* an API error body
 rather than throwing. Change one and mirror it in the other.
-
-## `milkyway_readable.html`
-
-`open-meteo_readable.html` cut down to one question: **which hours are worth
-going out for.** Same grid, same colouring, same 從現在開始 trim, same saved
-spots, same collapsed raw JSON panel, same place name on the meta line
-([The place name](#the-place-name)) — with a 銀河 score added and everything
-that does not feed it removed.
-
-- **The form is two fields and a location.** `hourly`, `models` and `extra
-  params` are gone, fixed as constants in the page, because there is exactly one
-  request worth making here. Only `forecast_days`, `timezone` and the place
-  remain. `buildUrl()` / `fetchForecast()` / `paramsFromForm()` are still the
-  byte-for-byte port the other pages use; only the constants they are fed differ.
-- **One model, no tabs.** `models=icon_global` alone, so the score has a single
-  unambiguous 雲量 instead of four to reconcile. A single model makes Open-Meteo
-  return **bare** series keys (`cloud_cover`, not `cloud_cover_icon_global`),
-  which `seriesKey()` already handles.
-- **Four variables, not ten.** The cloud decks only —
-  能見度/降雨/濕度/露點/風速/氣溫 are dropped, along with the `daily=` and
-  `past_days=` extras. A 7-day response is about **5.7 KB / 168 hours**, versus
-  ~64 KB / 336 hours on `open-meteo_readable.html`.
-- **The 銀河 row** sits directly under 時間, above 天氣, its label in green. Cells
-  are tinted on the usual scale, inverted — 100 is green.
-
-### The score
-
-Daylight is a hard cutoff, the moon is a ramp, and the rest is just clear sky.
-The page states this formula on itself, above the form:
-
-```
-銀河     = 0                                        if 太陽 > −10°
-月亮扣分 = min(100, max(0, 月亮 / 10 × 100))        0 below the horizon, 100 from +10° up
-銀河     = (100 − 雲量) × (100 − 月亮扣分) / 100    otherwise
-```
-
-Run on a 20%-cloud hour, the moon term is the whole story:
-
-| 雲量 | 月亮 | 計算 | 銀河 |
-| --- | --- | --- | --- |
-| 20 | −5° | `(100−20) × (100−0)   / 100` | **80** — moon down, near enough a clear night |
-| 20 | +2° | `(100−20) × (100−20)  / 100` | **64** — a low moon costs a fifth, not the hour |
-| 20 | +8° | `(100−20) × (100−80)  / 100` | **16** — almost gone |
-| 20 | +10° | `(100−20) × (100−100) / 100` | **0** — moon high enough to write the hour off |
-
-The penalty is **altitude only** — a crescent and a full moon at the same height
-score the same, which is why 月相 stays on screen as its own row to judge by eye.
-
-Sun and moon altitudes come from the same Meeus series as the 太陽/月亮 rows,
-computed in the page. Null cloud cover scores `-`, not 100. The result is
-fractional and displayed rounded.
-
-This is **deliberately not** a port of `sky_quality()` below — it is a simpler
-rule of thumb kept on purpose, so the two are free to disagree. The astronomy
-*is* shared, though: change the Meeus series here or in `milkyway.py` and both
-need re-checking, along with the copy in `open-meteo_readable.html`.
-
-## `milkyway.py`
-
-Answers "is this time suitable for Milky Way astrophotography?" for a GPS
-location, scoring every hour of the next N days from 0–100%.
-
-```bash
-uv run milkyway.py                       # Taipei (default)
-uv run milkyway.py 24.1375,121.2745      # 武嶺 / 合歡山, 7 days
-uv run milkyway.py 24.1375,121.2745 3    # 3 days
-```
-
-Input is `lat,lon` as `argv[1]`; `argv[2]` is the number of forecast days
-(default 7, max 16). The timezone is resolved from the coordinates by the API
-(`timezone=auto`), so it works anywhere, not just Taiwan.
-
-It scores each of the four models separately and averages them — see
-[The four models](#the-four-models) above for what they are and
-[Weighting](#weighting-milkywaypy) for why they are weighted equally.
-
-### Output
-
-First a summary row per night, showing that night's best hour:
-
-```
-各夜最佳時段
-  夜晚        最佳   機率 信心 月相        銀心 雲量 總(低/中/高)    降雨
-  08/18(二)   23:00   22% 低   眉月36%      20° 36 (22/5/7)           59%
-
-最佳時刻 08/18(二) 23:00 機率 22% (信心 低) — 機會不大
-```
-
-Then a full **24-hour grid for every forecast day**, one column per hour, in the
-layout stargazing apps use (abbreviated here — the real output is all 24 hours):
-
-```
-08/17(一) 逐時
-時間      16   17   18   19   20   21   22   23
-                              ·    ·    ·    ·
-機率      0%   0%   0%   0%   9%  11%  13%  12%
-信心       -    -    -    -   中   中   低   低
-銀心     12°  22°  30°  35°  37°  35°  29°  21°
-月亮     53°  47°  38°  27°  15°   3°   落   落
-太陽     32°  18°   5°  -8° -21° -33° -43° -50°
-雲量      54   54   42   33   35   40   48   54
-高雲      17   14   12   11   10    9    9   11
-中雲      12    7    8   10   20   24   26   26
-低雲      44   48   38   31   29   28   31   30
-降雨     43%  50%  59%  67%  69%  72%  69%  64%
-露點差   2.4  2.3  2.2  2.1  2.2  2.2  2.2  2.2
-ecmwf      0    0    0    0   14   15   14   10
-gfs        0    0    0    0   17   23   34   30
-jma        0    0    0    0    1    2    3    5
-icon       0    0    0    0    4    2    3    4
-```
-
-Daylight hours are included so the weather series is continuous, but they score
-0 — the astronomy gates shut them, which the `太陽` and `銀心` rows explain. A
-`·` under the hour marks the hours that clear those gates, i.e. the only ones
-where the score means anything. Today's grid starts at the current hour rather
-than 00:00.
-
-The `月亮` / `太陽` / `銀心` rows are altitude in degrees; `落` means the moon is
-below the horizon and out of the way.
-
-**`0` and `<1` mean different things.** A hard `0` is structural — the sun is
-up, or the core is below the horizon, or a model is forecasting 100% low cloud,
-and no arrangement of the other terms can lift it. `<1` is a dark hour with the
-core up whose score is real but under 0.5%, typically a bright gibbous moon
-multiplied by heavy overcast (`moon_free` ≈ 0.2 × `sky_quality` ≈ 0.01 ≈ 0.2%).
-Both are hopeless in practice; only the first is impossible in principle.
-
-The four bottom rows are each model's own score for that hour, and they are the
-point of the multi-model query. On one of the nights above, `gfs` and `icon` saw
-a usable 22:00–23:00 window (29–45) that `ecmwf` and `jma` flatly rejected
-(2–7) — a four-way split on identical astronomy, which is exactly why those
-hours read `信心 低` despite being the night's best. Averaged into one number,
-that disagreement would have vanished.
-
-Note the two views group differently on purpose: the summary is by **night**
-(hours after midnight belong to the evening they started, so a 01:00 shot is
-filed under the previous date), while the grid is by **calendar day**, since a
-continuous 24-hour weather series is what makes it comparable to an app's
-hourly table.
-
-The 24-column grid is about 127 characters wide, so it wants a reasonably wide
-terminal. Pass a smaller day count (`uv run milkyway.py <lat,lon> 2`) to keep
-the output short.
-
-### How the score works
-
-```
-score = darkness × core_up × moon_free × sky_quality
-```
-
-The first three are **astronomy gates** — any of them can zero the hour, and no
-weather forecast can rescue it. They are computed locally (Meeus low-precision
-solar/lunar series), because Open-Meteo has no astronomy beyond sunrise/sunset
-and `daily=moon_phase`:
-
-| Term | Basis |
-| --- | --- |
-| `darkness` | Sun altitude: 0 above −12°, ramping to 1 at −18° (astronomical night) |
-| `core_up` | Galactic core altitude: 0 below the horizon, ramping to 1 by 25° — near the horizon the core is buried in airmass and ground light |
-| `moon_free` | 0 impact when the moon is below −8°; otherwise scales with illuminated fraction and altitude, slightly relaxed when the moon is far from the core |
-
-`sky_quality` is the **weather** term, from the forecast. Cloud layers are
-treated as independent screens — low cloud blocks completely, mid cloud nearly
-so, and high cirrus still robs the core of contrast, so it carries real weight
-(0.70) rather than being shrugged off. Reported total cover acts only as a
-discounted floor, so an optimistic layer breakdown cannot talk the score up.
-Also folded in: precipitation probability, temperature–dew-point spread (a small
-spread means fog, haze and dew on the front element — the classic ruined
-session), relative humidity above 85%, visibility, and wind (strong wind shakes
-a tripod through a long exposure; dead calm with saturated air is how valleys
-fog in).
-
-### Confidence
-
-`信心` (高/中/低) is deliberately a **separate axis** from the score. It is
-eroded by two things: the spread of the per-model scores, and forecast lead time
-— a unanimous 90% six days out is still a guess.
-
-### Notes and caveats
-
-- Not every model publishes every variable: of the four models only
-  `gfs_global` returns `visibility` (`icon_global`, `jma_seamless` and
-  `ecmwf_ifs025` are all null), and `precipitation_probability` is null for
-  `jma_seamless`. Missing values fall back to the ensemble mean, so one model's
-  silence never makes it look artificially clear — though for `visibility` that
-  mean is gfs on its own.
-- **`MODELS` needs at least two entries.** Open-Meteo only suffixes variable
-  names with the model (`cloud_cover_gfs_global`) when several models are
-  requested; ask for one and the keys come back bare as `cloud_cover`. Left
-  unchecked that degrades silently — every variable reads as `None`, every
-  fallback is neutral, and the script reports a perfect sky at every hour — so
-  `fetch_forecast()` validates the response shape and exits instead.
-- Requesting `&models=…` snaps the coordinate to the model grid, so the echoed
-  lat/lon and elevation may differ slightly from the input.
-- The score says nothing about **light pollution** — it is a sky-conditions
-  score, not a darkness-of-site score. Taipei and a 3,000 m ridge with identical
-  weather score identically. Pick the site yourself.
-- Galactic core coordinates are J2000 (RA 17h45m40.04s, Dec −29°00′28″).
-  Precession since then is well under a degree — far below the accuracy of the
-  low-precision moon series — so they are used as-is.
-- Moon output was cross-checked against Open-Meteo's own `daily=moon_phase`
-  field, which the script does not otherwise use.

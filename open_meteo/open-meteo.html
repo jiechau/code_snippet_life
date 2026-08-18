@@ -163,7 +163,7 @@
                     <textarea id="models" name="models" rows="2" spellcheck="false"></textarea>
                 </div>
                 <div class="field wide">
-                    <label for="extra">extra params <span class="hint">one <code>key=value</code> per line; empty value drops a parameter. <code>daily=sunrise,sunset,moon_phase</code> is only echoed in the JSON &mdash; the readable grid's 太陽/月亮/月相 rows are computed from the location with the page's own astronomy, not read from the response. <code>past_days</code> takes 0&ndash;93, but the models only keep about 61 days of history &mdash; past that the hours come back empty</span></label>
+                    <label for="extra">extra params <span class="hint">one <code>key=value</code> per line; empty value drops a parameter. <code>daily=sunrise,sunset,moon_phase</code> is only echoed in the JSON. <code>past_days</code> takes 0&ndash;93, but the models only keep about 61 days of history &mdash; past that the hours come back empty</span></label>
                     <textarea id="extra" name="extra" rows="2" spellcheck="false" placeholder="forecast_hours=24"></textarea>
                 </div>
                 <div class="field wide">
@@ -188,34 +188,29 @@
         </div>
     </div>
 
+<script src="../places.js"></script>
 <script>
 "use strict";
 
 // Kept in step with open-meteo.py -- same endpoint, same URL construction, and
-// the same "return the error body instead of throwing" behaviour. The block of
-// form defaults below is instead shared with open-meteo_readable.html, so the
-// two pages open on the same request; see the README for what that changes
-// relative to the script.
+// the same "return the error body instead of throwing" behaviour. This request
+// core is copied verbatim into open-meteo_readable.html and into
+// astro_score/astro-score_readable.html -- three copies plus the script, so
+// change one, change all.
+// The block of form defaults below is instead shared with
+// open-meteo_readable.html, so the two pages open on the same request; see the
+// README for what that changes relative to the script.
 const FORECAST_URL = "https://api.open-meteo.com/v1/forecast";
 
-// Saved spots, offered as buttons beside the location box. The first is the
-// default location, so reordering this list changes what the page opens on.
-const PLACES = [
-    ["三總", 25.070602, 121.592399],
-    ["瑞光路", 25.0781166, 121.5703769],
-    ["大崙頭山", 25.1069116, 121.5809382],
-    ["大武崙砲台", 25.1478735, 121.6547311],
-    ["東澳", 24.5145449, 121.8277122],
-    ["烏石港", 24.870683, 121.839613],
-    ["暗空公園", 24.1182852, 121.2350106],
-];
-
-const [, DEFAULT_LAT, DEFAULT_LON] = PLACES[0];
+// PLACES (the saved spots offered as buttons beside the location box) and the
+// DEFAULT_LAT/DEFAULT_LON derived from its first entry come from ../places.js,
+// loaded just above. Add or reorder a spot there, not here.
 const DEFAULT_DAYS = 7;
 
 // Cloud decks run high -> mid -> low to match the row order of the grid in
 // open-meteo_readable.html; open-meteo.py lists them low -> high. Same ten
-// variables either way.
+// weather variables either way -- plus is_day, which only the grid needs but
+// which is kept here too so both pages still open on the identical request.
 const HOURLY_VARS = [
     "cloud_cover",
     "cloud_cover_high",
@@ -227,6 +222,11 @@ const HOURLY_VARS = [
     "dew_point_2m",
     "wind_speed_10m",
     "temperature_2m",
+    // Eleventh variable, one more than open-meteo.py asks for: the grid's 天氣
+    // glyphs need to know day from night, and this is the only place Open-Meteo
+    // says so. Nothing here is computed from the location any more, so without
+    // it the row would show a sun at midnight.
+    "is_day",
 ];
 
 const MODELS = ["icon_global", "jma_seamless", "gfs_global", "ecmwf_ifs025"];
@@ -251,7 +251,7 @@ const DEFAULT_EXTRA = [
     "past_days=7",
 ].join("\n");
 
-/** The request milkyway.py makes, as a plain object. */
+/** The request astro_score/milkyway.py makes, as a plain object. */
 function defaultParams(lat, lon, days = DEFAULT_DAYS) {
     return {
         latitude: lat,
@@ -318,64 +318,6 @@ async function fetchForecast(params, timeoutMs = 30000) {
         bytes: new TextEncoder().encode(text).length,
         seconds,
     };
-}
-
-/** BigDataCloud's reverse geocoder: keyless, CORS-enabled, free client-side. */
-const GEOCODE_URL = "https://api.bigdatacloud.net/data/reverse-geocode-client";
-const geocodeCache = new Map();
-
-/**
- * Turn a lat,lon into a readable place name for the meta line, e.g.
- * 中華民國/宜蘭縣/南澳鄉/蘇澳鎮 -- countryName, principalSubdivision, city and
- * locality, in that order.
- *
- * The coordinates are the requested ones, not the response's: Open-Meteo answers
- * with the nearest grid point (24.625, 121.75 for a spot at 24.5145, 121.8277),
- * which is up to ~6 km away and can sit in a different township. Sparse areas
- * and open water leave some of the four fields empty, and the last two can
- * repeat each other, so blanks and duplicates are dropped rather than shown.
- *
- * This is a label, never data: any failure resolves to "" and the meta line is
- * left exactly as the forecast wrote it.
- */
-async function reverseGeocode(lat, lon, timeoutMs = 10000) {
-    const key = `${lat},${lon}`;
-    if (geocodeCache.has(key)) return geocodeCache.get(key);
-
-    const url = `${GEOCODE_URL}?latitude=${encodeURIComponent(lat)}` +
-        `&longitude=${encodeURIComponent(lon)}&localityLanguage=zh`;
-    let name = "";
-    try {
-        const resp = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
-        if (resp.ok) {
-            const body = await resp.json();
-            name = [body.countryName, body.principalSubdivision, body.city, body.locality]
-                .filter((part, i, all) => part && all.indexOf(part) === i)
-                .join("/");
-        }
-    } catch {
-        // Timed out or offline. The forecast itself is unaffected, so stay quiet.
-    }
-    geocodeCache.set(key, name);
-    return name;
-}
-
-/**
- * Add the place name under a meta line once the lookup returns, as a second
- * line of its own -- the request summary is already long, and the name reads
- * better without it. Deliberately not awaited by the caller (the forecast is on
- * screen by then), so it re-checks the line first and gives up if a newer fetch
- * has replaced it.
- */
-function appendPlaceName(metaEl, lat, lon) {
-    const line = metaEl.textContent;
-    reverseGeocode(lat, lon).then((name) => {
-        if (!name || metaEl.textContent !== line) return;
-        // A <br>, not a "\n": .meta wraps normally, so a newline character in
-        // the text would come out as an ordinary space.
-        metaEl.appendChild(document.createElement("br"));
-        metaEl.appendChild(document.createTextNode(name));
-    });
 }
 
 /**
@@ -504,18 +446,14 @@ document.getElementById("form").addEventListener("submit", async (event) => {
 
     try {
         const r = await fetchForecast(params);
-        // Same one-line summary open-meteo.py prints to stderr, plus the place
-        // name -- which the script has no equivalent of, being a second request
-        // to a second API purely for the reader's benefit.
+        // The same one-line summary open-meteo.py prints to stderr. Nothing is
+        // added to it: this page shows what the API returned and nothing else.
         show({
             meta: `HTTP ${r.status}  ${r.contentType}  ${r.bytes} bytes  ${r.seconds.toFixed(2)}s`,
             isError: !r.ok,
             url: r.url,
             json: JSON.stringify(r.body, null, 2),
         });
-        if (r.ok) {
-            appendPlaceName(document.getElementById("meta"), params.latitude, params.longitude);
-        }
     } catch (err) {
         // Network-level failure -- no response at all, so nothing to show but why.
         show({

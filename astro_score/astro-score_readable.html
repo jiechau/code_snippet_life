@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex, nocache">
-    <title>milkyway readable &mdash; open_meteo</title>
+    <title>AstroScore readable &mdash; astro_score</title>
     <link rel="icon" href="../favicon.svg" type="image/svg+xml">
     <style>
         :root {
@@ -37,7 +37,7 @@
         a.back { color: var(--accent); text-decoration: none; font-size: 0.9rem; }
         a.back:hover { text-decoration: underline; }
 
-        /* The scoring rule, spelled out on the page: the number in the 銀河 row
+        /* The scoring rule, spelled out on the page: the number in the 觀星 row
            is the whole point of the page, and it is not one a reader can guess. */
         .rule {
             margin: 0 0 22px;
@@ -240,12 +240,12 @@
 </head>
 <body>
     <div class="container">
-        <a class="back" href="index.html">&larr; open_meteo</a>
-        <h1>milkyway <span style="color:#777;font-weight:400;">readable</span></h1>
+        <a class="back" href="index.html">&larr; astro_score</a>
+        <h1>AstroScore <span style="color:#777;font-weight:400;">readable</span></h1>
         <p class="sub">
             Which hours are worth going out for, drawn as the same grid as
-            <a href="open-meteo_readable.html">open-meteo_readable.html</a> with a
-            <strong style="color:#1e8449;">銀河</strong> score on top. Dark sky, moon low or down, few
+            <a href="../open_meteo/open-meteo_readable.html">open-meteo_readable.html</a> with a
+            <strong style="color:#1e8449;">觀星</strong> score on top. Dark sky, moon low or down, few
             clouds &mdash; nothing else. The variables, the model and the extra parameters are fixed, so the
             only things to set are the place and how far ahead to look. Scroll the grid sideways for
             later hours. No API key needed. Variable names and model ids come from the
@@ -254,11 +254,11 @@
         </p>
 
         <div class="rule">
-            <span class="formula">銀河 = 0
+            <span class="formula">觀星 = 0
                 <span class="gloss">&nbsp; if 太陽 &gt; &minus;10&deg; &mdash; daylight or bright twilight is out, whatever the sky looks like</span></span>
             <span class="formula">月亮扣分 = min(100, max(0, 月亮 / 10 &times; 100))
                 <span class="gloss">&nbsp; 0 at or below the horizon, 100 from +10&deg; up</span></span>
-            <span class="formula">銀河 = (100 &minus; 雲量) &times; (100 &minus; 月亮扣分) / 100
+            <span class="formula">觀星 = (100 &minus; 雲量) &times; (100 &minus; 月亮扣分) / 100
                 <span class="gloss">&nbsp; otherwise</span></span>
             <div class="example">
                 <div>雲量 20, 月亮 &minus;5&deg;  &rarr;  (100&minus;20) &times; (100&minus;<b>0</b>)   / 100 = <b>80</b>   moon down, near enough a clear night</div>
@@ -271,6 +271,11 @@
                     alike, so read the 月相 row alongside it.</li>
                 <li><b>雲量</b> is total cloud cover from <code>icon_global</code>; the deck rows below are
                     for context and do not enter the score.</li>
+                <li>The <b>太陽/月亮/月相</b> rows are computed from the location with this page's own
+                    astronomy, not read from the response &mdash; Open-Meteo returns only sunrise/sunset
+                    and a daily <code>moon_phase</code>, neither of which is an hourly altitude. They are
+                    the same Meeus series <code>milkyway.py</code> uses, and they are what the score above
+                    is built on.</li>
             </ul>
         </div>
 
@@ -311,13 +316,14 @@
         </div>
     </div>
 
+<script src="../places.js"></script>
 <script>
 "use strict";
 
 /* ------------------------------------------------------------------ *
- * Request core -- identical to open-meteo.html and
- * open-meteo_readable.html, which are the browser port of
- * open-meteo.py. Keep all four in step.
+ * Request core -- identical to both open_meteo/ pages, which are the
+ * browser ports of open_meteo/open-meteo.py. Three copies plus the
+ * script: change one, change all.
  *
  * What differs here is only the constants below: one model, four cloud
  * variables, no extra parameters. buildUrl/fetchForecast/paramsFromForm
@@ -326,19 +332,9 @@
 
 const FORECAST_URL = "https://api.open-meteo.com/v1/forecast";
 
-// Saved spots, offered as buttons beside the location box. The first is the
-// default location, so reordering this list changes what the page opens on.
-const PLACES = [
-    ["三總", 25.070602, 121.592399],
-    ["瑞光路", 25.0781166, 121.5703769],
-    ["大崙頭山", 25.1069116, 121.5809382],
-    ["大武崙砲台", 25.1478735, 121.6547311],
-    ["東澳", 24.5145449, 121.8277122],
-    ["烏石港", 24.870683, 121.839613],
-    ["暗空公園", 24.1182852, 121.2350106],
-];
-
-const [, DEFAULT_LAT, DEFAULT_LON] = PLACES[0];
+// PLACES (the saved spots offered as buttons beside the location box) and the
+// DEFAULT_LAT/DEFAULT_LON derived from its first entry come from ../places.js,
+// loaded just above. Add or reorder a spot there, not here.
 const DEFAULT_DAYS = 7;
 
 // Only the cloud decks: this page drops 能見度/降雨/濕度/露點/風速/氣溫, which the
@@ -716,13 +712,13 @@ function moonPenalty(moonAlt) {
 }
 
 /**
- * 銀河, 0..100 -- deliberately much simpler than milkyway.py's sky_quality().
+ * 觀星, 0..100 -- deliberately much simpler than milkyway.py's sky_quality().
  *
  * Daylight or twilight is out flat; what is left is the clear fraction of the
  * sky, scaled down by how high the moon is. Null cloud cover scores nothing
  * rather than 100.
  */
-function milkywayScore(sunAlt, moonAlt, cover) {
+function astroScore(sunAlt, moonAlt, cover) {
     if (cover === null || cover === undefined) return null;
     if (sunAlt > DARK_SUN_ALT) return 0;
     return (100 - Number(cover)) * (100 - moonPenalty(moonAlt)) / 100;
@@ -762,7 +758,7 @@ const UNIT_SHORT = {
 // Locally computed rows, drawn above the API variables: the score first, since
 // it is what the page is for, then the three inputs it is made of. Scales are
 // read for stargazing: sun well below the horizon, moon down, moon dark.
-const SCORE_ROW = { label: "銀河 (%)", api: "milky way", scale: [0, 100, false] };
+const SCORE_ROW = { label: "觀星 (%)", api: "AstroScore", scale: [0, 100, false] };
 const ASTRO_ROWS = [
     { key: "sunAlt", label: "太陽 (°)", api: "sun alt", scale: [-18, 0, true] },
     { key: "moonAlt", label: "月亮 (°)", api: "moon alt", scale: [-6, 45, true] },
@@ -964,7 +960,7 @@ function buildTable(body, params, fromNow) {
     // 雲量 feeds both the score and the 天氣 glyph, so resolve it once.
     const coverKey = seriesKey(hourly, "cloud_cover", model, multi);
 
-    // 銀河 -- the point of the page, directly under the clock so the eye lands on
+    // 觀星 -- the point of the page, directly under the clock so the eye lands on
     // it before the numbers it is made of.
     if (coverKey) {
         const scoreRow = addRow(
@@ -976,7 +972,7 @@ function buildTable(body, params, fromNow) {
         for (const i of indices) {
             const td = scoreRow.insertCell();
             markBreak(td, i);
-            const value = milkywayScore(astro[i].sunAlt, astro[i].moonAlt, hourly[coverKey][i]);
+            const value = astroScore(astro[i].sunAlt, astro[i].moonAlt, hourly[coverKey][i]);
             if (value === null) {
                 td.textContent = "-";
                 td.className += " na";
@@ -1157,7 +1153,7 @@ document.getElementById("form").addEventListener("submit", async (event) => {
         document.getElementById("raw").hidden = false;
 
         if (!r.ok || !r.body.hourly) {
-            // Same policy as open-meteo.html: show the API's own error body.
+            // Same policy as open_meteo/open-meteo.py: show the API's own error body.
             showError(
                 `HTTP ${r.status} — ${r.body.reason || "no hourly data in response"}`,
                 r.url,
