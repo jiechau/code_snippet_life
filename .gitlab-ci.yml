@@ -9,6 +9,7 @@ pages:
     - cp -r open_meteo public/
     - cp -r astro_score public/
     - cp -r google_news_url public/
+    - cp -r bigdatacloud public/
   artifacts:
     paths:
       - public

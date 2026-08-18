@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex, nocache">
+    <title>reverse-geocode &mdash; bigdatacloud</title>
+    <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+    <style>
+        :root {
+            --fg: #333;
+            --muted: #777;
+            --line: #e3e6ea;
+            --accent: #2196F3;
+            --err: #c0392b;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            color: var(--fg);
+            margin: 0;
+            padding: 24px 12px 60px;
+        }
+        .container {
+            background: white;
+            padding: 28px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        h1 { margin: 0 0 4px; font-size: 1.6rem; }
+        p.sub { margin: 0 0 22px; color: var(--muted); font-size: 0.9rem; }
+        p.sub a { color: var(--accent); }
+        p.sub code { background: #f0f2f5; padding: 1px 5px; border-radius: 4px; }
+        a.back { color: var(--accent); text-decoration: none; font-size: 0.9rem; }
+        a.back:hover { text-decoration: underline; }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+            gap: 14px;
+        }
+        .field { display: flex; flex-direction: column; }
+        .field.wide { grid-column: 1 / -1; }
+        label { font-size: 0.8rem; font-weight: 600; margin-bottom: 5px; }
+        label .hint { font-weight: 400; color: var(--muted); }
+        input {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.85rem;
+            padding: 8px 10px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: #fbfcfd;
+            color: var(--fg);
+        }
+        input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+        /* location: a box just wide enough for "25.070602,121.592399", with the
+           saved spots sitting beside it rather than under it. */
+        .locrow { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+        .locrow input { width: 200px; flex: 0 0 auto; }
+        .places { display: flex; gap: 6px; flex-wrap: wrap; }
+        .place {
+            font: inherit;
+            font-size: 0.85rem;
+            font-weight: 600;
+            padding: 6px 12px;
+            border-radius: 999px;
+            border: 1px solid var(--line);
+            background: #f7f9fb;
+            color: var(--accent);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .place:hover { border-color: var(--accent); background: #eaf4fd; }
+        .place[aria-pressed="true"] {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
+
+        .actions { margin-top: 18px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        button {
+            font: inherit;
+            font-weight: 600;
+            padding: 9px 22px;
+            border-radius: 8px;
+            border: 2px solid var(--accent);
+            background: var(--accent);
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        button:hover:not(:disabled) { background: #1976d2; border-color: #1976d2; }
+        button:disabled { opacity: 0.55; cursor: default; }
+        button.secondary { background: white; color: var(--accent); }
+        button.secondary:hover:not(:disabled) { background: var(--accent); color: white; }
+
+        .result { margin-top: 26px; border-top: 1px solid var(--line); padding-top: 20px; }
+        .meta {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.8rem;
+            color: var(--muted);
+            margin-bottom: 10px;
+        }
+        .meta.error { color: var(--err); }
+        .url {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.78rem;
+            word-break: break-all;
+            background: #f7f9fb;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin-bottom: 12px;
+        }
+        .url a { color: var(--accent); text-decoration: none; }
+        .url a:hover { text-decoration: underline; }
+        pre {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.78rem;
+            line-height: 1.45;
+            background: #f7f9fb;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 14px;
+            margin: 0;
+            max-height: 60vh;
+            overflow: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a class="back" href="index.html">&larr; bigdatacloud</a>
+        <h1>reverse-geocode</h1>
+        <p class="sub">
+            One call to BigDataCloud's
+            <a href="https://www.bigdatacloud.com/docs/api/reverse-geocode-to-city-api" target="_blank" rel="noopener"><code>reverse-geocode-client</code></a>
+            endpoint, printing the exact JSON it returned. Coordinates in, place names out
+            &mdash; the lookup
+            <a href="../astro_score/astro-score_readable.html">astro_score</a> uses for its
+            second meta line. No API key needed; <code>localityLanguage=zh</code> is fixed,
+            so the names come back in Chinese.
+        </p>
+
+        <form id="form">
+            <div class="grid">
+                <div class="field wide">
+                    <label for="location">location <span class="hint">lat,lon &mdash; or pick a spot</span></label>
+                    <div class="locrow">
+                        <input id="location" name="location" spellcheck="false">
+                        <div class="places" id="places"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="actions">
+                <button type="submit" id="submit">Fetch</button>
+                <button type="button" class="secondary" id="reset">Reset defaults</button>
+            </div>
+        </form>
+
+        <div class="result" id="result" hidden>
+            <div class="meta" id="meta"></div>
+            <div class="url" id="url"></div>
+            <pre id="json"></pre>
+        </div>
+    </div>
+
+<script src="../places.js"></script>
+<script>
+"use strict";
+
+// A plain API demo, built to the same shape as open_meteo/open-meteo.html: fill
+// in the request, submit, see the request URL and the exact JSON that came back.
+// There is no Python script in this folder to keep in step -- this endpoint's
+// only other use in the repo is reverseGeocode() in
+// astro_score/astro-score_readable.html, which asks for the same URL and then
+// keeps four fields out of the response. The four-field join below is a copy of
+// that one; change either and change both.
+const GEOCODE_URL = "https://api.bigdatacloud.net/data/reverse-geocode-client";
+
+// PLACES (the saved spots offered as buttons beside the location box) and the
+// DEFAULT_LAT/DEFAULT_LON derived from its first entry come from ../places.js,
+// loaded just above. Add or reorder a spot there, not here.
+
+// Fixed, not a form field: this page takes location and nothing else. "zh"
+// returns 中華民國/宜蘭縣/南澳鄉/蘇澳鎮 rather than the English names, and is what
+// astro_score asks for. The endpoint takes any ISO 639-1 code here.
+const LOCALITY_LANGUAGE = "zh";
+
+/** The request parameters for a location, in the order they appear in the URL. */
+function defaultParams(lat, lon) {
+    return {
+        latitude: lat,
+        longitude: lon,
+        localityLanguage: LOCALITY_LANGUAGE,
+    };
+}
+
+/**
+ * The full GET URL for a parameter object.
+ *
+ * Same construction as the Open-Meteo pages -- commas left literal, spaces as
+ * "+" -- so the URL shown is the string actually requested rather than a
+ * reconstruction of it. Nothing here needs a comma, but keeping one helper shape
+ * across the demos is worth more than trimming two lines.
+ */
+function buildUrl(params) {
+    const query = Object.entries(params)
+        .map(([key, value]) => {
+            const enc = (s) => encodeURIComponent(String(s))
+                .replace(/%2C/g, ",")
+                .replace(/%20/g, "+");
+            return `${enc(key)}=${enc(value)}`;
+        })
+        .join("&");
+    return `${GEOCODE_URL}?${query}`;
+}
+
+/**
+ * Call the API and return {body, url, status, ok, bytes, seconds}.
+ *
+ * The body is exactly what BigDataCloud sent, decoded, with nothing added to it.
+ * Errors are returned rather than thrown: a bad request comes back as HTTP 4xx
+ * with a JSON body such as
+ * {"status": 401, "description": "invalid coordinates. expecting latitude in
+ * (+/- 90) ..."}, which is far more useful to see than a stack trace. The body's
+ * own "status" is not the HTTP status -- that example arrives as HTTP 400 -- so
+ * resp.status is what the meta line reports.
+ */
+async function fetchGeocode(params, timeoutMs = 15000) {
+    const url = buildUrl(params);
+    const started = performance.now();
+    const resp = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+    const text = await resp.text();
+    const seconds = (performance.now() - started) / 1000;
+
+    let body;
+    try {
+        body = JSON.parse(text);
+    } catch {
+        // Not JSON at all -- hand back the raw text so the caller can see it.
+        body = { error: true, reason: "response was not JSON", text: text };
+    }
+
+    return {
+        body,
+        url,
+        status: resp.status,
+        ok: resp.ok,
+        contentType: resp.headers.get("Content-Type"),
+        bytes: new TextEncoder().encode(text).length,
+        seconds,
+    };
+}
+
+/**
+ * The readable place name, e.g. 中華民國/宜蘭縣/南澳鄉/蘇澳鎮 -- countryName,
+ * principalSubdivision, city and locality, in that order.
+ *
+ * Sparse areas and open water leave some of the four empty, and the last two can
+ * repeat each other, so blanks and duplicates are dropped rather than shown.
+ * Copied from reverseGeocode() in astro_score/astro-score_readable.html, which is
+ * the only thing in this repo that consumes the response; the point of showing it
+ * here is that the four fields it picks are visible in the JSON right below.
+ */
+function placeName(body) {
+    return [body.countryName, body.principalSubdivision, body.city, body.locality]
+        .filter((part, i, all) => part && all.indexOf(part) === i)
+        .join("/");
+}
+
+/** Build the request parameters from the form: a "lat,lon" location, and that is all. */
+function paramsFromForm() {
+    const loc = document.getElementById("location").value.trim();
+    let lat = DEFAULT_LAT, lon = DEFAULT_LON;
+    if (loc) {
+        const [latS, lonS] = loc.split(",");
+        lat = Number(latS);
+        lon = Number(lonS);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+            throw new Error(`Bad location "${loc}": expected "lat,lon"`);
+        }
+    }
+    return defaultParams(lat, lon);
+}
+
+function resetDefaults() {
+    document.getElementById("location").value = `${DEFAULT_LAT},${DEFAULT_LON}`;
+    markActivePlace();
+}
+
+/**
+ * Highlight whichever saved spot matches the box, so after a click it is clear
+ * which one is showing -- and after a manual edit, that none of them is.
+ */
+function markActivePlace() {
+    const current = document.getElementById("location").value.trim();
+    for (const button of document.querySelectorAll(".place")) {
+        button.setAttribute("aria-pressed", String(button.dataset.coords === current));
+    }
+}
+
+/**
+ * One button per saved spot. Clicking fills the box and refetches: leaving the
+ * previous response on screen under a new location would just be misleading.
+ */
+function buildPlaces() {
+    const box = document.getElementById("places");
+    for (const [name, lat, lon] of PLACES) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "place";
+        button.textContent = name;
+        button.dataset.coords = `${lat},${lon}`;
+        button.title = `${lat}, ${lon}`;
+        button.addEventListener("click", () => {
+            document.getElementById("location").value = button.dataset.coords;
+            markActivePlace();
+            document.getElementById("form").requestSubmit();
+        });
+        box.appendChild(button);
+    }
+}
+
+function show({ meta, place, isError, url, json }) {
+    const result = document.getElementById("result");
+    const metaEl = document.getElementById("meta");
+    const urlEl = document.getElementById("url");
+
+    result.hidden = false;
+    metaEl.textContent = meta;
+    metaEl.classList.toggle("error", Boolean(isError));
+    if (place) {
+        // A <br>, not a "\n": .meta wraps normally, so a newline character in the
+        // text would come out as an ordinary space. Same second line as the one
+        // astro_score appends to its own meta.
+        metaEl.appendChild(document.createElement("br"));
+        metaEl.appendChild(document.createTextNode(place));
+    }
+
+    urlEl.hidden = !url;
+    if (url) {
+        urlEl.textContent = "";
+        const a = document.createElement("a");
+        a.href = url;
+        a.target = "_blank";
+        a.rel = "noopener";
+        a.textContent = url;
+        urlEl.appendChild(a);
+    }
+
+    document.getElementById("json").textContent = json || "";
+}
+
+document.getElementById("form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const button = document.getElementById("submit");
+
+    let params;
+    try {
+        params = paramsFromForm();
+    } catch (err) {
+        show({ meta: err.message, isError: true, url: "", json: "" });
+        return;
+    }
+
+    button.disabled = true;
+    show({ meta: "fetching...", url: buildUrl(params), json: "" });
+
+    try {
+        const r = await fetchGeocode(params);
+        show({
+            meta: `HTTP ${r.status}  ${r.contentType}  ${r.bytes} bytes  ${r.seconds.toFixed(2)}s`,
+            // The four-field join, on its own second line. Everything in it came
+            // out of the JSON below -- nothing on this page is computed locally.
+            place: r.ok ? placeName(r.body) : "",
+            isError: !r.ok,
+            url: r.url,
+            json: JSON.stringify(r.body, null, 2),
+        });
+    } catch (err) {
+        // Network-level failure -- no response at all, so nothing to show but why.
+        show({
+            meta: `request failed: ${err.name === "TimeoutError" ? "timed out" : err.message}`,
+            isError: true,
+            url: buildUrl(params),
+            json: "",
+        });
+    } finally {
+        button.disabled = false;
+    }
+});
+
+document.getElementById("reset").addEventListener("click", resetDefaults);
+document.getElementById("location").addEventListener("input", markActivePlace);
+
+buildPlaces();
+resetDefaults();
+</script>
+</body>
+</html>

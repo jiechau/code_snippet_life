@@ -38,10 +38,11 @@ Navigation is two levels of list page: root `index.html` links to one
 `<snippet>/index.html` per snippet folder, and that folder list links to one page per
 demo, **named after the script it ports** (`open_meteo/open-meteo.html` ports
 `open_meteo/open-meteo.py`); an alternate view of the same script adds a `_suffix`
-(`open-meteo_readable.html`). The one exception is
-`astro_score/astro-score_readable.html`, a re-scoped fork of
+(`open-meteo_readable.html`). Two pages have no script to be named after:
+`astro_score/astro-score_readable.html` is a re-scoped fork of
 `open_meteo/open-meteo_readable.html` rather than a port of one script, so it takes
-its folder's name. List pages carry no logic — they are the same small card
+its folder's name, and `bigdatacloud/reverse-geocode.html` is named after the
+endpoint it calls because `bigdatacloud/` holds no script at all. List pages carry no logic — they are the same small card
 markup, differing only in title and links.
 
 **Adding a demo means: a `<snippet>/<script-name>.html` page, a link on that folder's
@@ -53,7 +54,8 @@ no change).
 Pages hosting is static, so a demo page **cannot run the snippet's Python**. It is a
 JavaScript re-implementation that calls the upstream API directly from the browser, which
 makes it a parallel implementation under the rule above: change one, mirror the other.
-This is effortless for keyless, CORS-enabled APIs (Open-Meteo). `cwa_opendata` needs an
+This is effortless for keyless, CORS-enabled APIs (Open-Meteo, BigDataCloud's
+`-client` endpoints). `cwa_opendata` needs an
 API key, which would be readable in page source, so it has no demo and is deliberately
 listed as todo in `index.html` rather than half-implemented. `google_news_url` is
 cross-origin with no CORS headers at all and gets around it with a **user-selected public
@@ -186,20 +188,24 @@ location would misrepresent it. The buttons only reflect the box, so a hand-type
 coordinate leaves all of them unpressed. Note a click while a fetch is in flight is a
 silent no-op: `requestSubmit()` does nothing while the submit button is disabled.
 
-## What is duplicated across open_meteo/ and astro_score/
+## What is duplicated across the demo pages
 
-There are **three demo pages** built on one request core, and no shared file — by the
-one-folder-per-snippet rule, keeping them in step is a manual discipline. The three are
-`open_meteo/open-meteo.html`, `open_meteo/open-meteo_readable.html` and
-`astro_score/astro-score_readable.html`. Know which blocks are copies before editing any
+There are **four demo pages** (ignoring `google_news_url`, which shares nothing),
+three of them built on one Open-Meteo request core, and no shared file except
+`places.js` — by the one-folder-per-snippet rule, keeping them in step is a manual
+discipline. They are `open_meteo/open-meteo.html`,
+`open_meteo/open-meteo_readable.html`, `astro_score/astro-score_readable.html` and
+`bigdatacloud/reverse-geocode.html`. Know which blocks are copies before editing any
 of them:
 
 | Block | Copies |
 | --- | --- |
-| Request core (`buildUrl`, `fetchForecast`, `paramsFromForm`, `FORECAST_URL`) | all 3 pages + `open_meteo/open-meteo.py` |
-| `.locrow`/`.place` CSS, `buildPlaces()` / `markActivePlace()` | all 3 pages |
-| `PLACES`, `DEFAULT_LAT`/`DEFAULT_LON` | **not duplicated** — root `places.js`, loaded by all 3 pages |
-| `reverseGeocode()` / `appendPlaceName()` | **not duplicated** — `astro_score/astro-score_readable.html` only; **never** either `open_meteo/` page |
+| Request core (`buildUrl`, `fetchForecast`, `paramsFromForm`, `FORECAST_URL`) | the 3 Open-Meteo pages + `open_meteo/open-meteo.py`; `bigdatacloud/` has the same `buildUrl` shape against its own endpoint |
+| Page chrome (whole `<style>` block, `show()`, submit handler) | `open_meteo/open-meteo.html` + `bigdatacloud/reverse-geocode.html` — the latter is that page with the form cut to one field |
+| `.locrow`/`.place` CSS, `buildPlaces()` / `markActivePlace()` | all 4 pages |
+| `PLACES`, `DEFAULT_LAT`/`DEFAULT_LON` | **not duplicated** — root `places.js`, loaded by all 4 pages |
+| The `countryName/principalSubdivision/city/locality` join | `astro_score/astro-score_readable.html` (`reverseGeocode()`) + `bigdatacloud/reverse-geocode.html` (`placeName()`) |
+| `reverseGeocode()` / `appendPlaceName()` (the *deferred, never-awaited* lookup) | `astro_score/astro-score_readable.html` only; **never** either `open_meteo/` page |
 | Meeus solar/lunar series (`太陽`/`月亮`/`月相` rows) | `astro_score/astro-score_readable.html` + `astro_score/milkyway.py` — both in `astro_score/`, none in `open_meteo/` |
 | `LABELS`, `API_SHORT`, `UNIT_SHORT`, grid rendering | the 2 grid pages |
 | `HOURLY_VARS`, `MODELS`, `DEFAULT_EXTRA`, `DEFAULT_LAT`/`DEFAULT_LON` | `open-meteo*.html` only — `astro-score_readable.html` deliberately overrides all of these |
@@ -221,6 +227,8 @@ replaced the line; any failure resolves to an empty string and leaves the line a
 is a label, never data: nothing on screen depends on it. Only
 `astro_score/astro-score_readable.html` has it; both `open_meteo/` pages deliberately do
 not, so their meta line says exactly what `open-meteo.py` prints to stderr and no more.
+`bigdatacloud/reverse-geocode.html` demos the same endpoint head-on, and its copy of the
+four-field join is the one thing the two pages share.
 
 ## astro_score specifics
 
@@ -279,6 +287,40 @@ low-precision series rather than fetched — Open-Meteo offers only sunrise/suns
 drops hours before the current one. When tuning the formula, sanity-check both ends:
 Taiwan in monsoon season should score near zero, and a pristine site (e.g. Atacama
 `-24.6,-70.4`) should reach ~100%.
+
+## bigdatacloud specifics
+
+Reverse geocoding with BigDataCloud, and the only snippet folder with **no script** —
+just `reverse-geocode.html` (listed as **reverse-geocode API**) and the folder
+`index.html`. The call is one keyless `GET` to
+`https://api.bigdatacloud.net/data/reverse-geocode-client` with
+`latitude`/`longitude`/`localityLanguage`, so a Python version would demonstrate
+nothing the page does not; the page is named after the endpoint rather than a script.
+
+The page is `open_meteo/open-meteo.html` with the form cut to its single input — same
+`<style>` block, same `buildUrl`/`show()`/submit-handler shape, same policy of
+*displaying* an API error body rather than throwing. `localityLanguage` is a **constant
+in the page, not a field**: the user asked for location as the only input, so changing
+the language means editing `LOCALITY_LANGUAGE`. Unlike `open-meteo.html` there is **no
+`get_para`** added to the body — that key exists because `open-meteo.py` adds it, and
+there is no script here — so the JSON pane is byte-for-byte the response and the URL
+lives only in its own box.
+
+The one derived thing on screen is the second meta line,
+`countryName/principalSubdivision/city/locality` joined with blanks and duplicates
+dropped: a copy of `reverseGeocode()` in `astro_score/astro-score_readable.html`, kept
+because it is the payoff of the call (four fields out of a ~2.8 KB response, shown
+beside the response). It runs inline in `show()` rather than as the deferred,
+never-awaited lookup `astro_score` needs — there the forecast is already on screen and
+the name must not block it; here the name *is* the result. Change the join in either
+page and change the other.
+
+Response quirks the page and README both note: `postcode` is empty for Taiwan; `city`
+repeats `principalSubdivision` in directly administered municipalities (臺北市/臺北市,
+which is why the join dedupes); `localityInfo.administrative` is most of the bytes and
+carries the PRC's naming for Taiwan (`中国台湾`, `CN-TW`) alongside
+`countryName: 中華民國`; and a bad coordinate answers **HTTP 400** with a body whose own
+`"status"` says **401**, so the meta line reports `resp.status` and not the body's.
 
 ## google_news_url specifics
 
