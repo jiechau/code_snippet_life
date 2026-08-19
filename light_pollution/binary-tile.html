@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex, nocache">
+    <title>binary tile &mdash; light_pollution</title>
+    <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+    <style>
+
+        :root {
+            --fg: #333;
+            --muted: #777;
+            --line: #e3e6ea;
+            --grid: #eef1f4;
+            --accent: #2196F3;
+            --err: #c0392b;
+            --ok: #2e7d32;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            color: var(--fg);
+            margin: 0;
+            padding: 24px 12px 60px;
+        }
+        .container {
+            background: white;
+            padding: 28px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        h1 { margin: 0 0 4px; font-size: 1.6rem; }
+        p.sub { margin: 0 0 22px; color: var(--muted); font-size: 0.9rem; }
+        p.sub a { color: var(--accent); }
+        p.sub code { background: #f0f2f5; padding: 1px 5px; border-radius: 4px; }
+        a.back { color: var(--accent); text-decoration: none; font-size: 0.9rem; }
+        a.back:hover { text-decoration: underline; }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+            gap: 14px;
+        }
+        .field { display: flex; flex-direction: column; }
+        .field.wide { grid-column: 1 / -1; }
+        label { font-size: 0.8rem; font-weight: 600; margin-bottom: 5px; }
+        label .hint { font-weight: 400; color: var(--muted); }
+        input {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.85rem;
+            padding: 8px 10px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: #fbfcfd;
+            color: var(--fg);
+        }
+        input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+        /* time: the box beside its "now" button, the same shape the location row
+           below uses for its saved spots. */
+        .timerow { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+        .timerow input { width: 200px; flex: 0 0 auto; }
+
+        /* location: a box just wide enough for "25.070602,121.592399", with the
+           saved spots sitting beside it rather than under it. */
+        .locrow { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+        .locrow input { width: 200px; flex: 0 0 auto; }
+        .places { display: flex; gap: 6px; flex-wrap: wrap; }
+        .place {
+            font: inherit;
+            font-size: 0.85rem;
+            font-weight: 600;
+            padding: 6px 12px;
+            border-radius: 999px;
+            border: 1px solid var(--line);
+            background: #f7f9fb;
+            color: var(--accent);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .place:hover { border-color: var(--accent); background: #eaf4fd; }
+        .place[aria-pressed="true"] {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
+
+        .actions { margin-top: 18px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        button {
+            font: inherit;
+            font-weight: 600;
+            padding: 9px 22px;
+            border-radius: 8px;
+            border: 2px solid var(--accent);
+            background: var(--accent);
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        button:hover:not(:disabled) { background: #1976d2; border-color: #1976d2; }
+        button.secondary { background: white; color: var(--accent); }
+        button.secondary:hover:not(:disabled) { background: var(--accent); color: white; }
+        button.tiny { font-size: 0.85rem; padding: 6px 12px; border-radius: 999px; border-width: 1px; }
+
+        .result { margin-top: 26px; border-top: 1px solid var(--line); padding-top: 20px; }
+        .meta {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.8rem;
+            color: var(--muted);
+            margin-bottom: 14px;
+        }
+        .meta.error { color: var(--err); }
+
+        /* The answer, before the working that produced it. */
+        .out { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+        .card {
+            flex: 1 1 150px;
+            background: #f7f9fb;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 12px 14px;
+        }
+        .card .k { font-size: 0.75rem; font-weight: 600; color: var(--muted); }
+        .card .v {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 1.35rem;
+            margin-top: 5px;
+            word-break: break-all;
+        }
+        .card .n { font-size: 0.72rem; color: var(--muted); margin-top: 4px; }
+        .card.good .v { color: var(--ok); }
+        .card.bad .v { color: var(--err); }
+
+        /* The working: one row per intermediate quantity, grouped into stages. */
+        table { width: 100%; border-collapse: collapse; }
+        th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--grid); font-size: 0.8rem; }
+        thead th {
+            color: var(--muted);
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border-bottom: 1px solid var(--line);
+        }
+        tr.stage td {
+            background: #f7f9fb;
+            font-weight: 700;
+            font-size: 0.78rem;
+            border-bottom: 1px solid var(--line);
+        }
+        td.sym, td.val {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        }
+        td.sym { color: var(--accent); white-space: nowrap; }
+        td.val { text-align: right; white-space: nowrap; }
+        td.note { color: var(--muted); font-size: 0.74rem; }
+        @media (max-width: 640px) {
+            th.note, td.note { display: none; }
+        }
+    
+        /* The reading key, the same block astro-score_readable.html uses: the
+           chain from bytes to Bortle is not one a reader can guess. */
+        .rule {
+            margin: 0 0 22px;
+            padding: 12px 16px;
+            border-left: 3px solid var(--ok);
+            border-radius: 0 8px 8px 0;
+            background: #f2f8f5;
+            font-size: 0.85rem;
+            color: var(--fg);
+        }
+        .rule .formula {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--ok);
+            display: block;
+            margin-bottom: 4px;
+        }
+        .rule .formula .gloss {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-weight: 400;
+            color: var(--muted);
+        }
+        .rule ul { margin: 8px 0 0; padding-left: 20px; color: var(--muted); }
+        .rule li { margin: 3px 0; }
+        .rule a { color: var(--accent); }
+        .rule code { background: #e8f2ec; padding: 1px 5px; border-radius: 4px; }
+
+        /* The raw bytes, shown because they are the point: the tile stores no
+           SQM and no Bortle, just these. */
+        .bytes {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.75rem;
+            color: var(--fg);
+            background: #f7f9fb;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin-bottom: 20px;
+            overflow-x: auto;
+            white-space: pre;
+        }
+        .bytes b { color: var(--accent); }
+        .bytes .k { color: var(--muted); font-family: 'Segoe UI', Tahoma, sans-serif; }
+
+        /* year: the tile path's only other variable, and the one that makes the
+           dataset a time series rather than a snapshot. */
+        .years { display: flex; gap: 6px; flex-wrap: wrap; }
+        .year {
+            font: inherit;
+            font-size: 0.85rem;
+            font-weight: 600;
+            padding: 6px 12px;
+            border-radius: 999px;
+            border: 1px solid var(--line);
+            background: #f7f9fb;
+            color: var(--accent);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .year:hover { border-color: var(--accent); background: #eaf4fd; }
+        .year[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: white; }
+
+        .url {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.78rem;
+            word-break: break-all;
+            background: #f7f9fb;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin-bottom: 18px;
+        }
+        .url a { color: var(--accent); text-decoration: none; }
+        .url a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a class="back" href="index.html">&larr; light_pollution</a>
+        <h1>binary tile</h1>
+        <p class="sub">
+            How dark is the sky at a <code>lat,lon</code>? This fetches one tile of
+            <a href="https://djlorenz.github.io/astronomy/lp/" target="_blank" rel="noopener">David Lorenz's
+            World Atlas of Artificial Night Sky Brightness</a> and decodes it by hand, showing every step.
+            It is the <strong>光害 / Bortle / LP Zone</strong> rows of
+            <a href="../astro_score/astro-score_readable.html">astro-score_readable</a> on their own.
+            <strong>No API key</strong> &mdash; the tiles are static files on GitHub Pages, which is the
+            only reason a browser can read them at all.
+        </p>
+
+        <div class="rule">
+            <span class="formula">tile = binary_tile_&lt;x&gt;_&lt;y&gt;.dat.gz
+                <span class="gloss">&nbsp; a 5&deg; square, 600&times;600 points at 1/120&deg; (~0.9 km)</span></span>
+            <span class="formula">value = 2-byte corner + &Sigma; 1-byte deltas
+                <span class="gloss">&nbsp; walk up the left edge, then across the row</span></span>
+            <span class="formula">ratio = (5/195) &times; (e<sup>0.0195&middot;value</sup> &minus; 1)
+                <span class="gloss">&nbsp; artificial glow &divide; natural night sky</span></span>
+            <span class="formula">SQM = 22 &minus; 2.5&middot;log&#8321;&#8320;(1 + ratio)
+                <span class="gloss">&nbsp; mag/arcsec&sup2; &mdash; bigger is darker</span></span>
+            <ul>
+                <li>The file contains <b>neither SQM nor Bortle</b> &mdash; one logarithmically quantised
+                    integer per grid point and nothing else. Everything below the raw bytes is derived
+                    here.</li>
+                <li><b>SQM</b> and <b>LP Zone</b> are the atlas's own; <b>Bortle</b> is not. Lorenz
+                    <a href="https://djlorenz.github.io/astronomy/lp/bortle.html" target="_blank" rel="noopener">declines
+                    to publish a Bortle number</a>, because Bortle judges the whole sky &mdash; light domes
+                    on the horizon included &mdash; which a zenith figure cannot see. It is shown because
+                    people speak it, never instead of the SQM.</li>
+                <li>The atlas is <b>modelled</b> from NOAA/VIIRS satellite night lights (processed by the
+                    Earth Observation Group, Colorado School of Mines), not measured from the ground.</li>
+                <li>Changing the <b>year</b> re-reads the same point from a different annual atlas, which
+                    is the cheapest way to see a place get brighter or darker over a decade.</li>
+            </ul>
+        </div>
+
+        <form id="form">
+            <div class="grid">
+                <div class="field wide">
+                    <label for="location">location <span class="hint">lat,lon &mdash; or pick a spot</span></label>
+                    <div class="locrow">
+                        <input id="location" name="location" spellcheck="false">
+                        <div class="places" id="places"></div>
+                    </div>
+                </div>
+                <div class="field wide">
+                    <label for="year">atlas year <span class="hint">same point, different annual atlas</span></label>
+                    <div class="years" id="years"></div>
+                </div>
+            </div>
+
+            <div class="actions">
+                <button type="submit" id="submit">Decode</button>
+                <button type="button" class="secondary" id="reset">Reset defaults</button>
+            </div>
+        </form>
+
+        <div class="result" id="result" hidden>
+            <div class="meta" id="meta"></div>
+            <div class="url" id="url"></div>
+            <div class="out" id="out"></div>
+            <div class="bytes" id="bytes" hidden></div>
+            <table id="steps">
+                <thead>
+                    <tr><th>step</th><th>sym</th><th style="text-align:right">value</th><th class="note">formula</th></tr>
+                </thead>
+                <tbody id="tbody"></tbody>
+            </table>
+        </div>
+    </div>
+
+<script src="../places.js"></script>
+<script>
+"use strict";
+
+/* One endpoint per page, and this page's is a static .dat.gz on GitHub Pages.
+ *
+ * Everything here is a verbatim copy of the light-pollution block in
+ * astro_score/astro-score_readable.html -- change one, change the other. What
+ * that page hides in three constant rows, this page spreads out: which tile,
+ * which grid point, which bytes, and each derivation on top of them.
+ *
+ * Credit: David J. Lorenz (djlorenz.github.io/astronomy/lp), built on NOAA/VIIRS
+ * night lights processed by the Earth Observation Group at the Colorado School
+ * of Mines. It is a courtesy dependency on one person's static host.
+ */
+
+const LP_TILE_URL = "https://djlorenz.github.io/astronomy/binary_tiles";
+
+// Annual atlases published as binary tiles. Newest first so the default is the
+// current one and the list reads as "now, then back in time".
+const LP_YEARS = [2025, 2024, 2023, 2022, 2020, 2016];
+const DEFAULT_YEAR = LP_YEARS[0];
+
+// Tile geometry, from the atlas's own viewer.
+const LP_TILE_DEG = 5;
+const LP_TILE_N = 600;
+const LP_LAT_ORIGIN = 65;   // tile row 1 starts at 65S; rows run 1..28, i.e. to 75N
+const LP_PER_DEG = LP_TILE_N / LP_TILE_DEG;   // 120 points per degree
+
+const LP_ZONES = [
+    [0.01, "0"], [0.06, "1a"], [0.11, "1b"], [0.19, "2a"], [0.33, "2b"],
+    [0.58, "3a"], [1.00, "3b"], [1.73, "4a"], [3.00, "4b"], [5.20, "5a"],
+    [9.00, "5b"], [15.59, "6a"], [27.00, "6b"], [46.77, "7a"],
+];
+const LP_ZONE_BRIGHTEST = "7b";
+
+const LP_BORTLE = [
+    [21.99, 1], [21.89, 2], [21.69, 3], [20.49, 4],
+    [19.50, 5], [18.94, 6], [18.38, 7], [17.80, 8],
+];
+const LP_BORTLE_BRIGHTEST = 9;
+
+const mod360 = (x) => ((x % 360) + 360) % 360;
+
+/** The atlas's compressed integer -> artificial/natural brightness ratio. */
+function lpRatio(compressed) {
+    return (5.0 / 195.0) * (Math.exp(0.0195 * compressed) - 1.0);
+}
+
+/**
+ * Brightness ratio -> zenith sky brightness in mag/arcsec2.
+ *
+ * Lorenz's own line: 22.0 is the assumed natural sky brightness, and the rest is
+ * the ordinary linear-to-magnitude conversion, since the total sky is
+ * natural x (1 + ratio).
+ */
+function lpSqm(ratio) {
+    return 22.0 - 2.5 * Math.log10(1.0 + ratio);
+}
+
+function lpBortle(sqm) {
+    for (const [threshold, cls] of LP_BORTLE) {
+        if (sqm >= threshold) return cls;
+    }
+    return LP_BORTLE_BRIGHTEST;
+}
+
+function lpZone(ratio) {
+    for (const [threshold, zone] of LP_ZONES) {
+        if (ratio < threshold) return zone;
+    }
+    return LP_ZONE_BRIGHTEST;
+}
+
+/** Which tile holds a point, and where in it. */
+function lpAddress(lat, lon) {
+    const lonFromDateLine = mod360(lon + 180.0);
+    const latFromStart = lat + LP_LAT_ORIGIN;
+    const tilex = Math.floor(lonFromDateLine / LP_TILE_DEG) + 1;
+    const tiley = Math.floor(latFromStart / LP_TILE_DEG) + 1;
+    const half = 1 / (2 * LP_PER_DEG);
+    const ix = Math.round(LP_PER_DEG * (lonFromDateLine - LP_TILE_DEG * (tilex - 1) + half));
+    const iy = Math.round(LP_PER_DEG * (latFromStart - LP_TILE_DEG * (tiley - 1) + half));
+    return { lonFromDateLine, latFromStart, tilex, tiley, ix, iy };
+}
+
+function tileUrl(year, tilex, tiley) {
+    return `${LP_TILE_URL}/${year}/binary_tile_${tilex}_${tiley}.dat.gz`;
+}
+
+const tileCache = new Map();   // url -> {data, gzBytes} (successes only)
+
+/**
+ * Fetch and gunzip one tile.
+ *
+ * The tiles are gzip *files*, not gzip-encoded responses, so the browser will
+ * not unwrap them -- the atlas's own viewer pulls in pako for this. DecompressionStream
+ * is a built-in Web API (Chrome 80, Safari 16.4, Firefox 113), so this page needs
+ * no library either.
+ */
+async function fetchTile(url, timeoutMs = 30000) {
+    if (tileCache.has(url)) return tileCache.get(url);
+    if (typeof DecompressionStream === "undefined") {
+        throw new Error("this browser has no DecompressionStream (needs Chrome 80 / Safari 16.4 / Firefox 113)");
+    }
+    const started = performance.now();
+    const resp = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status} — no tile at that path`);
+    if (!resp.body) throw new Error("empty response body");
+    const gzBytes = Number(resp.headers.get("Content-Length")) || 0;
+    const stream = resp.body.pipeThrough(new DecompressionStream("gzip"));
+    const buffer = await new Response(stream).arrayBuffer();
+    if (buffer.byteLength < LP_TILE_N * LP_TILE_N) {
+        throw new Error(`tile too short: ${buffer.byteLength} bytes`);
+    }
+    const result = { data: new Int8Array(buffer), gzBytes, seconds: (performance.now() - started) / 1000 };
+    tileCache.set(url, result);
+    return result;
+}
+
+/**
+ * Sum the deltas to one grid point, reporting the two legs separately.
+ *
+ * The lower-left corner is a 2-byte absolute value; every byte after it is a
+ * signed 1-byte change from its neighbour. So reaching (ix, iy) means walking up
+ * column 0 to row iy, then across row iy to column ix. The "+ 1" offsets are
+ * because that first point costs two bytes rather than one.
+ */
+function decodePoint(data, ix, iy) {
+    const corner = 128 * Number(data[0]) + Number(data[1]);
+    let up = 0;
+    for (let i = 1; i < iy; i++) up += Number(data[LP_TILE_N * i + 1]);
+    let across = 0;
+    for (let i = 1; i < ix; i++) across += Number(data[LP_TILE_N * (iy - 1) + 1 + i]);
+    return { corner, up, across, compressed: corner + up + across };
+}
+
+/* ------------------------------------------------------------------ *
+ * Presentation
+ * ------------------------------------------------------------------ */
+
+const fmt = (x, n = 4) => (Number.isFinite(x) ? x.toFixed(n) : String(x));
+
+/** Everything the page shows, as ordered rows plus the cards on top. */
+function working(lat, lon, year, tile, addr) {
+    const { corner, up, across, compressed } = decodePoint(tile.data, addr.ix, addr.iy);
+    const ratio = lpRatio(compressed);
+    const sqm = lpSqm(ratio);
+    const bortle = lpBortle(sqm);
+    const zone = lpZone(ratio);
+
+    // The grid point actually read, which is up to half a cell from the point
+    // asked for -- worth showing, since it is what the number describes.
+    const cellLon = (LP_TILE_DEG * (addr.tilex - 1) + addr.ix / LP_PER_DEG) - 180;
+    const cellLat = (LP_TILE_DEG * (addr.tiley - 1) + addr.iy / LP_PER_DEG) - LP_LAT_ORIGIN;
+
+    const rows = [
+        ["stage", "input"],
+        ["latitude", "lat", `${lat}°`, "as typed"],
+        ["longitude", "lon", `${lon}°`, "as typed"],
+        ["atlas year", "year", String(year), "which annual atlas to read"],
+
+        ["stage", "which tile"],
+        ["longitude from date line", "lonFromDateLine", `${fmt(addr.lonFromDateLine, 4)}°`, "(lon + 180) mod 360"],
+        ["latitude from atlas start", "latFromStart", `${fmt(addr.latFromStart, 4)}°`, "lat + 65 — row 1 begins at 65°S"],
+        ["tile column", "tilex", String(addr.tilex), "floor(lonFromDateLine / 5) + 1"],
+        ["tile row", "tiley", String(addr.tiley), "floor(latFromStart / 5) + 1"],
+
+        ["stage", "which grid point"],
+        ["column in tile", "ix", `${addr.ix} / 600`, "round(120 · (lonFromDateLine − 5(tilex−1) + 1/240))"],
+        ["row in tile", "iy", `${addr.iy} / 600`, "round(120 · (latFromStart − 5(tiley−1) + 1/240))"],
+        ["grid point read", "cell", `${fmt(cellLat, 4)}, ${fmt(cellLon, 4)}`, "the ~0.9 km cell centre, not the point asked for"],
+        ["offset from request", "Δ", `${fmt(Math.hypot((cellLat - lat) * 111, (cellLon - lon) * 111 * Math.cos(lat * Math.PI / 180)), 2)} km`, "great-circle-ish, small angles"],
+
+        ["stage", "decode the bytes"],
+        ["gzipped tile", "", `${tile.gzBytes.toLocaleString()} bytes`, "as served"],
+        ["after DecompressionStream", "", `${tile.data.length.toLocaleString()} bytes`, "2 + 600·600 − 1"],
+        ["corner, 2 bytes absolute", "corner", String(corner), `128 · bytes[0] + bytes[1] = 128·${tile.data[0]} + ${tile.data[1]}`],
+        ["sum of deltas up column 0", "up", (up >= 0 ? "+" : "") + up, `${Math.max(0, addr.iy - 1)} signed bytes at 600·i + 1`],
+        ["sum of deltas across row", "across", (across >= 0 ? "+" : "") + across, `${Math.max(0, addr.ix - 1)} signed bytes at 600·(iy−1) + 1 + i`],
+        ["stored value", "compressed", String(compressed), "corner + up + across — this is all the file holds"],
+
+        ["stage", "what it means"],
+        ["brightness ratio", "ratio", fmt(ratio, 4), "(5/195)·(e^(0.0195·compressed) − 1)"],
+        ["artificial vs natural sky", "", `${fmt(ratio, 2)}× natural`, "1.0 means the glow equals the natural sky"],
+        ["zenith sky brightness", "SQM", `${fmt(sqm, 2)} mag/arcsec²`, "22 − 2.5·log₁₀(1 + ratio) — Lorenz's own line"],
+        ["atlas zone", "LP Zone", zone, "the atlas's own banding, 0 (darkest) to 7b"],
+        ["Bortle class", "Bortle", String(bortle), "conventional SQM ladder — a rule of thumb, not atlas data"],
+    ];
+
+    const cards = [
+        { k: "SQM", v: fmt(sqm, 2), n: "mag/arcsec² — bigger is darker", good: sqm >= 21.69, bad: sqm < 19.5 },
+        { k: "Bortle", v: String(bortle), n: "rule of thumb, read off SQM", good: bortle <= 3, bad: bortle >= 7 },
+        { k: "LP Zone", v: zone, n: "the atlas's own banding", good: zone.startsWith("0") || zone.startsWith("1") || zone.startsWith("2"), bad: /^[67]/.test(zone) },
+        { k: "artificial glow", v: `${fmt(ratio, 2)}×`, n: "relative to the natural night sky", good: ratio < 0.33, bad: ratio > 9 },
+    ];
+    return { rows, cards, compressed, addr };
+}
+
+/** The first bytes, verbatim -- the whole point being that this is all there is. */
+function showBytes(data, addr) {
+    const el = document.getElementById("bytes");
+    const head = [...data.slice(0, 12)].map((b) => String(b).padStart(4)).join("");
+    const rowStart = LP_TILE_N * (addr.iy - 1) + 1;
+    const near = [...data.slice(rowStart, rowStart + 12)].map((b) => String(b).padStart(4)).join("");
+    el.textContent = "";
+    const lines = [
+        ["bytes[0..11]      ", head + "     <- [0],[1] are the 2-byte corner; the rest are deltas"],
+        [`row ${String(addr.iy).padStart(3)} [0..11]   `, near + "     <- the row this point sits on"],
+    ];
+    lines.forEach(([label, text], i) => {
+        const k = document.createElement("span");
+        k.className = "k";
+        k.textContent = label;
+        el.appendChild(k);
+        // No trailing newline on the last line: the block is white-space: pre,
+        // so one would render as an empty row under the dump.
+        el.appendChild(document.createTextNode(text + (i < lines.length - 1 ? "\n" : "")));
+    });
+    el.hidden = false;
+}
+
+function show({ meta, isError, url, cards, rows }) {
+    document.getElementById("result").hidden = false;
+    const metaEl = document.getElementById("meta");
+    metaEl.textContent = meta;
+    metaEl.classList.toggle("error", Boolean(isError));
+
+    const urlEl = document.getElementById("url");
+    urlEl.textContent = "";
+    if (url) {
+        const a = document.createElement("a");
+        a.href = url;
+        a.target = "_blank";
+        a.rel = "noopener";
+        a.textContent = url;
+        urlEl.appendChild(a);
+    }
+    urlEl.hidden = !url;
+
+    const out = document.getElementById("out");
+    out.textContent = "";
+    for (const c of cards || []) {
+        const div = document.createElement("div");
+        div.className = "card" + (c.good ? " good" : c.bad ? " bad" : "");
+        for (const [cls, text] of [["k", c.k], ["v", c.v], ["n", c.n]]) {
+            const span = document.createElement("div");
+            span.className = cls;
+            span.textContent = text;
+            div.appendChild(span);
+        }
+        out.appendChild(div);
+    }
+
+    const tbody = document.getElementById("tbody");
+    tbody.textContent = "";
+    for (const row of rows || []) {
+        const tr = tbody.insertRow();
+        if (row[0] === "stage") {
+            tr.className = "stage";
+            const td = tr.insertCell();
+            td.colSpan = 4;
+            td.textContent = row[1];
+            continue;
+        }
+        const [step, sym, value, note] = row;
+        const cells = [[step, ""], [sym, "sym"], [value, "val"], [note, "note"]];
+        for (const [text, cls] of cells) {
+            const td = tr.insertCell();
+            if (cls) td.className = cls;
+            td.textContent = text;
+        }
+    }
+    document.getElementById("steps").hidden = !(rows && rows.length);
+}
+
+/* ------------------------------------------------------------------ *
+ * Wiring
+ * ------------------------------------------------------------------ */
+
+let activeYear = DEFAULT_YEAR;
+
+function locationFromForm() {
+    const raw = document.getElementById("location").value.trim();
+    if (!raw) return { lat: DEFAULT_LAT, lon: DEFAULT_LON };
+    const [latS, lonS] = raw.split(",");
+    const lat = Number(latS), lon = Number(lonS);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+        throw new Error(`Bad location "${raw}": expected "lat,lon"`);
+    }
+    if (lat < -65 || lat > 75) {
+        throw new Error(`Latitude ${lat}° is outside the atlas, which covers 65°S to 75°N`);
+    }
+    return { lat, lon };
+}
+
+function resetDefaults() {
+    document.getElementById("location").value = `${DEFAULT_LAT},${DEFAULT_LON}`;
+    activeYear = DEFAULT_YEAR;
+    markActivePlace();
+    markActiveYear();
+}
+
+function markActivePlace() {
+    const current = document.getElementById("location").value.trim();
+    for (const button of document.querySelectorAll(".place")) {
+        button.setAttribute("aria-pressed", String(button.dataset.coords === current));
+    }
+}
+
+function markActiveYear() {
+    for (const button of document.querySelectorAll(".year")) {
+        button.setAttribute("aria-pressed", String(Number(button.dataset.year) === activeYear));
+    }
+}
+
+/** One button per saved spot; clicking fills the box and re-decodes. */
+function buildPlaces() {
+    const box = document.getElementById("places");
+    for (const [name, lat, lon] of PLACES) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "place";
+        button.textContent = name;
+        button.dataset.coords = `${lat},${lon}`;
+        button.title = `${lat}, ${lon}`;
+        button.addEventListener("click", () => {
+            document.getElementById("location").value = button.dataset.coords;
+            markActivePlace();
+            document.getElementById("form").requestSubmit();
+        });
+        box.appendChild(button);
+    }
+}
+
+function buildYears() {
+    const box = document.getElementById("years");
+    for (const year of LP_YEARS) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "year";
+        button.textContent = String(year);
+        button.dataset.year = String(year);
+        button.addEventListener("click", () => {
+            activeYear = year;
+            markActiveYear();
+            document.getElementById("form").requestSubmit();
+        });
+        box.appendChild(button);
+    }
+}
+
+document.getElementById("form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const button = document.getElementById("submit");
+
+    let lat, lon;
+    try {
+        ({ lat, lon } = locationFromForm());
+    } catch (err) {
+        document.getElementById("bytes").hidden = true;
+        show({ meta: err.message, isError: true });
+        return;
+    }
+
+    const addr = lpAddress(lat, lon);
+    const url = tileUrl(activeYear, addr.tilex, addr.tiley);
+
+    button.disabled = true;
+    document.getElementById("result").hidden = false;
+    document.getElementById("meta").textContent = tileCache.has(url)
+        ? "decoding (tile already in memory)..."
+        : "fetching tile...";
+    document.getElementById("meta").classList.remove("error");
+
+    try {
+        const cached = tileCache.has(url);
+        const tile = await fetchTile(url);
+        const { rows, cards } = working(lat, lon, activeYear, tile, addr);
+        showBytes(tile.data, addr);
+        show({
+            meta: `tile ${addr.tilex}_${addr.tiley}, atlas ${activeYear}  ` +
+                `${tile.gzBytes.toLocaleString()} B gz → ${tile.data.length.toLocaleString()} B  ` +
+                (cached ? "(from memory)" : `${tile.seconds.toFixed(2)}s`) +
+                `  — grid point ${addr.ix},${addr.iy}`,
+            url,
+            cards,
+            rows,
+        });
+    } catch (err) {
+        document.getElementById("bytes").hidden = true;
+        show({
+            meta: `could not read the tile: ${err.name === "TimeoutError" ? "timed out" : err.message}`,
+            isError: true,
+            url,
+        });
+    } finally {
+        button.disabled = false;
+    }
+});
+
+document.getElementById("reset").addEventListener("click", () => {
+    resetDefaults();
+    document.getElementById("form").requestSubmit();
+});
+document.getElementById("location").addEventListener("input", markActivePlace);
+
+buildPlaces();
+buildYears();
+resetDefaults();
+</script>
+</body>
+</html>

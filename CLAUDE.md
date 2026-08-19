@@ -38,11 +38,13 @@ Navigation is two levels of list page: root `index.html` links to one
 `<snippet>/index.html` per snippet folder, and that folder list links to one page per
 demo, **named after the script it ports** (`open_meteo/open-meteo.html` ports
 `open_meteo/open-meteo.py`); an alternate view of the same script adds a `_suffix`
-(`open-meteo_readable.html`). Six pages have no script to be named after:
+(`open-meteo_readable.html`). Seven pages have no script to be named after:
 the two `astro_score/astro-score_*.html` pages are forks of
 `open_meteo/open-meteo_readable.html` rather than ports of one script, so they take
 their folder's name; `bigdatacloud/reverse-geocode.html` is named after the
-endpoint it calls because `bigdatacloud/` holds no script at all; and the three
+endpoint it calls because `bigdatacloud/` holds no script at all, and
+`light_pollution/binary-tile.html` the same way, after the
+`binary_tile_<x>_<y>.dat.gz` file it fetches; and the three
 `pure_math/*.html` pages are named after the **quantity each computes**
 (`galactic_center.html`, `sun_phase.html`, `moon_phase.html`) for the same reason —
 that folder holds no script either, and each page is one block lifted out of
@@ -216,7 +218,7 @@ which blocks are copies before editing any of them:
 | `PLACES` | **not duplicated** — root `places.js`, loaded by all 8 pages. `DEFAULT_LAT`/`DEFAULT_LON` from that file are unused by `astro-score_daily.html` |
 | The `countryName/principalSubdivision/city/locality` join | `astro_score/astro-score_readable.html` (`reverseGeocode()`) + `bigdatacloud/reverse-geocode.html` (`placeName()`) |
 | `reverseGeocode()` / `appendPlaceName()` (the *deferred, never-awaited* lookup) | `astro_score/astro-score_readable.html` only; **never** either `open_meteo/` page |
-| Light-pollution atlas (`lightPollution()`, `lpTile()`, `LP_ZONES`, `LP_BORTLE`, the 3 rows) | `astro_score/astro-score_readable.html` only — the second deferred, never-awaited lookup on that page, and the only third-party binary format anywhere in the repo |
+| Light-pollution atlas (`lpRatio`, `lpSqm`, `lpBortle`, `lpZone`, `LP_ZONES`, `LP_BORTLE`, tile geometry, the `DecompressionStream` read) | `astro_score/astro-score_readable.html` + `light_pollution/binary-tile.html` — the only third-party binary format in the repo. The *deferred, never-awaited* wrapper (`lightPollution()`, `loadLightPollution()`) is `astro_score`'s alone; `binary-tile.html` awaits its fetch, because there the tile **is** the result |
 | Meeus solar/lunar series | both `astro_score/astro-score_*.html` pages + `astro_score/milkyway.py` + the 3 `pure_math/` pages — never in `open_meteo/`. Every copy carries **only what it draws**: `astro-score_daily.html` has no `GC_RA`/`GC_DEC` and no `moonIllumination()`; `pure_math/galactic_center.html` has no `obliquity()`/`eclipticToEquatorial()` at all (A* is already equatorial); `pure_math/sun_phase.html` has nothing lunar; `pure_math/moon_phase.html` carries `sunPosition()` too, because the illuminated fraction needs the moon–sun elongation |
 | `DARK_SUN_ALT`, `MOON_KILL_ALT`, `moonPenalty()`, `astroScore()` | both `astro_score/astro-score_*.html` pages, verbatim. Split across `pure_math/`: `sun_phase.html` takes `DARK_SUN_ALT`, `moon_phase.html` takes `MOON_KILL_ALT` + `moonPenalty()`. **`astroScore()` is in neither** — a pure-math page has no cloud figure to score |
 | `LABELS`, `API_SHORT`, `UNIT_SHORT`, `tint()`, `SCALES`, hour-grid rendering | the 2 hour-by-hour grid pages only — `astro-score_daily.html` draws days as bars, not variables as tinted cells, and has none of them; `open-meteo.html`/`reverse-geocode.html`/the `pure_math/` three draw no grid at all |
@@ -527,6 +529,36 @@ low-precision series rather than fetched — Open-Meteo offers only sunrise/suns
 drops hours before the current one. When tuning the formula, sanity-check both ends:
 Taiwan in monsoon season should score near zero, and a pristine site (e.g. Atacama
 `-24.6,-70.4`) should reach ~100%.
+
+## light_pollution specifics
+
+One page, `binary-tile.html` (listed as **binary tile**), and **no script** — the second
+folder after `bigdatacloud/` with nothing to run. The call is one `GET` for a static file
+plus about twenty lines of arithmetic, so a Python version would demonstrate nothing.
+
+It is the light-pollution block of `astro_score/astro-score_readable.html` on its own, and
+the two are **parallel implementations — change one, mirror the other**. What differs is
+purpose: that page wants three constants and hides the working; this one *is* the working,
+printing the tile address, the grid point, the raw bytes and each derivation as its own
+row. See the astro_score section above for the byte format, the SQM/Bortle/LP-Zone
+provenance and why Bortle sits under SQM rather than replacing it; it is documented there
+because that is where the code has to keep working, not here.
+
+Two things this page has that `astro-score_readable.html` does not:
+
+- **Year buttons** (`LP_YEARS`, newest first, default `LP_YEARS[0]`). The atlas is
+  published annually and old years stay put, so the same point can be read from 2016
+  through 2025 — a snapshot becomes a trend. 合歡山 暗空公園 goes SQM 21.51 → 21.37 and
+  artificial glow 0.57× → 0.78× natural over that span, crossing LP Zone 3a → 3b while
+  **Bortle reads "4" for every single year** — the clearest demonstration in the repo of
+  why the Bortle row is drawn under the SQM one.
+- **A latitude guard**, rejecting anything outside 65°S–75°N *before* fetching, because
+  there is no tile row to ask for. `astro-score_readable.html` returns null there instead;
+  this page has to explain itself, since the tile lookup is the whole subject.
+
+The tile cache is keyed by **URL, not by tile id**, so switching year refetches while
+switching location within one 5° square does not. `astro_score`'s cache is keyed by tile id
+because it only ever reads `LP_YEAR`.
 
 ## pure_math specifics
 
