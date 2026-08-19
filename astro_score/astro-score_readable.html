@@ -284,6 +284,23 @@
                     the core rides. It is a ceiling, <b>not</b> a forecast &mdash; the core reaches it
                     once a day whether or not the sun is down, so a whole night can pass with 銀心
                     well short of it.</li>
+                <li><b>光害 (SQM)</b> is how bright the sky itself is at the zenith, in mag/arcsec&sup2;
+                    &mdash; bigger is darker, and it is fixed by <em>where you stand</em>, not by the
+                    hour, so it fills every column with one number. It comes from
+                    <a href="https://djlorenz.github.io/astronomy/lp/" target="_blank" rel="noopener">David
+                    Lorenz's World Atlas of Artificial Night Sky Brightness</a> (modelled from NOAA/VIIRS
+                    satellite data by the Earth Observation Group), the one light-pollution source that
+                    needs no API key. It is <b>modelled, not measured</b>, on a ~0.9 km grid. Not a score
+                    input: 觀星 rates tonight's sky, and no forecast can move the city.</li>
+                <li><b>Bortle</b> and <b>LP Zone</b> are two labels for that same number, shown under it
+                    rather than instead of it. LP Zone is the atlas's own banding; <b>Bortle</b> is the
+                    familiar 1&ndash;9 scale, read off SQM by the conventional ladder &mdash; a rule of
+                    thumb the atlas's author pointedly <a href="https://djlorenz.github.io/astronomy/lp/bortle.html"
+                    target="_blank" rel="noopener">declines to publish</a>, since Bortle judges the whole
+                    sky (light domes on the horizon included) and a zenith figure cannot see them. It is
+                    also coarse exactly where it matters: <b>Bortle 4 spans 21.69 down to 20.49</b>, so
+                    most decent sites in Taiwan read &quot;4&quot; while LP Zone still tells them apart.
+                    Read the SQM.</li>
                 <li>The <b>太陽/月亮/月相/銀心</b> rows are computed from the location with this page's own
                     astronomy, not read from the response &mdash; Open-Meteo returns only sunrise/sunset
                     and a daily <code>moon_phase</code>, neither of which is an hourly altitude. They are
@@ -770,6 +787,194 @@ function astroSeries(body) {
 }
 
 /* ------------------------------------------------------------------ *
+ * Light pollution -- David Lorenz's World Atlas of Artificial Night Sky
+ * Brightness, a recomputation of Cinzano's atlas from VIIRS satellite
+ * data. Keyless and CORS-enabled because it is hosted on GitHub Pages,
+ * which is the only reason this page can use it at all: every other
+ * light-pollution service wants an API key, and a key in page source is
+ * why cwa_opendata has no demo.
+ *
+ * Credit: David J. Lorenz (djlorenz.github.io/astronomy/lp), built on
+ * NOAA/VIIRS night lights processed by the Earth Observation Group at the
+ * Colorado School of Mines. It is a courtesy dependency on one person's
+ * static host, so every failure path here resolves to null and leaves the
+ * rest of the page alone.
+ * ------------------------------------------------------------------ */
+
+// Latest atlas year published as binary tiles; a new one appears roughly
+// annually and old ones stay put, so this is safe to pin.
+const LP_YEAR = 2025;
+const LP_TILE_URL = "https://djlorenz.github.io/astronomy/binary_tiles";
+
+// Tile geometry, from the atlas's own viewer: the world is cut into 5-degree
+// squares, each a 600 x 600 grid at 1/120 degree (30 arcsec, ~0.9 km).
+const LP_TILE_DEG = 5;
+const LP_TILE_N = 600;
+const LP_LAT_ORIGIN = 65;   // tile row 1 starts at 65S; rows run 1..28, i.e. to 75N
+
+// Lorenz's own LP Zone ladder, in brightnessRatio. Finer than Bortle and native
+// to the data -- the boundaries are a geometric ladder in artificial brightness,
+// and Bortle's cut points below are a coarser relabelling of these same edges.
+const LP_ZONES = [
+    [0.01, "0"], [0.06, "1a"], [0.11, "1b"], [0.19, "2a"], [0.33, "2b"],
+    [0.58, "3a"], [1.00, "3b"], [1.73, "4a"], [3.00, "4b"], [5.20, "5a"],
+    [9.00, "5b"], [15.59, "6a"], [27.00, "6b"], [46.77, "7a"],
+];
+const LP_ZONE_BRIGHTEST = "7b";
+
+// SQM -> Bortle, the conventional ladder every light-pollution map uses.
+//
+// This is the one step the atlas does NOT endorse: Lorenz argues that zenith
+// brightness and the Bortle scale measure different things (Bortle is subjective
+// and about the whole sky, including light domes near the horizon that a zenith
+// figure cannot see) and pointedly does not publish a Bortle number. It is here
+// because Bortle is the vocabulary people actually speak, and it is drawn as its
+// own row rather than replacing the SQM one so the lossy label never hides the
+// number it came from.
+//
+// The cut points are not arbitrary: seven of the eight fall exactly on LP_ZONES
+// boundaries above, because both ladders descend from the same round
+// brightness-ratio steps. What that also shows is where the loss is -- Bortle 4
+// swallows zones 3a, 3b, 4a and 4b whole, i.e. the entire dark-site range from
+// 21.69 down to 20.49, which is why most decent sites in Taiwan read "4".
+const LP_BORTLE = [
+    [21.99, 1], [21.89, 2], [21.69, 3], [20.49, 4],
+    [19.50, 5], [18.94, 6], [18.38, 7], [17.80, 8],
+];
+const LP_BORTLE_BRIGHTEST = 9;
+
+const lpTileCache = new Map();    // "tilex_tiley" -> Int8Array (successes only)
+const lpPointCache = new Map();   // "lat,lon" -> {ratio, sqm, bortle, zone} | null
+
+/** The atlas's compressed integer -> artificial/natural brightness ratio. */
+function lpRatio(compressed) {
+    return (5.0 / 195.0) * (Math.exp(0.0195 * compressed) - 1.0);
+}
+
+/**
+ * Brightness ratio -> zenith sky brightness in mag/arcsec2.
+ *
+ * Lorenz's own line, not ours: 22.0 is the assumed natural sky brightness, and
+ * the rest is the ordinary conversion of a linear brightness ratio to
+ * magnitudes, since the total sky is natural x (1 + ratio).
+ */
+function lpSqm(ratio) {
+    return 22.0 - 2.5 * Math.log10(1.0 + ratio);
+}
+
+function lpBortle(sqm) {
+    for (const [threshold, cls] of LP_BORTLE) {
+        if (sqm >= threshold) return cls;
+    }
+    return LP_BORTLE_BRIGHTEST;
+}
+
+function lpZone(ratio) {
+    for (const [threshold, zone] of LP_ZONES) {
+        if (ratio < threshold) return zone;
+    }
+    return LP_ZONE_BRIGHTEST;
+}
+
+/**
+ * One 5-degree tile, gunzipped into the signed byte array the atlas encodes.
+ *
+ * The tiles are gzip files rather than gzip-encoded responses, so the browser
+ * will not unwrap them -- the atlas's own viewer pulls in pako for this. We use
+ * DecompressionStream instead, which is a built-in Web API (Chrome 80, Safari
+ * 16.4, Firefox 113) and keeps this page dependency-free.
+ *
+ * Only successes are cached: a tile is ~65 KB, so a timeout on a phone should be
+ * retried on the next Fetch rather than remembered as "no data forever".
+ */
+async function lpTile(tilex, tiley, timeoutMs = 20000) {
+    const key = `${tilex}_${tiley}`;
+    if (lpTileCache.has(key)) return lpTileCache.get(key);
+
+    const url = `${LP_TILE_URL}/${LP_YEAR}/binary_tile_${key}.dat.gz`;
+    try {
+        const resp = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+        if (!resp.ok || !resp.body) return null;
+        const stream = resp.body.pipeThrough(new DecompressionStream("gzip"));
+        const buffer = await new Response(stream).arrayBuffer();
+        // 2 bytes for the absolute corner, then one delta per remaining point.
+        if (buffer.byteLength < LP_TILE_N * LP_TILE_N) return null;
+        const data = new Int8Array(buffer);
+        lpTileCache.set(key, data);
+        return data;
+    } catch {
+        // Offline, timed out, or the atlas moved. The forecast is unaffected.
+        return null;
+    }
+}
+
+/**
+ * Light pollution at a point: {ratio, sqm, bortle, zone}, or null.
+ *
+ * The tile stores neither SQM nor Bortle -- just one logarithmically quantised
+ * integer per grid point, delta-encoded to keep it small: the lower-left corner
+ * is a 2-byte absolute value and every byte after it is a signed 1-byte change
+ * from its neighbour. Walking up the left edge and then across the row recovers
+ * the value, which lpRatio() expands into the only physical quantity the atlas
+ * actually holds.
+ *
+ * Given the requested coordinates, not the response's grid point: Open-Meteo
+ * answers with a cell up to ~6 km away, and light pollution changes far faster
+ * over that distance than cloud cover does. This is where you would stand.
+ */
+async function lightPollution(lat, lon, timeoutMs = 20000) {
+    if (typeof DecompressionStream === "undefined") return null;   // pre-2023 browser
+    try {
+        const lonFromDateLine = mod360(lon + 180.0);
+        const latFromStart = lat + LP_LAT_ORIGIN;
+        const tilex = Math.floor(lonFromDateLine / LP_TILE_DEG) + 1;
+        const tiley = Math.floor(latFromStart / LP_TILE_DEG) + 1;
+        // The atlas runs 65S to 75N; outside that there is no tile to ask for.
+        if (tiley < 1 || tiley > 28) return null;
+
+        const data = await lpTile(tilex, tiley, timeoutMs);
+        if (!data) return null;
+
+        const half = 1 / (2 * LP_TILE_N / LP_TILE_DEG);   // half a grid cell, for rounding
+        const ix = Math.round(120 * (lonFromDateLine - LP_TILE_DEG * (tilex - 1) + half));
+        const iy = Math.round(120 * (latFromStart - LP_TILE_DEG * (tiley - 1) + half));
+
+        let value = 128 * Number(data[0]) + Number(data[1]);
+        for (let i = 1; i < iy; i++) value += Number(data[LP_TILE_N * i + 1]);
+        for (let i = 1; i < ix; i++) value += Number(data[LP_TILE_N * (iy - 1) + 1 + i]);
+
+        const ratio = lpRatio(value);
+        const sqm = lpSqm(ratio);
+        return { ratio, sqm, bortle: lpBortle(sqm), zone: lpZone(ratio) };
+    } catch {
+        return null;
+    }
+}
+
+const lpKey = (lat, lon) => `${lat},${lon}`;
+
+/**
+ * Kick off the lookup and redraw when it lands.
+ *
+ * Deliberately not awaited, like appendPlaceName(): the forecast is what the
+ * page is for and must not wait on a ~65 KB tile from a third party. The rows
+ * draw as "…" until it arrives. The redraw is guarded on the location still
+ * being the one on screen, so a slow lookup for an abandoned place cannot
+ * repaint the grid under a newer one.
+ */
+function loadLightPollution(lat, lon) {
+    const key = lpKey(lat, lon);
+    if (lpPointCache.get(key)) return;   // known; a cached null falls through and retries
+    lightPollution(lat, lon).then((value) => {
+        lpPointCache.set(key, value);
+        const current = lastResponse
+            ? lpKey(lastResponse.params.latitude, lastResponse.params.longitude)
+            : null;
+        if (current === key) renderGrid();
+    });
+}
+
+/* ------------------------------------------------------------------ *
  * The score
  * ------------------------------------------------------------------ */
 
@@ -866,6 +1071,26 @@ const GC_ROW = { key: "gcAlt", label: "銀心 (°)", api: "A* alt", scale: [0, 2
 // is to answer "is 銀心 22 tonight close to as good as it gets here, or half of
 // it" without the reader knowing the latitude.
 const GC_MAX_ROW = { key: "gcMaxAlt", label: "銀心 (max)", api: "A* max" };
+
+// Light pollution at the location: three views of one number, drawn under
+// 銀心 (max) because they are the same kind of thing -- fixed by where you are
+// standing rather than by the hour, so the same value fills every column.
+//
+// Untinted for the same reason 銀心 (max) is: a constant painted across a row
+// would be a solid band of colour that reads as data changing by the hour.
+//
+// SQM is the row that carries information -- it is one formula away from what
+// the atlas stores. Bortle is the familiar label and LP Zone is the atlas's own,
+// finer, banding of the identical figure; both are shown *under* SQM rather than
+// instead of it so a lossy class never hides the number behind it.
+const LP_ROWS = [
+    { key: "sqm", label: "光害 (SQM)", api: "sky mag", digits: 2,
+      title: "artificial zenith sky brightness, mag/arcsec² — light pollution atlas, not Open-Meteo" },
+    { key: "bortle", label: "Bortle", api: "1–9",
+      title: "Bortle class, read off SQM by the conventional ladder — a rule of thumb, not atlas data" },
+    { key: "zone", label: "LP Zone", api: "0–7b",
+      title: "the atlas's own light pollution zone — finer than Bortle, and native to the data" },
+];
 
 const ASTRO_ROWS = [
     { key: "sunAlt", label: "太陽 (°)", api: "sun alt", scale: [-18, 0, true] },
@@ -1122,6 +1347,26 @@ function buildTable(body, params, fromNow) {
     drawAstroRow(GC_ROW);
     drawAstroRow(GC_MAX_ROW);
 
+    // 光害 / Bortle / LP Zone -- fetched, not computed, and possibly not here yet.
+    // undefined means the lookup is still in flight (drawn "…"), null means it
+    // failed or the browser has no DecompressionStream (drawn "–"); either way the
+    // grid above and below is untouched.
+    const lp = lpPointCache.get(lpKey(params.latitude, params.longitude));
+    for (const spec of LP_ROWS) {
+        const row = addRow(spec.label, spec.api, "calc", spec.title);
+        for (const i of indices) {
+            const td = row.insertCell();
+            markBreak(td, i);
+            if (lp === undefined || lp === null) {
+                td.textContent = lp === undefined ? "…" : "–";
+                td.className += " na";
+                continue;
+            }
+            const value = lp[spec.key];
+            td.textContent = spec.digits ? value.toFixed(spec.digits) : String(value);
+        }
+    }
+
     // 天氣 -- only when cloud cover was actually requested.
     if (coverKey) {
         const iconRow = addRow("天氣", "", "icon");
@@ -1291,6 +1536,7 @@ document.getElementById("form").addEventListener("submit", async (event) => {
             `— ${r.body.timezone} (${r.body.timezone_abbreviation}), ` +
             `${r.body.latitude}°, ${r.body.longitude}°, ${r.body.elevation} m`;
         appendPlaceName(meta, params.latitude, params.longitude);
+        loadLightPollution(params.latitude, params.longitude);
         renderGrid();
     } catch (err) {
         showError(

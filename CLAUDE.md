@@ -216,6 +216,7 @@ which blocks are copies before editing any of them:
 | `PLACES` | **not duplicated** — root `places.js`, loaded by all 8 pages. `DEFAULT_LAT`/`DEFAULT_LON` from that file are unused by `astro-score_daily.html` |
 | The `countryName/principalSubdivision/city/locality` join | `astro_score/astro-score_readable.html` (`reverseGeocode()`) + `bigdatacloud/reverse-geocode.html` (`placeName()`) |
 | `reverseGeocode()` / `appendPlaceName()` (the *deferred, never-awaited* lookup) | `astro_score/astro-score_readable.html` only; **never** either `open_meteo/` page |
+| Light-pollution atlas (`lightPollution()`, `lpTile()`, `LP_ZONES`, `LP_BORTLE`, the 3 rows) | `astro_score/astro-score_readable.html` only — the second deferred, never-awaited lookup on that page, and the only third-party binary format anywhere in the repo |
 | Meeus solar/lunar series | both `astro_score/astro-score_*.html` pages + `astro_score/milkyway.py` + the 3 `pure_math/` pages — never in `open_meteo/`. Every copy carries **only what it draws**: `astro-score_daily.html` has no `GC_RA`/`GC_DEC` and no `moonIllumination()`; `pure_math/galactic_center.html` has no `obliquity()`/`eclipticToEquatorial()` at all (A* is already equatorial); `pure_math/sun_phase.html` has nothing lunar; `pure_math/moon_phase.html` carries `sunPosition()` too, because the illuminated fraction needs the moon–sun elongation |
 | `DARK_SUN_ALT`, `MOON_KILL_ALT`, `moonPenalty()`, `astroScore()` | both `astro_score/astro-score_*.html` pages, verbatim. Split across `pure_math/`: `sun_phase.html` takes `DARK_SUN_ALT`, `moon_phase.html` takes `MOON_KILL_ALT` + `moonPenalty()`. **`astroScore()` is in neither** — a pure-math page has no cloud figure to score |
 | `LABELS`, `API_SHORT`, `UNIT_SHORT`, `tint()`, `SCALES`, hour-grid rendering | the 2 hour-by-hour grid pages only — `astro-score_daily.html` draws days as bars, not variables as tinted cells, and has none of them; `open-meteo.html`/`reverse-geocode.html`/the `pure_math/` three draw no grid at all |
@@ -311,7 +312,65 @@ otherwise paint a solid band of one colour that reads as data varying by the hou
 constant is stuffed into every hour of `astroAt()`'s return rather than special-cased in
 the renderer — one subtraction an hour, and `drawAstroRow()` stays uniform. It has **no
 `milkyway.py` counterpart**; it is a display affordance of this page, not part of the
-shared astronomy. Its score is
+shared astronomy.
+
+### Light pollution — the three rows under 銀心 (max)
+
+`光害 (SQM)`, `Bortle` and `LP Zone` are three views of **one fetched number**, and like
+`銀心 (max)` they are constants for the location, so the same value fills every column and
+all three are **untinted** (a constant painted across a row is a solid band that reads as
+data changing by the hour).
+
+The source is **David Lorenz's World Atlas of Artificial Night Sky Brightness**
+(`djlorenz.github.io/astronomy/lp`), a recomputation of Cinzano's atlas from NOAA/VIIRS
+data. It is the **only** light-pollution source that works here: `lightpollutionmap.info`
+sends CORS `*` but answers `"Invalid or missing authentication. Please request a key"`, and
+a key in page source is exactly why `cwa_opendata` has no demo. Lorenz's tiles are on
+GitHub Pages, which serves `access-control-allow-origin: *`. Credit is owed and is on the
+page; it is a **courtesy dependency on one person's static host**, so every failure path
+resolves to null.
+
+**What the tile actually contains — neither SQM nor Bortle.** One logarithmically quantised
+integer per grid point, delta-encoded: `bytes[0..1]` is the lower-left corner as a 2-byte
+absolute (`128*b0 + b1`), every byte after is a **signed 1-byte change** from its neighbour.
+Walk up the left edge, then across the row, summing. 600×600 points per 5° tile at 1/120°
+(30 arcsec, ~0.9 km); 360,001 bytes raw, ~65 KB gzipped. `lpRatio()` expands the integer
+into the one physical quantity stored: **artificial zenith glow ÷ natural night sky**.
+
+Three derivations, with very different standing — do not blur them:
+
+- **SQM** is `lpSqm()` = `22 − 2.5·log₁₀(1 + ratio)`, **Lorenz's own line**, lifted from his
+  viewer. `22.0` is the assumed natural sky brightness; the rest is a linear-to-magnitude
+  conversion. No judgement in it — this row is the one carrying information.
+- **LP Zone** is `LP_ZONES`, **the atlas's own** 15-step banding (`0`…`7b`) in brightness
+  ratio.
+- **Bortle** is `LP_BORTLE`, **ours** — and the atlas author
+  [argues against it](https://djlorenz.github.io/astronomy/lp/bortle.html): Bortle judges the
+  whole sky, horizon light domes included, which a zenith figure cannot see. Its cut points
+  are not arbitrary, though: **seven of the eight fall exactly on `LP_ZONES` boundaries**,
+  because both ladders descend from the same round ratio steps. That also locates the loss —
+  **Bortle 4 swallows zones 3a, 3b, 4a and 4b whole** (21.69 → 20.49), the entire dark-site
+  range, which is why most decent sites in Taiwan read "4" while LP Zone still separates them
+  (暗空公園 `3b` vs 柚子湖 `3a`). Keep Bortle *under* SQM, never instead of it.
+
+**The tiles are gzip files, not gzip-encoded responses**, so the browser will not unwrap
+them — Lorenz's own viewer pulls in `pako` for this. We use **`DecompressionStream("gzip")`**,
+a built-in Web API (Chrome 80, Safari 16.4, Firefox 113), which keeps the page
+dependency-free. A browser without it is a `null`, not a crash.
+
+Loading is **deferred and never awaited**, exactly like `appendPlaceName()`: the forecast
+must not wait on a ~65 KB third-party tile. `loadLightPollution()` fires from the submit
+handler; the rows draw `…` until it lands, then it calls `renderGrid()` — **guarded on the
+location still being the one on screen**, so a slow lookup for an abandoned place cannot
+repaint the grid under a newer one. `lpTileCache` caches **successes only** (a timeout on a
+phone deserves a retry, not a permanent "no data"), and `lpPointCache` stores `null` on
+failure so the row shows `–` while a later Fetch still retries. Verified: deferred `…` →
+values; and `–` for outage, 404, out-of-atlas latitude, and missing `DecompressionStream`,
+with the forecast intact in every case.
+
+It is given the **requested** lat/lon, not the response's grid point — same reason as
+`reverseGeocode()`, and more so: Open-Meteo's cell can be ~6 km away and light pollution
+changes far faster over that distance than cloud cover does. Its score is
 `(100 − 雲量) × (100 − moonPenalty) / 100`, zeroed outright when the sun is above −10°,
 where `moonPenalty` ramps 0→100 as moon altitude goes 0°→10° (`MOON_KILL_ALT`) and is 0
 below the horizon — altitude only, so 月相 is left on screen to judge illumination by eye.

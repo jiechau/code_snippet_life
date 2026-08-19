@@ -26,8 +26,8 @@ here mainly when changing those constants; the adjustable form is
 **Live demo:** https://jiechau.github.io/code_snippet_life/astro_score/
 
 - [AstroScore readable](https://jiechau.github.io/code_snippet_life/astro_score/astro-score_readable.html)
-  — an hour-by-hour grid with a 觀星 score per hour, plus 太陽/月亮/月相/銀心 rows
-  and the fixed 銀心 (max) ceiling for the location.
+  — an hour-by-hour grid with a 觀星 score per hour, plus 太陽/月亮/月相/銀心 rows,
+  the fixed 銀心 (max) ceiling, and the site's 光害 (SQM) / Bortle / LP Zone.
 - [AstroScore daily](https://jiechau.github.io/code_snippet_life/astro_score/astro-score_daily.html)
   — the same score folded into a week-at-a-glance grid: a row per saved spot, a
   column per day, two block glyphs per cell.
@@ -234,7 +234,27 @@ does not feed it removed.
   the core is shot through too much airmass to photograph. It is up for only part of
   the night, and is **not** a score input: 觀星 rates a dark, clear, moonless sky,
   which is worth going out for with or without the core.
-- **The 銀心 (max) row** sits directly under it: the ceiling that altitude is measured
+- **The 光害 (SQM) / Bortle / LP Zone rows** sit under 銀心 (max) and are three views
+  of one fetched number — how bright the sky itself is where you are standing, so
+  like 銀心 (max) they are constant across the row and untinted. The source is
+  [David Lorenz's World Atlas of Artificial Night Sky Brightness](https://djlorenz.github.io/astronomy/lp/),
+  modelled from NOAA/VIIRS satellite data on a ~0.9 km grid — **modelled, not
+  measured**. It is the only light-pollution source usable here: every other one
+  wants an API key, and a key in page source is why `cwa_opendata` has no demo.
+  The lookup is deferred and never awaited, so the rows read `…` until the ~65 KB
+  tile lands and `–` if it never does; the forecast never waits on it.
+  - **SQM** (mag/arcsec², bigger is darker) is the row that carries information —
+    it is one formula of Lorenz's own away from what the atlas stores.
+  - **LP Zone** is the atlas's own 15-step banding, `0` (darkest) to `7b`.
+  - **Bortle** is the familiar 1–9 scale, read off SQM by the conventional ladder.
+    It is a rule of thumb the atlas's author
+    [declines to publish](https://djlorenz.github.io/astronomy/lp/bortle.html),
+    because Bortle judges the whole sky — horizon light domes included — which a
+    zenith number cannot see. It is also coarse exactly where it matters: Bortle 4
+    spans 21.69 down to 20.49, so 東澳, 石梯坪, 柚子湖, 龍磐公園 and 暗空公園 all
+    read "4" while LP Zone still separates 暗空公園 (`3b`) from 柚子湖 (`3a`).
+    Read the SQM; the labels are there because people speak them.
+- **The 銀心 (max) row** sits directly under 銀心: the ceiling that altitude is measured
   against. A fixed point is highest crossing the meridian, so the peak is simply
   `90° − |緯度 − (−29°)|` — no ephemeris and no time, hence **the same number in every
   column**, and left untinted for exactly that reason (a constant painted across a row
