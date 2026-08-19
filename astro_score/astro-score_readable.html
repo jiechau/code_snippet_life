@@ -272,10 +272,18 @@
                 <li><b>雲量</b> is total cloud cover from <code>icon_global</code>; the deck rows below are
                     for context and do not enter the score.</li>
                 <li><b>銀心</b> is the altitude of the Milky Way core (Sgr A*, RA 17h45m, Dec &minus;29&deg;),
-                    which from Taiwan peaks near +37&deg; and is up only part of the night. It does
+                    up only part of the night. It does
                     <b>not</b> enter the score &mdash; a dark clear hour is worth going out for either
                     way &mdash; but below roughly +25&deg; the core is shot through too much airmass to
                     photograph, so read it beside a high 觀星 before packing for the core.</li>
+                <li><b>銀心 (max)</b> is the ceiling that row is measured against: how high the core
+                    gets at this latitude when it crosses the meridian, which is
+                    <code>90&deg; &minus; |緯度 &minus; (&minus;29&deg;)|</code> &mdash; fixed by the
+                    location, so the same number in every column, and untinted for that reason. Taiwan
+                    runs about +36&deg; in Taipei to +39&deg; at 墾丁: the further south, the higher
+                    the core rides. It is a ceiling, <b>not</b> a forecast &mdash; the core reaches it
+                    once a day whether or not the sun is down, so a whole night can pass with 銀心
+                    well short of it.</li>
                 <li>The <b>太陽/月亮/月相/銀心</b> rows are computed from the location with this page's own
                     astronomy, not read from the response &mdash; Open-Meteo returns only sunrise/sunset
                     and a daily <code>moon_phase</code>, neither of which is an hourly altitude. They are
@@ -702,10 +710,32 @@ function moonIllumination(sunRa, sunDec, moonRa, moonDec, moonDist) {
 }
 
 /**
+ * The highest the galactic core ever gets at a latitude, in degrees.
+ *
+ * A fixed point is at its highest crossing the meridian, where the hour angle is
+ * 0 and altAz()'s sinAlt collapses to sin(lat)sin(dec) + cos(lat)cos(dec), i.e.
+ * cos(lat - dec). So the peak is 90 - |lat - dec|: no time argument, no ephemeris,
+ * the same every night of the year. Taiwan spans roughly 36 deg (Taipei) to 39 deg
+ * (墾丁) -- the further south, the higher the core rides.
+ *
+ * It is the ceiling for the 銀心 row below it, not a forecast: the core reaches it
+ * once a day whether or not the sun is down, so a night can easily end with the
+ * core well short of this number.
+ */
+function gcMaxAlt(lat) {
+    return 90 - Math.abs(lat - GC_DEC);
+}
+
+/**
  * Sun, moon and galactic core for one hour, at the grid point the forecast is for.
  *
  * The core is a fixed point, so its altitude needs no ephemeris at all -- just
  * the same sidereal time the other two are converted with.
+ *
+ * gcMaxAlt is a constant for the location rather than an hourly value, and is
+ * repeated into every hour purely so the 銀心 (max) row draws through the same
+ * drawAstroRow() as everything else instead of needing a special case. It costs
+ * one subtraction an hour.
  */
 function astroAt(utcMs, lat, lon) {
     const jd = julianDay(utcMs);
@@ -716,6 +746,7 @@ function astroAt(utcMs, lat, lon) {
         sunAlt: altAz(sun.ra, sun.dec, lat, lst).alt,
         moonAlt: altAz(moon.ra, moon.dec, lat, lst).alt,
         gcAlt: altAz(GC_RA, GC_DEC, lat, lst).alt,
+        gcMaxAlt: gcMaxAlt(lat),
         moonIllum: moonIllumination(sun.ra, sun.dec, moon.ra, moon.dec, moon.dist) * 100,
     };
 }
@@ -823,8 +854,19 @@ const SCORE_ROW = { label: "觀星 (%)", api: "AstroScore", scale: [0, 100, fals
 // input: 觀星 rates a dark clear sky, which is worth going out for with or without
 // the core. Green from 25° up, the altitude milkyway.py's core_up ramp tops out
 // at -- lower than that and the core is looking through too much airmass to
-// photograph, whatever the clouds are doing. From Taiwan it peaks near 37°.
+// photograph, whatever the clouds are doing. How high it actually gets here is the
+// GC_MAX_ROW below -- 35.9° at 三總 up to 39.1° at 龍磐公園.
 const GC_ROW = { key: "gcAlt", label: "銀心 (°)", api: "A* alt", scale: [0, 25, false] };
+
+// 銀心 (max) -- the ceiling the row above is measured against: how high the core
+// gets at this latitude when it transits, which is fixed by the location and so
+// the same number in every column. Deliberately **no scale**, so drawAstroRow()
+// leaves it untinted: a constant repeated across the row would paint a solid band
+// of one colour and read as data varying with the hours, which it is not. Its job
+// is to answer "is 銀心 22 tonight close to as good as it gets here, or half of
+// it" without the reader knowing the latitude.
+const GC_MAX_ROW = { key: "gcMaxAlt", label: "銀心 (max)", api: "A* max" };
+
 const ASTRO_ROWS = [
     { key: "sunAlt", label: "太陽 (°)", api: "sun alt", scale: [-18, 0, true] },
     { key: "moonAlt", label: "月亮 (°)", api: "moon alt", scale: [-6, 45, true] },
@@ -1076,7 +1118,9 @@ function buildTable(body, params, fromNow) {
 
     // 銀心 -- above 天氣 rather than with the other computed rows: it says whether
     // the core is even up, which is the second thing to look at after the score.
+    // Its ceiling follows immediately, so the two read as a pair.
     drawAstroRow(GC_ROW);
+    drawAstroRow(GC_MAX_ROW);
 
     // 天氣 -- only when cloud cover was actually requested.
     if (coverKey) {

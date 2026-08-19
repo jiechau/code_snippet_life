@@ -20,7 +20,8 @@ here mainly when changing those constants; the adjustable form is
 **Live demo:** https://jiechau.github.io/code_snippet_life/astro_score/
 
 - [AstroScore readable](https://jiechau.github.io/code_snippet_life/astro_score/astro-score_readable.html)
-  — an hour-by-hour grid with a 觀星 score per hour.
+  — an hour-by-hour grid with a 觀星 score per hour, plus 太陽/月亮/月相/銀心 rows
+  and the fixed 銀心 (max) ceiling for the location.
 - [AstroScore daily](https://jiechau.github.io/code_snippet_life/astro_score/astro-score_daily.html)
   — the same score folded into a week-at-a-glance grid: a row per saved spot, a
   column per day, two block glyphs per cell.
@@ -224,9 +225,17 @@ does not feed it removed.
 - **The 銀心 row** sits between 觀星 and 天氣: the second thing to look at after the
   score, since it says whether the Milky Way core is even up. Altitude in degrees,
   tinted green from **+25°** — the top of `milkyway.py`'s `core_up` ramp, below which
-  the core is shot through too much airmass to photograph. From Taiwan it peaks near
-  +37° and is up for only part of the night. It is **not** a score input: 觀星 rates a
-  dark, clear, moonless sky, which is worth going out for with or without the core.
+  the core is shot through too much airmass to photograph. It is up for only part of
+  the night, and is **not** a score input: 觀星 rates a dark, clear, moonless sky,
+  which is worth going out for with or without the core.
+- **The 銀心 (max) row** sits directly under it: the ceiling that altitude is measured
+  against. A fixed point is highest crossing the meridian, so the peak is simply
+  `90° − |緯度 − (−29°)|` — no ephemeris and no time, hence **the same number in every
+  column**, and left untinted for exactly that reason (a constant painted across a row
+  would read as data changing by the hour). Across the saved spots it runs 35.9° at
+  三總 to 39.1° at 龍磐公園 — the further south, the higher the core rides. It is a
+  ceiling, not a forecast: the core reaches it once a day whether or not the sun is
+  down, so a whole night can pass with 銀心 well short of it.
 
 It talks to Open-Meteo **straight from the browser**; Pages is static hosting and
 cannot run the Python. That works only because Open-Meteo needs no API key (a key

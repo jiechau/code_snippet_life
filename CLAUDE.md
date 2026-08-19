@@ -274,7 +274,23 @@ label, tinted `[0, 100, false]` so 100 is green, and the `銀心` row sits betwe
 two — galactic core altitude from the same `GC_RA`/`GC_DEC` as `milkyway.py`, tinted
 `[0, 25, false]` after that file's `core_up` ramp. It is drawn by `drawAstroRow()`,
 the same routine the `ASTRO_ROWS` below 天氣 use, and is **display only**:
-`astroScore()` does not read it, so a core below the horizon does not lower the score. Its score is
+`astroScore()` does not read it, so a core below the horizon does not lower the score.
+
+Directly under it sits **`銀心 (max)` (`A* max`, `GC_MAX_ROW`)** — the ceiling that row is
+measured against. A fixed point is highest at transit, where the hour angle is 0 and
+`altAz()`'s `sinAlt` collapses to `cos(lat - dec)`, so `gcMaxAlt(lat)` is just
+`90 - |lat - GC_DEC|`: no ephemeris, no time argument, **the same number in every column**.
+Verified against a brute-force 10-minute sweep over 400 days at all ten saved spots —
+agreement to 1.6e-7°. Taiwan runs ~35.9° (三總) to ~39.1° (龍磐公園); the further south, the
+higher the core rides.
+
+It is the one computed row with **no `scale`**, deliberately: `tint(v, undefined)` returns
+null, so `drawAstroRow()` leaves it untinted, and a constant repeated across a row would
+otherwise paint a solid band of one colour that reads as data varying by the hour. The
+constant is stuffed into every hour of `astroAt()`'s return rather than special-cased in
+the renderer — one subtraction an hour, and `drawAstroRow()` stays uniform. It has **no
+`milkyway.py` counterpart**; it is a display affordance of this page, not part of the
+shared astronomy. Its score is
 `(100 − 雲量) × (100 − moonPenalty) / 100`, zeroed outright when the sun is above −10°,
 where `moonPenalty` ramps 0→100 as moon altitude goes 0°→10° (`MOON_KILL_ALT`) and is 0
 below the horizon — altitude only, so 月相 is left on screen to judge illumination by eye.
