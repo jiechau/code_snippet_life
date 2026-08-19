@@ -221,7 +221,7 @@ which blocks are copies before editing any of them:
 | The `countryName/principalSubdivision/city/locality` join | `astro_score/astro-score_readable.html` (`reverseGeocode()`) + `bigdatacloud/reverse-geocode.html` (`placeName()`) |
 | `reverseGeocode()` / `appendPlaceName()` (the *deferred, never-awaited* lookup) | `astro_score/astro-score_readable.html` only; **never** either `open_meteo/` page |
 | Light-pollution atlas (`lpRatio`, `lpSqm`, `lpBortle`, `lpZone`, `LP_ZONES`, `LP_BORTLE`, tile geometry, the `DecompressionStream` read) | `astro_score/astro-score_readable.html` + `light_pollution/binary-tile.html` — the only third-party binary format in the repo. The *deferred, never-awaited* wrapper (`lightPollution()`, `loadLightPollution()`) is `astro_score`'s alone; `binary-tile.html` awaits its fetch, because there the tile **is** the result |
-| Meeus solar/lunar series | both `astro_score/astro-score_*.html` pages + `astro_score/milkyway.py` + the 3 `pure_math/` pages — never in `open_meteo/`. Every copy carries **only what it draws**: `astro-score_daily.html` has no `GC_RA`/`GC_DEC` and no `moonIllumination()`; `pure_math/galactic_center.html` has no `obliquity()`/`eclipticToEquatorial()` at all (A* is already equatorial); `pure_math/sun_phase.html` has nothing lunar; `pure_math/moon_phase.html` carries `sunPosition()` too, because the illuminated fraction needs the moon–sun elongation |
+| Meeus solar/lunar series | both `astro_score/astro-score_*.html` pages + `astro_score/milkyway.py` + the 3 `pure_math/` pages — never in `open_meteo/`. Every copy carries **only what it draws**: `astro-score_daily.html` has no `moonIllumination()` (it has `GC_RA`/`GC_DEC`, which its MilkyScore strip needs); `pure_math/galactic_center.html` has no `obliquity()`/`eclipticToEquatorial()` at all (A* is already equatorial); `pure_math/sun_phase.html` has nothing lunar; `pure_math/moon_phase.html` carries `sunPosition()` too, because the illuminated fraction needs the moon–sun elongation |
 | `DARK_SUN_ALT`, `MOON_KILL_ALT`, `moonPenalty()`, `astroScore()` | both `astro_score/astro-score_*.html` pages, verbatim. Split across `pure_math/`: `sun_phase.html` takes `DARK_SUN_ALT`, `moon_phase.html` takes `MOON_KILL_ALT` + `moonPenalty()`. **`astroScore()` is in neither** — a pure-math page has no cloud figure to score |
 | `LABELS`, `API_SHORT`, `UNIT_SHORT`, `tint()`, `SCALES`, hour-grid rendering | the 2 hour-by-hour grid pages only — `astro-score_daily.html` draws days as bars, not variables as tinted cells, and has none of them; `open-meteo.html`/`reverse-geocode.html`/the `pure_math/` three draw no grid at all |
 | `MODELS` (the four ids, in order) | `open-meteo*.html` + `astro-score_daily.html` + `milkyway.py` + `open-meteo.py` — **not** `astro-score_readable.html`, which fixes `icon_global` alone |
@@ -407,14 +407,30 @@ across a column rule, *not* as `██` inside a single cell — a cell showing 
 of one night beside the head of the next. Any prose added here must keep that straight; it
 is the one thing about this grid a reader gets wrong.
 
+Under each bar sits a **purple `▀` strip: the MilkyScore** (`milkyScore()`,
+`MILKY_BANDS`, `milkyColor()`) — the block's best hour of `gcAlt° × 觀星/100`, with a
+below-horizon core clamped to 0. It is the one value on this page that picks a
+**colour** rather than a height, and the reason the page now carries `GC_RA`/`GC_DEC`
+(verified: `astroAt().gcAlt` peaks at exactly `90 − |lat − GC_DEC|`, matching
+`astro-score_readable.html`'s `gcMaxAlt`). Bands are `>50 / >40 / >30 / >20`, deepest
+first, blank at or below 20. Two things to keep straight before retuning it:
+**it is in degrees, not a percentage**, so the ceiling is the core's own transit
+altitude — ~35.9° (三總) to ~39.1° (龍磐公園) over Taiwan, which makes the top two
+shades unreachable here and reserved for lower latitudes; and it is the **max of the
+product**, not the product of the maxima, because the best sky and the highest core
+can fall in different hours. The strip's span is appended whatever the value — empty
+and unpainted below the lowest band — and `.under`/`.bar` both carry `height: 1em`,
+because an empty block box generates no line box and would shorten that one stack,
+pulling its neighbours' floor out of line.
+
 It requests **all four models** and scores **one at a time**, picked by the 雲量來源 tabs
 above the grid (`renderTabs()`, the same idiom as `open-meteo_readable.html`). Switching is
 a re-render, not a refetch — every model came back in the same response, which is the whole
-reason all four are asked for. `DEFAULT_MODEL` is **`jma_seamless`, deliberately not
-`MODELS[0]`**: it is the only member with a regional nest over Taiwan (MSM, 0.05° ≈ 5 km,
-against 11–25 km for the globals), and south of MSM's ~22.4°N/120°E domain edge — which
-`柚子湖` at 22.67°N sits near — it falls back to GSM rather than dropping the key, so the
-series is always complete. Verified: all four models return 168/168 non-null `cloud_cover`
+reason all four are asked for. `DEFAULT_MODEL` is **`icon_global`, i.e. `MODELS[0]`**, so the opening view matches the
+tab order. `jma_seamless` is the one to switch to over the Central Range — the only member
+with a regional nest over Taiwan (MSM, 0.05° ≈ 5 km, against 11–25 km for the globals), and
+south of MSM's ~22.4°N/120°E domain edge — which `柚子湖` at 22.67°N sits near — it falls
+back to GSM rather than dropping the key, so the series is always complete. Verified: all four models return 168/168 non-null `cloud_cover`
 at all ten spots — including `龍磐公園` at 21.92°N, which is **outside** MSM's domain and
 where a raw `models=jma_msm` request answers with the key *absent* and "No data is
 available for this location". That is the failure `jma_seamless` exists to avoid, and
@@ -459,8 +475,10 @@ figure here as "per place × however many spots are saved".
 
 Consequences of having no location box: no `paramsFromForm()` (it has `paramsFor(lat,
 lon)`), no `buildPlaces()`/`markActivePlace()`, no `.locrow`/`.place` CSS, and
-`DEFAULT_LAT`/`DEFAULT_LON` go unused. It also has no `GC_RA`/`GC_DEC` and no
-`moonIllumination()`: the astronomy it copies is only what the score needs. The block
+`DEFAULT_LAT`/`DEFAULT_LON` go unused. It also has no `moonIllumination()`: the
+astronomy it copies is only what it draws — `GC_RA`/`GC_DEC` are there because the
+MilkyScore strip needs the core's altitude, the lunar illuminated fraction is not
+because there is no 月相 row. The block
 glyphs are **fixed-width `<span class="bar">` elements, not a monospace string** — a blank
 block is an empty span, and an empty character in a proportional run would collapse and
 shift the rest of the cell. They sit on the baseline so the four grow out of a common

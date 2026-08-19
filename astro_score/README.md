@@ -30,7 +30,7 @@ here mainly when changing those constants; the adjustable form is
   the fixed 銀心 (max) ceiling, and the site's 光害 (SQM) / Bortle / LP Zone.
 - [AstroScore daily](https://jiechau.github.io/code_snippet_life/astro_score/astro-score_daily.html)
   — the same score folded into a week-at-a-glance grid: a row per saved spot, a
-  column per day, two block glyphs per cell.
+  column per day, two block glyphs per cell, each over a purple MilkyScore strip.
 
 ## The two pages
 
@@ -46,8 +46,9 @@ and folds each day's 24 hourly scores into 2 half-day blocks:
 
 **Cloud comes from one model at a time**, picked with the 雲量來源 tabs above the
 grid. All four models are fetched in the same request, so switching is instant
-and costs nothing extra; the default is `jma_seamless`, the only one of the four
-with a ~5 km regional nest over Taiwan instead of an 11–25 km global grid. The
+and costs nothing extra; the default is `icon_global`, the first tab. `jma_seamless`
+is the one to switch to for a spot in the Central Range — it is the only one of the
+four with a ~5 km regional nest over Taiwan instead of an 11–25 km global grid. The
 models disagree substantially — on a sample week `icon_global` scored almost
 every night blank while `gfs_global` filled most of them — and that disagreement
 is itself worth reading: where two independent models agree, the forecast is
@@ -81,6 +82,26 @@ plain 0–100 scale — and that peak picks one of five heights:
 | > 50 | `▄` |
 | > 30 | `▂` |
 | ≤ 30 | blank |
+
+Under each bar is a **purple strip: the MilkyScore**, the same block's best hour of
+`銀心 altitude in degrees × 觀星 / 100` — the sky *and* the subject in one number.
+觀星 knows the night is dark, moonless and clear but nothing about where **A\*** is;
+the core's altitude knows the subject is up but nothing about the sky. Only both at
+once colour the strip, so a full green bar with nothing under it is a fine night with
+the core down:
+
+| peak MilkyScore | strip |
+| --- | --- |
+| > 50 | deepest purple |
+| > 40 | |
+| > 30 | |
+| > 20 | lightest purple |
+| ≤ 20 | blank |
+
+It is in **degrees**, so its ceiling is the core's own transit altitude,
+`90 − |lat − dec|` — ~35.9° at 三總 to ~39.1° at 龍磐公園. Over Taiwan the top two
+shades are therefore unreachable and belong to lower latitudes; retune
+`MILKY_BANDS` in the page if you want the range spread across the local ceiling.
 
 Max rather than sum or average is the point: the grid answers *is there an hour
 worth going out for*, and one excellent hour justifies the drive even when the

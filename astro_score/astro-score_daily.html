@@ -17,6 +17,9 @@
             /* Fainter than --line: these rule every column, so at --line's weight
                they read as a cage around the glyphs rather than a guide to them. */
             --grid: #eef1f4;
+            /* The MilkyScore accent: the middle step of MILKY_BANDS, used for the
+               legend section that explains the strip. */
+            --milky: #8e44ad;
         }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -42,8 +45,11 @@
 
         /* The reading key. Four glyphs in a cell is a notation, not a number, so
            the page has to teach it before the grid is any use. */
+        /* The three legend sections stack tight, so they read as one legend split
+           by subject rather than as three unrelated boxes; only the last one keeps
+           the full gap down to the form. */
         .rule {
-            margin: 0 0 22px;
+            margin: 0 0 6px;
             padding: 12px 16px;
             border-left: 3px solid var(--ok);
             border-radius: 0 8px 8px 0;
@@ -77,6 +83,20 @@
         .rule .example b { color: var(--ok); font-weight: 700; font-size: 1.05em; }
         .rule ul { margin: 8px 0 0; padding-left: 20px; color: var(--muted); }
         .rule li { margin: 3px 0; }
+        /* One legend section per thing a cell draws, each in that thing's own
+           colour: green for the 觀星 bar, purple for the MilkyScore strip, and a
+           neutral dark bar for the notes, which belong to neither. */
+        .rule.milky {
+            border-left-color: var(--milky);
+            background: #f8f4fb;
+        }
+        .rule.milky .formula { color: var(--milky); }
+        .rule.milky .example { border-top-color: #e2d3ec; }
+        .rule.notes {
+            border-left-color: #333;
+            background: #f7f8f9;
+            margin-bottom: 22px;
+        }
 
         .grid {
             display: grid;
@@ -255,6 +275,53 @@
                bars instead of decoding hues. */
             color: var(--ok);
         }
+        /* One half-day column: the bar, and the purple strip under it. An
+           inline-block 1ch wide so the two half-days still tile edge to edge --
+           the width that used to be on .bar alone. Both children are blocks, of
+           the same font-size and line-height, so every column is the same height
+           and the bars keep their common floor. */
+        .stack {
+            display: inline-block;
+            /* 1ch resolves against this element's own font, so the size has to be
+               set here as well as on the children: td.blocks zeroes font-size to
+               kill stray inline gaps, and 1ch of a 0px font is 0px. */
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 1.5rem;
+            width: 1ch;
+            letter-spacing: 0;
+            /* NOT baseline. An inline-block's baseline is that of its last in-flow
+               *line box*, and a strip below the lowest band has no text, so it
+               makes no line box however much height it is given -- the stack would
+               fall back to the bar's baseline and hang lower than its neighbours,
+               which is exactly the misalignment this replaced. Every stack is the
+               same height (two fixed 1em rows), so aligning them by their tops
+               puts both the bars and the strips on one line, unconditionally. */
+            vertical-align: top;
+        }
+        /* Fixed height, not just line-height: a blank bar (peak <= the lowest band)
+           has no text, and a block box with no content generates no line box at
+           all -- so without this the empty ones collapsed to nothing and pulled
+           their purple strip up level with the neighbouring bars' floor. 1em of
+           .bar's own 1.5rem is exactly the line box a glyph makes, so the drawn
+           bars do not move. */
+        .stack .bar { display: block; width: auto; height: 1em; }
+        /* The MilkyScore strip. U+2580 UPPER HALF BLOCK: its ink fills the top
+           half of the character cell, so it lands directly under the bar's floor
+           and the empty lower half of its line box reads as row spacing. Its
+           colour is set per cell (MILKY_BANDS), the one place on this page a
+           value picks a colour -- the bars, whose height is already their value,
+           are one fixed green. Fixed height for the same reason as .bar: below
+           the lowest band the span is left empty, and an empty block box makes
+           no line box, which would shorten the stack under one cell only. */
+        .under {
+            display: block;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 1.5rem;
+            line-height: 1;
+            height: 1em;
+            letter-spacing: 0;
+        }
+
         td.na { color: #bbb; }
         td.err { color: var(--err); font-size: 0.72rem; }
 
@@ -303,6 +370,30 @@
                 <div><b>▂</b>  &gt; 30</div>
                 <div>   &le; 30   blank &mdash; nothing worth the trip</div>
             </div>
+        </div>
+
+        <div class="rule milky">
+            <span class="formula">strip = max (銀心&deg; &times; 觀星/100) over the same 12 hours
+                <span class="gloss">&nbsp; MilkyScore &mdash; the sky <em>and</em> the subject</span></span>
+            <div class="example">
+                <div><b style="color:#3d0f6b;">▀</b>  &gt; 50</div>
+                <div><b style="color:#5b21a3;">▀</b>  &gt; 40</div>
+                <div><b style="color:#8e44ad;">▀</b>  &gt; 30</div>
+                <div><b style="color:#bd8fd6;">▀</b>  &gt; 20</div>
+                <div>   &le; 20   blank &mdash; core too low, or the sky too poor</div>
+            </div>
+            <ul>
+                <li>觀星 says the sky is dark, moonless and clear but knows nothing about where
+                    <b>A*</b> is; the core's altitude says the subject is up but knows nothing about
+                    the sky. Only both at once colour the strip, so a green bar with no purple under
+                    it is a fine night with the core down.</li>
+                <li>It is in <b>degrees</b>, so its ceiling is the core's own transit altitude
+                    &mdash; ~35.9&deg; (三總) to ~39.1&deg; (龍磐公園) over Taiwan. The top two shades
+                    belong to lower latitudes.</li>
+            </ul>
+        </div>
+
+        <div class="rule notes">
             <ul>
                 <li>Each block is half a day, so each holds exactly one dark stretch: the small hours
                     fall in 00&ndash;11 and the evening in 12&ndash;23, while their daylight halves
@@ -331,8 +422,9 @@
                     nothing &mdash; and disagreement between them <em>is</em> information: where
                     <code>jma</code> and <code>icon</code> tell the same story the forecast is worth
                     trusting, and where they do not, it is not. The default is
-                    <code>jma_seamless</code>, the only one of the four with a ~5 km regional nest
-                    over Taiwan rather than an 11&ndash;25 km global grid.</li>
+                    <code>icon_global</code>; <code>jma_seamless</code> is the one to switch to for a
+                    spot in the Central Range, being the only one of the four with a ~5 km regional
+                    nest over Taiwan rather than an 11&ndash;25 km global grid.</li>
             </ul>
         </div>
 
@@ -417,13 +509,15 @@ const HOURLY_VARS = ["cloud_cover"];
 // fetching all four to show one is cheap enough to be the default.
 const MODELS = ["icon_global", "jma_seamless", "gfs_global", "ecmwf_ifs025"];
 
-// Which model the score comes from until a tab is clicked. Deliberately NOT
-// MODELS[0]: jma_seamless is the only member with a regional nest over Taiwan
-// (MSM, 0.05 deg ~ 5 km, against ~11-25 km for the global models), so it is the
-// one that can resolve the Central Range at all. Outside MSM's domain -- which
-// stops near 22.4N/120E, i.e. south of 柚子湖 -- it falls back to GSM rather than
-// dropping the key, so the series is always complete.
-const DEFAULT_MODEL = "jma_seamless";
+// Which model the score comes from until a tab is clicked: icon_global, i.e.
+// MODELS[0], so the tab order and the opening view agree.
+//
+// jma_seamless is the finer grid over Taiwan (MSM, 0.05 deg ~ 5 km, against
+// ~11-25 km for the globals, falling back to GSM outside MSM's ~22.4N/120E
+// domain rather than dropping the key), so it stays the first tab to reach for
+// when a spot sits in the Central Range. It is one click away, and all four
+// models are already in the response -- switching is a re-render, not a refetch.
+const DEFAULT_MODEL = "icon_global";
 
 // Prefilled into the "extra params" box rather than added to defaultParams(). One
 // key=value per line; clear a line to drop that parameter. Applied to every request
@@ -591,6 +685,13 @@ const cos = (d) => Math.cos(d * DEG);
 const clamp1 = (x) => Math.min(1, Math.max(-1, x));
 const mod360 = (x) => ((x % 360) + 360) % 360;
 
+// Galactic center, J2000: RA 17h45m40.04s, Dec -29deg00'28" -- the same pair
+// milkyway.py uses, and for the same reason: precession since J2000 moves it by
+// well under a degree, far below the accuracy of the moon series below. Fixed
+// equatorial coordinates, so only the sidereal time makes its altitude move.
+const GC_RA = 266.41683;
+const GC_DEC = -29.00781;
+
 /**
  * Julian Day from a UTC timestamp in milliseconds.
  *
@@ -700,11 +801,16 @@ function altAz(ra, dec, lat, lst) {
 }
 
 /**
- * Sun and moon altitude for one hour, at the grid point the forecast is for.
+ * Sun, moon and galactic core altitude for one hour, at the grid point the
+ * forecast is for.
  *
- * astro-score_readable.html also returns the galactic core altitude and the
- * lunar illuminated fraction; both are display-only rows there, and this page
- * has neither row, so neither is computed.
+ * The core is display-only on astro-score_readable.html -- astroScore() does not
+ * read it there and does not here either. It is in this page because the purple
+ * strip under each bar multiplies it by the score (see milkyScore), so a clear
+ * moonless night with A* below the horizon still scores 觀星 100 and no purple.
+ *
+ * astro-score_readable.html also returns the lunar illuminated fraction, for a
+ * 月相 row this page does not have, so that stays uncomputed.
  */
 function astroAt(utcMs, lat, lon) {
     const jd = julianDay(utcMs);
@@ -714,6 +820,7 @@ function astroAt(utcMs, lat, lon) {
     return {
         sunAlt: altAz(sun.ra, sun.dec, lat, lst).alt,
         moonAlt: altAz(moon.ra, moon.dec, lat, lst).alt,
+        gcAlt: altAz(GC_RA, GC_DEC, lat, lst).alt,
     };
 }
 
@@ -782,6 +889,51 @@ const BARS = [
     [30, "▂"],   // LOWER ONE QUARTER BLOCK
 ];
 
+// Drawn under every half-day bar whose MilkyScore clears the lowest band.
+const UNDER_GLYPH = "▀";   // UPPER HALF BLOCK
+
+/**
+ * MilkyScore for one hour: 觀星 as a fraction, times the galactic core's
+ * altitude in degrees.
+ *
+ * The two things the bar cannot say together. 觀星 is "is the sky any good"
+ * (dark, moonless, clear) and knows nothing about where A* is; the core's
+ * altitude is "is the subject even up" and knows nothing about the sky. A
+ * perfect sky with the core below the horizon is 0, a core at 30 deg under
+ * total cloud is 0, and only both at once scores. Below the horizon the
+ * altitude is clamped to 0 rather than allowed to go negative -- a core 20 deg
+ * down is no more useful than one on the horizon.
+ *
+ * Degrees, not a percentage: the ceiling is the core's own transit altitude,
+ * 90 - |lat - GC_DEC| (gcMaxAlt on astro-score_readable.html), which over
+ * Taiwan is ~35.9 deg (三總) to ~39.1 deg (龍磐公園). So a perfect night at a
+ * Taiwanese spot tops out near 39 and MILKY_BANDS' upper steps are headroom for
+ * lower latitudes rather than shades anyone here will see.
+ */
+function milkyScore(score, gcAlt) {
+    return (score / 100) * Math.max(0, gcAlt);
+}
+
+// Block peak MilkyScore -> the purple it is drawn in, deepest first and highest
+// threshold first, so the first match wins. Strictly greater, like BARS: a peak
+// of exactly 20 draws nothing. One ramp of one hue -- the strip says how good
+// the Milky Way is and nothing else, so it varies only in depth, and it is
+// purple rather than a second green so it is never read as a very short bar.
+const MILKY_BANDS = [
+    [50, "#3d0f6b"],
+    [40, "#5b21a3"],
+    [30, "#8e44ad"],
+    [20, "#bd8fd6"],
+];
+
+/** The purple for a block's peak MilkyScore, or null below the lowest band. */
+function milkyColor(peak) {
+    for (const [threshold, color] of MILKY_BANDS) {
+        if (peak > threshold) return color;
+    }
+    return null;
+}
+
 /** The glyph for a block's peak 觀星, or "" below the lowest band. */
 function barFor(peak) {
     for (const [threshold, glyph] of BARS) {
@@ -793,9 +945,9 @@ function barFor(peak) {
 /**
  * One spot's response -> Map of "YYYY-MM-DD" -> array of BLOCKS block records.
  *
- * Each record is {peak, hours, scored}: the best 觀星 in the block, how many of
- * the twelve hours the response actually carried, and how many of those carried a
- * cloud figure rather than a null. A block short on either count can peak low for
+ * Each record is {peak, milky, hours, scored}: the best 觀星 in the block, the
+ * best MilkyScore in it, how many of the twelve hours the response actually
+ * carried, and how many of those carried a cloud figure rather than a null. A block short on either count can peak low for
  * a reason that is not "cloudy", which the cell title spells out.
  *
  * A maximum, not a total: the question this grid answers is "is there an hour
@@ -829,15 +981,22 @@ function blocksByDate(body, model, multi) {
     hourly.time.forEach((t, i) => {
         const date = t.slice(0, 10);
         if (!days.has(date)) {
-            days.set(date, Array.from({ length: BLOCKS }, () => ({ peak: 0, hours: 0, scored: 0 })));
+            days.set(date, Array.from(
+                { length: BLOCKS },
+                () => ({ peak: 0, milky: 0, hours: 0, scored: 0 }),
+            ));
         }
         const block = days.get(date)[Math.floor(Number(t.slice(11, 13)) / BLOCK_HOURS)];
         block.hours += 1;
         const utcMs = Date.parse(`${t}:00Z`) - offset * 1000;
-        const { sunAlt, moonAlt } = astroAt(utcMs, lat, lon);
+        const { sunAlt, moonAlt, gcAlt } = astroAt(utcMs, lat, lon);
         const score = astroScore(sunAlt, moonAlt, hourly[key][i]);
         if (score === null) return;   // null cloud cover: no data, not a zero
         block.peak = Math.max(block.peak, score);
+        // Maximum of the product, not the product of the maxima: the two peaks
+        // can fall in different hours, and an hour that was never good is not
+        // made good by another hour's core altitude.
+        block.milky = Math.max(block.milky, milkyScore(score, gcAlt));
         block.scored += 1;
     });
     return days;
@@ -909,8 +1068,10 @@ function visibleDates(dates, today, hidePast) {
 }
 
 // No tint() here, unlike the other three Open-Meteo pages: this grid draws bars,
-// not tinted number cells, and the bar's height is already the value. Colour is
-// fixed in CSS (.bar) rather than computed per cell.
+// not tinted number cells, and a bar's height is already its value, so the green
+// is fixed in CSS (.bar). The one value that does pick a colour is the MilkyScore
+// strip under each bar -- it has no height to vary, so depth of purple is all it
+// has (milkyColor / MILKY_BANDS above).
 
 /** The four glyphs for one day at one place, as a table cell. */
 function blocksCell(place, date, blocks) {
@@ -918,18 +1079,35 @@ function blocksCell(place, date, blocks) {
     td.className = "blocks";
     const detail = [];
     for (let b = 0; b < BLOCKS; b += 1) {
-        const { peak, hours, scored } = blocks[b];
+        const { peak, milky, hours, scored } = blocks[b];
+        const stack = document.createElement("span");
+        stack.className = "stack";
         const span = document.createElement("span");
         span.className = "bar";
         span.textContent = barFor(peak);
-        // No text node between the spans: appended straight onto the cell, they
+        stack.appendChild(span);
+        // The MilkyScore strip. Its span is appended whatever the value, so the
+        // stack keeps its height and the bars keep a common floor; below the
+        // lowest band it is simply left empty and unpainted.
+        const under = document.createElement("span");
+        under.className = "under";
+        const color = milkyColor(milky);
+        if (color) {
+            under.textContent = UNDER_GLYPH;
+            under.style.color = color;
+        }
+        stack.appendChild(under);
+        // No text node between the stacks: appended straight onto the cell, they
         // have no whitespace to collapse into a gap, so the glyphs tile.
-        td.appendChild(span);
+        td.appendChild(stack);
         // A block short of twelve scored hours can peak low for a reason that is
         // not "cloudy" -- a null cloud figure, or a response that stopped early --
         // so say so rather than letting a missing bar be misread.
         const short = scored < BLOCK_HOURS ? ` (${scored}/${hours || BLOCK_HOURS} hr)` : "";
-        detail.push(`${BLOCK_LABELS[b]}  peak ${String(Math.round(peak)).padStart(3)}${short}`);
+        detail.push(
+            `${BLOCK_LABELS[b]}  peak ${String(Math.round(peak)).padStart(3)}`
+            + `  milky ${milky.toFixed(1).padStart(4)}${short}`,
+        );
     }
     td.title = `${place} — ${formatDate(date)}\n${detail.join("\n")}`;
     return td;
