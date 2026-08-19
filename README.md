@@ -34,7 +34,7 @@ One file is shared by every demo page: [`places.js`](places.js) at the repo root
 holds the saved stargazing spots (三總, 瑞光路, 大崙頭山, 大武崙砲台, 烏石港, 東澳,
 石梯坪, 柚子湖, 龍磐公園, 暗空公園) that fill the location buttons, plus the default coordinates taken from the
 first of them. Each page loads it as `../places.js`, so adding or reordering a spot is
-a one-line change in one file rather than the same edit made eight times. It is the
+a one-line change in one file rather than the same edit made nine times. It is the
 only file shared across snippet folders.
 
 Pages are two levels of list: the root [`index.html`](index.html) links to one

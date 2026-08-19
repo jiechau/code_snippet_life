@@ -15,7 +15,7 @@ what it does and how to run it.
 - **One folder per snippet.** Keep everything a snippet needs inside its folder. Do not
   introduce cross-snippet imports or a shared root package. **There is exactly one
   sanctioned exception:** root `places.js`, the saved stargazing spots shared by all
-  eight demo pages (see below). Do not widen it — nothing else moves to the root.
+  nine demo pages (see below). Do not widen it — nothing else moves to the root.
 - **Each snippet folder gets its own `README.md`**, and the new snippet must be added as a
   row to the table in the root `README.md`.
 - **Parallel implementations stay equivalent.** Some snippets ship the same logic in
@@ -198,15 +198,17 @@ silent no-op: `requestSubmit()` does nothing while the submit button is disabled
 
 ## What is duplicated across the demo pages
 
-There are **eight demo pages** (ignoring `google_news_url`, which shares nothing),
-four of them built on one Open-Meteo request core, three that issue no request at
-all, and no shared file except `places.js` — by the one-folder-per-snippet rule,
-keeping them in step is a manual discipline. They are `open_meteo/open-meteo.html`,
+There are **nine demo pages** (ignoring `google_news_url`, which shares nothing),
+four of them built on one Open-Meteo request core, one that fetches a binary tile
+from somewhere else, three that issue no request at all, and no shared file except
+`places.js` — by the one-folder-per-snippet rule, keeping them in step is a manual
+discipline. They are `open_meteo/open-meteo.html`,
 `open_meteo/open-meteo_readable.html`, `astro_score/astro-score_readable.html`,
-`astro_score/astro-score_daily.html`, `bigdatacloud/reverse-geocode.html` and the
-three `pure_math/{galactic_center,sun_phase,moon_phase}.html`. The `pure_math/`
-three copy the *page chrome* and the *astronomy* but none of the request machinery,
-so they appear in some rows below and are pointedly absent from others. Know
+`astro_score/astro-score_daily.html`, `bigdatacloud/reverse-geocode.html`,
+`light_pollution/binary-tile.html` and the three
+`pure_math/{galactic_center,sun_phase,moon_phase}.html`. The `pure_math/` three copy
+the *page chrome* and the *astronomy* but none of the request machinery, so they
+appear in some rows below and are pointedly absent from others. Know
 which blocks are copies before editing any of them:
 
 | Block | Copies |
@@ -214,8 +216,8 @@ which blocks are copies before editing any of them:
 | Request core (`buildUrl`, `fetchForecast`, `FORECAST_URL`) | the 4 Open-Meteo pages + `open_meteo/open-meteo.py`; `bigdatacloud/` has the same `buildUrl` shape against its own endpoint. **No `pure_math/` page has one** — there is no URL to build |
 | `paramsFromForm()` | the 3 pages with a location box **and** a request to make; `astro-score_daily.html` has `paramsFor(lat, lon)` instead — its rows *are* the places, so there is no location to parse. The `pure_math/` pages parse the same box into `placeFromForm()` → `{lat, lon}`: same parse and same error text, but there are no request params to return |
 | Page chrome (whole `<style>` block, `show()`, submit handler) | `open_meteo/open-meteo.html` + `bigdatacloud/reverse-geocode.html` + the 3 `pure_math/` pages. `reverse-geocode.html` is `open-meteo.html` with the form cut to one field; the `pure_math/` three are `reverse-geocode.html` with a time field added, `Fetch` renamed `Compute`, the `.url`/`<pre>` panes swapped for `.card`/step-table CSS, and `show()` taking `{cards, rows}` instead of `{url, json}`. The submit handler loses its `async`, its `try/finally` and the button disabling — nothing is in flight — but keeps the policy of *displaying* a bad input rather than throwing |
-| `.locrow`/`.place` CSS, `buildPlaces()` / `markActivePlace()` | 7 pages, verbatim — **not** `astro-score_daily.html`, which has no location box to put buttons beside |
-| `PLACES` | **not duplicated** — root `places.js`, loaded by all 8 pages. `DEFAULT_LAT`/`DEFAULT_LON` from that file are unused by `astro-score_daily.html` |
+| `.locrow`/`.place` CSS, `buildPlaces()` / `markActivePlace()` | 8 pages, verbatim — **not** `astro-score_daily.html`, which has no location box to put buttons beside |
+| `PLACES` | **not duplicated** — root `places.js`, loaded by all 9 pages. `DEFAULT_LAT`/`DEFAULT_LON` from that file are unused by `astro-score_daily.html` |
 | The `countryName/principalSubdivision/city/locality` join | `astro_score/astro-score_readable.html` (`reverseGeocode()`) + `bigdatacloud/reverse-geocode.html` (`placeName()`) |
 | `reverseGeocode()` / `appendPlaceName()` (the *deferred, never-awaited* lookup) | `astro_score/astro-score_readable.html` only; **never** either `open_meteo/` page |
 | Light-pollution atlas (`lpRatio`, `lpSqm`, `lpBortle`, `lpZone`, `LP_ZONES`, `LP_BORTLE`, tile geometry, the `DecompressionStream` read) | `astro_score/astro-score_readable.html` + `light_pollution/binary-tile.html` — the only third-party binary format in the repo. The *deferred, never-awaited* wrapper (`lightPollution()`, `loadLightPollution()`) is `astro_score`'s alone; `binary-tile.html` awaits its fetch, because there the tile **is** the result |
