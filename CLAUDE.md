@@ -224,8 +224,8 @@ which blocks are copies before editing any of them:
 | Meeus solar/lunar series | both `astro_score/astro-score_*.html` pages + `astro_score/milkyway.py` + the 3 `pure_math/` pages — never in `open_meteo/`. Every copy carries **only what it draws**: `astro-score_daily.html` has no `moonIllumination()` (it has `GC_RA`/`GC_DEC`, which its MilkyScore strip needs); `pure_math/galactic_center.html` has no `obliquity()`/`eclipticToEquatorial()` at all (A* is already equatorial); `pure_math/sun_phase.html` has nothing lunar; `pure_math/moon_phase.html` carries `sunPosition()` too, because the illuminated fraction needs the moon–sun elongation |
 | `DARK_SUN_ALT`, `MOON_KILL_ALT`, `moonPenalty()`, `astroScore()` | both `astro_score/astro-score_*.html` pages, verbatim. Split across `pure_math/`: `sun_phase.html` takes `DARK_SUN_ALT`, `moon_phase.html` takes `MOON_KILL_ALT` + `moonPenalty()`. **`astroScore()` is in neither** — a pure-math page has no cloud figure to score |
 | `LABELS`, `API_SHORT`, `UNIT_SHORT`, `tint()`, `SCALES`, hour-grid rendering | the 2 hour-by-hour grid pages only — `astro-score_daily.html` draws days as bars, not variables as tinted cells, and has none of them; `open-meteo.html`/`reverse-geocode.html`/the `pure_math/` three draw no grid at all |
-| `MODELS` (the four ids, in order) | `open-meteo*.html` + `astro-score_daily.html` + `milkyway.py` + `open-meteo.py` — **not** `astro-score_readable.html`, which fixes `icon_global` alone |
-| `seriesKey(hourly, name, model, multi)`, `modelsFromParams()`, `renderTabs()`/`.tab` CSS | the 3 multi-model pages. `astro-score_daily.html`'s tabs pick which model is *scored*, not merely shown |
+| `MODELS` (the four ids, in order) | all 4 Open-Meteo pages + `milkyway.py` + `open-meteo.py` — every one of them, in the same order, since it is the order rows and tabs appear in |
+| `seriesKey(hourly, name, model, multi)`, `modelsFromParams()`, `renderTabs()`/`.tab` CSS | all 4 Open-Meteo pages, verbatim apart from what the tab click re-renders. `astro-score_daily.html`'s tabs pick which model is *scored*, not merely shown; `astro-score_readable.html`'s do both, and deliberately leave the meta line alone (`appendPlaceName()` has already appended to it) |
 | `HOURLY_VARS`, `DEFAULT_LAT`/`DEFAULT_LON` | `open-meteo*.html` only — both `astro-score_*.html` pages deliberately override these |
 | The extra-params box + its `key=value` parse loop | all 4 Open-Meteo pages, the loop verbatim; no `pure_math/` page has one, having no request to add params to. `DEFAULT_EXTRA` is **not** shared: `open-meteo*.html` prefill `daily=...` **and** `past_days=7`, both `astro-score_*.html` prefill `past_days=7` alone (nothing there reads `daily=`) |
 
@@ -285,17 +285,29 @@ is correct: that file kept its name.
 `astro-score_readable.html` is the `*_readable` grid stripped to what stargazing needs. It
 fixes `hourly` (the four cloud decks, plus `precipitation_probability` and
 `temperature_2m` — 降雨 and 氣溫, which `astroScore()` does not read but a human picking a
-night does) and `models` (`icon_global` alone), removing those two textareas from the
-form; `forecast_days`, `timezone`, **extra params** and the location remain. One model
-means no tabs and **bare series keys**, which `seriesKey()` already resolves, and the
-response drops to ~7.0 KB / 168 hours from ~64 KB / 336.
+night does) and `models` (**all four**, `MODELS` in the shared order), removing those two
+textareas from the form; `forecast_days`, `timezone`, **extra params** and the location
+remain. It fetched `icon_global` alone until the 雲量來源 tabs were added: the grid is
+drawn from **one model at a time** and 觀星 is scored with that model, `DEFAULT_MODEL` is
+`icon_global` (= `MODELS[0]`, so the view matches the first tab), and switching is a
+**re-render, not a refetch** — all four came back together, exactly as on
+`astro-score_daily.html`. Four models means **suffixed series keys**, which `seriesKey()`
+resolves; clearing `models=` in the extra params drops back to bare keys and one tab. The
+response is ~18 KB / 168 hours against ~7.0 KB for a single model, still well under the
+~64 KB / 336 of `open_meteo/open-meteo_readable.html`. **`jma_seamless` publishes no
+`precipitation_probability`**, so 降雨 is a row of dashes on that tab — the same "key
+present, nulls all the way down, unit the literal string `undefined`" quirk
+`open-meteo_readable.html` documents for `visibility`. The tab click deliberately does
+**not** rewrite the meta line: `appendPlaceName()` has appended to it by then, and the
+line describes the response rather than the choice.
 
 Its `DEFAULT_EXTRA` is **one line, `past_days=7`** — not the `open_meteo/` pair, since no
 page here reads `daily=`. It is deliberately invisible in the default view: the 從現在開始
 trim hides every past hour, so the grid looks the same until the box is unticked, and then
 it shows the week just gone — a forecast next to what the sky actually did. It costs the
-response ~7.0 KB / 168 hours → ~13 KB / 336. Since `hourly`/`models` are fixed here, this
-is the only free-form parameter box on the form, which is why it survived the strip. The 觀星 row goes between 時間 and 天氣, green
+response ~18 KB / 168 hours → ~34 KB / 336. Since `hourly` is fixed here, this is the only
+free-form parameter box on the form — and the only way to override `models=` — which is why
+it survived the strip. The 觀星 row goes between 時間 and 天氣, green
 label, tinted `[0, 100, false]` so 100 is green, and the `銀心` row sits between the
 two — galactic core altitude from the same `GC_RA`/`GC_DEC` as `milkyway.py`, tinted
 `[0, 25, false]` after that file's `core_up` ramp. It is drawn by `drawAstroRow()`,
@@ -531,9 +543,8 @@ its model name (`cloud_cover_gfs_global`) — and not every model publishes ever
 (of the four, **only gfs returns `visibility`**; `precipitation_probability` is null for
 jma), so `_hour_vars()` fills gaps from the ensemble mean, which for `visibility` means
 gfs on its own. The model list is shared with `open_meteo/open-meteo.py`, both
-`open_meteo/open-meteo*.html` pages and `astro_score/astro-score_daily.html` (**not**
-`astro-score_readable.html`, which fixes `icon_global` alone), and its order is the order
-rows/tabs appear in, so keep the four in step across both folders. `jma_seamless` rather
+`open_meteo/open-meteo*.html` pages and both `astro_score/astro-score_*.html` pages, and
+its order is the order rows/tabs appear in, so keep the four in step across both folders. `jma_seamless` rather
 than `jma_msm` is deliberate: MSM is 0.05° ≈ 5 km over Taiwan but its domain stops near
 22.4°N/120°E and it runs dry after ~3 days, and outside either bound the key is **missing
 from the response entirely**, which `fetch_forecast()` would reject; `jma_seamless` is

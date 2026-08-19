@@ -39,8 +39,12 @@
 
         /* The scoring rule, spelled out on the page: the number in the 觀星 row
            is the whole point of the page, and it is not one a reader can guess. */
+        /* Two legend sections, stacked tight so they read as one legend split by
+           subject: green -- the page's own colour for 觀星 -- for the score and its
+           inputs, a neutral dark bar for the rows that explain themselves and do
+           not feed it. Only the last one keeps the full gap down to the form. */
         .rule {
-            margin: 0 0 22px;
+            margin: 0 0 6px;
             padding: 12px 16px;
             border-left: 3px solid var(--ok);
             border-radius: 0 8px 8px 0;
@@ -76,6 +80,11 @@
         .rule .example b { color: var(--ok); font-weight: 700; }
         .rule ul { margin: 8px 0 0; padding-left: 20px; color: var(--muted); }
         .rule li { margin: 3px 0; }
+        .rule.notes {
+            border-left-color: #333;
+            background: #f7f8f9;
+            margin-bottom: 22px;
+        }
 
         .grid {
             display: grid;
@@ -236,6 +245,32 @@
             max-height: 50vh;
             overflow: auto;
         }
+
+        /* Model tabs -- one per entry in the models parameter, the same idiom as
+           open-meteo_readable.html and astro-score_daily.html. Switching is a
+           re-render, never a refetch: every model came back in one response. */
+        .tabrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+        .tablabel { font-size: 0.78rem; font-weight: 600; color: var(--muted); }
+        .tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+        .tab {
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+            padding: 7px 14px;
+            border-radius: 999px;
+            border: 1px solid var(--line);
+            background: #f7f9fb;
+            color: var(--muted);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .tab:hover { border-color: var(--accent); color: var(--accent); background: #f7f9fb; }
+        .tab[aria-selected="true"] {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
     </style>
 </head>
 <body>
@@ -246,8 +281,9 @@
             Which hours are worth going out for, drawn as the same grid as
             <a href="../open_meteo/open-meteo_readable.html">open-meteo_readable.html</a> with a
             <strong style="color:#1e8449;">觀星</strong> score on top. Dark sky, moon low or down, few
-            clouds &mdash; nothing else. The variables, the model and the extra parameters are fixed, so the
-            only things to set are the place, how far ahead to look, and any extra parameters. Scroll the grid sideways for
+            clouds &mdash; nothing else. The variables are fixed, so the only things to set are the place,
+            how far ahead to look, and any extra parameters; all four forecast models come back in
+            every request and the 雲量來源 tabs pick which one the grid is drawn from. Scroll the grid sideways for
             later hours. No API key needed. Variable names and model ids come from the
             <a href="https://open-meteo.com/en/docs" target="_blank" rel="noopener">Open-Meteo API
             docs</a>.
@@ -269,8 +305,18 @@
             <ul>
                 <li>月亮扣分 is <b>altitude only</b> &mdash; a crescent and a full moon at the same height score
                     alike, so read the 月相 row alongside it.</li>
-                <li><b>雲量</b> is total cloud cover from <code>icon_global</code>; the deck rows below are
-                    for context and do not enter the score.</li>
+                <li><b>雲量</b> is total cloud cover from whichever model the <b>雲量來源</b> tabs have
+                    selected; the deck rows below are for context and do not enter the score.
+                    Switching tab redraws every row from that model &mdash; and rescores 觀星 with it
+                    &mdash; without another request, since all four came back together. Where two
+                    models tell the same story the forecast is worth trusting, and where they do not,
+                    it is not. <code>jma_seamless</code> publishes no
+                    <code>precipitation_probability</code>, so 降雨 is a row of dashes on that tab.</li>
+            </ul>
+        </div>
+
+        <div class="rule notes">
+            <ul>
                 <li><b>銀心</b> is the altitude of the Milky Way core (Sgr A*, RA 17h45m, Dec &minus;29&deg;),
                     up only part of the night. It does
                     <b>not</b> enter the score &mdash; a dark clear hour is worth going out for either
@@ -341,6 +387,10 @@
 
         <div class="result" id="result" hidden>
             <div class="meta" id="meta"></div>
+            <div class="tabrow">
+                <span class="tablabel">雲量來源</span>
+                <div id="tabs" class="tabs"></div>
+            </div>
             <div class="scroller" id="scroller"></div>
             <details id="raw" hidden>
                 <summary>raw JSON &amp; request URL</summary>
@@ -385,11 +435,20 @@ const HOURLY_VARS = [
     "temperature_2m",
 ];
 
-// One model, so there are no tabs to choose between and the score has a single
-// unambiguous 雲量. Open-Meteo only suffixes the series keys
-// (cloud_cover_icon_global) when two or more models are asked for -- with one it
-// returns bare keys, which is what seriesKey() below resolves.
-const MODELS = ["icon_global"];
+// All four models, the list milkyway.py, the open_meteo/ pages and
+// astro-score_daily.html share -- keep it and its order in step across them,
+// since it is the order the tabs appear in.
+//
+// The grid draws ONE of them at a time, picked by the tabs above it, and 觀星 is
+// scored from that model's cloud cover: the other three cost no extra round trip
+// and disagreement between them is itself information, exactly as on the daily
+// page. Two or more models makes Open-Meteo suffix every series key
+// (cloud_cover_icon_global), which is what seriesKey() below resolves -- clearing
+// models= in the extra params drops back to bare keys and a single tab.
+const MODELS = ["icon_global", "jma_seamless", "gfs_global", "ecmwf_ifs025"];
+
+// Which model the grid opens on: MODELS[0], so the view matches the first tab.
+const DEFAULT_MODEL = "icon_global";
 
 // Prefilled into the "extra params" box rather than added to defaultParams(),
 // which stays the same request open-meteo.py makes. One key=value per line;
@@ -398,13 +457,14 @@ const MODELS = ["icon_global"];
 // past_days= extends the series backwards, which is how you check a forecast
 // against what actually happened: score a night, then come back and see what the
 // sky did. It is invisible until 從現在開始 is unticked, since that trim is what
-// hides past hours. Not free -- 7 past days takes the response from ~7.0 KB /
-// 168 hours to ~13 KB / 336, and Open-Meteo bills by time range as well as
-// variable count. The API accepts 0..93, but the models' rolling archive only
+// hides past hours. Not free -- 7 past days takes the response from ~18 KB /
+// 168 hours to ~34 KB / 336 across the four models, and Open-Meteo bills by time
+// range as well as variable count. The API accepts 0..93, but the models' rolling archive only
 // reaches about 61 days back, so beyond that the hours come back null.
 //
-// This page fixes hourly/models rather than exposing them, so unlike the
-// open_meteo/ pages this is the only free-form parameter box on the form.
+// This page fixes hourly rather than exposing it, so unlike the open_meteo/ pages
+// this is the only free-form parameter box on the form -- and the only way to
+// override models=, which drops the tab row to whatever is left.
 const DEFAULT_EXTRA = [
     "past_days=7",
 ].join("\n");
@@ -1110,11 +1170,9 @@ const SCALES = {
 };
 
 /**
- * Which models the response carries, read back off the request.
- *
- * MODELS has one entry, so this is a single name and the series keys come back
- * bare -- but read it off the params anyway, so adding a model to MODELS keeps
- * working instead of silently reading the wrong keys.
+ * Which models the response carries, read back off the request rather than off
+ * MODELS, because the extra-params box can override models= -- clearing it
+ * leaves one unnamed model under bare keys.
  */
 function modelsFromParams(params) {
     const raw = String(params.models || "").trim();
@@ -1222,7 +1280,9 @@ function buildTable(body, params, fromNow) {
     const hourly = body.hourly;
     const units = body.hourly_units || {};
     const models = modelsFromParams(params);
-    const model = models[0] || null;
+    // Whichever tab is selected, not models[0]: 觀星 and every hourly row are
+    // read from this one model's series.
+    const model = models.includes(activeModel) ? activeModel : (models[0] || null);
     const multi = models.length >= 2;
     const indices = visibleIndices(body, fromNow);
     // Cheap enough (a few hundred hours of closed-form series) to just redo on
@@ -1422,6 +1482,43 @@ function buildTable(body, params, fromNow) {
  * ------------------------------------------------------------------ */
 
 let lastResponse = null;   // {body, params} from the most recent fetch
+let activeModel = DEFAULT_MODEL;   // which model the grid is drawn from
+
+/**
+ * One tab per model in the response, switching which model the grid draws.
+ *
+ * No refetch: every model is already in hand, so this is a re-render -- the whole
+ * reason all four are requested rather than just the one on screen. The meta line
+ * is deliberately left alone, both because it describes the response rather than
+ * the choice and because appendPlaceName() has appended to it by now.
+ */
+function renderTabs() {
+    const tabs = document.getElementById("tabs");
+    tabs.textContent = "";
+    if (!lastResponse) return;
+    const models = modelsFromParams(lastResponse.params);
+    // With models= cleared the API returns its default single model under bare
+    // keys -- one tab, so the layout stays the same either way.
+    const names = models.length ? models : ["default"];
+    if (!names.includes(activeModel)) {
+        activeModel = names.includes(DEFAULT_MODEL) ? DEFAULT_MODEL : names[0];
+    }
+
+    for (const name of names) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "tab";
+        button.textContent = name.replace(/_.*$/, "");
+        button.title = name;
+        button.setAttribute("aria-selected", String(name === activeModel));
+        button.addEventListener("click", () => {
+            activeModel = name;
+            renderTabs();
+            renderGrid();
+        });
+        tabs.appendChild(button);
+    }
+}
 
 function renderGrid() {
     const scroller = document.getElementById("scroller");
@@ -1437,6 +1534,7 @@ function showError(message, url) {
     meta.textContent = message;
     meta.classList.add("error");
     document.getElementById("scroller").textContent = "";
+    document.getElementById("tabs").textContent = "";
     const raw = document.getElementById("raw");
     raw.hidden = !url;
     if (url) setUrl(url);
@@ -1537,6 +1635,7 @@ document.getElementById("form").addEventListener("submit", async (event) => {
             `${r.body.latitude}°, ${r.body.longitude}°, ${r.body.elevation} m`;
         appendPlaceName(meta, params.latitude, params.longitude);
         loadLightPollution(params.latitude, params.longitude);
+        renderTabs();   // resolves activeModel against what actually came back
         renderGrid();
     } catch (err) {
         showError(

@@ -27,7 +27,8 @@ here mainly when changing those constants; the adjustable form is
 
 - [AstroScore readable](https://jiechau.github.io/code_snippet_life/astro_score/astro-score_readable.html)
   — an hour-by-hour grid with a 觀星 score per hour, plus 太陽/月亮/月相/銀心 rows,
-  the fixed 銀心 (max) ceiling, and the site's 光害 (SQM) / Bortle / LP Zone.
+  the fixed 銀心 (max) ceiling, and the site's 光害 (SQM) / Bortle / LP Zone; the
+  雲量來源 tabs pick which of the four models it is drawn from.
 - [AstroScore daily](https://jiechau.github.io/code_snippet_life/astro_score/astro-score_daily.html)
   — the same score folded into a week-at-a-glance grid: a row per saved spot, a
   column per day, two block glyphs per cell, each over a purple MilkyScore strip.
@@ -46,7 +47,8 @@ and folds each day's 24 hourly scores into 2 half-day blocks:
 
 **Cloud comes from one model at a time**, picked with the 雲量來源 tabs above the
 grid. All four models are fetched in the same request, so switching is instant
-and costs nothing extra; the default is `icon_global`, the first tab. `jma_seamless`
+and costs nothing extra — the same idiom as `astro-score_readable.html`'s tabs;
+the default is `icon_global`, the first tab. `jma_seamless`
 is the one to switch to for a spot in the Central Range — it is the only one of the
 four with a ~5 km regional nest over Taiwan instead of an 11–25 km global grid. The
 models disagree substantially — on a sample week `icon_global` scored almost
@@ -130,14 +132,14 @@ illumination, 降雨/氣溫, the place-name lookup, and the location box (the ro
 *are* the places). It asks for `cloud_cover` alone, but for all four models, so
 each response is ~5.9 KB / 168 hours — mostly timestamps — and with the prefilled
 `past_days=7`, ~11.3 KB, making a ten-spot round **~110 KB** in about 1.2 s. The
-readable page fetches ~13 KB for one place, six variables and one model. The
+readable page fetches ~34 KB for one place, six variables and four models. The
 totals track `places.js`, so they move whenever a spot is added.
 
 ## The four models
 
-`milkyway.py` queries all four models below and averages them.
-`astro-score_readable.html` deliberately does not: it asks for `icon_global`
-alone. The same four-id list is also sent by everything in
+`milkyway.py` queries all four models below and averages them; both demo pages
+fetch all four and draw one at a time, chosen by their tabs. The same four-id
+list is sent by everything in
 [`open_meteo/`](../open_meteo/README.md), so keep it in step across both folders.
 These are four
 completely separate forecasting systems, each run by
@@ -212,22 +214,26 @@ collapsed raw JSON panel, same place name on the meta line
 ([The place name](#the-place-name)) — with a 觀星 score added and everything that
 does not feed it removed.
 
-- **The form is two fields and a location.** `hourly`, `models` and `extra
-  params` are gone, fixed as constants in the page, because there is exactly one
-  request worth making here. Only `forecast_days`, `timezone` and the place
+- **The form is three fields and a location.** `hourly` and `models` are gone,
+  fixed as constants in the page, because there is exactly one request worth
+  making here. Only `forecast_days`, `timezone`, `extra params` and the place
   remain. `buildUrl()` / `fetchForecast()` / `paramsFromForm()` are still the
   byte-for-byte port of `open_meteo/open-meteo.py`; only the constants they are
   fed differ.
-- **One model, no tabs.** `models=icon_global` alone, so the score has a single
-  unambiguous 雲量 instead of four to reconcile. A single model makes Open-Meteo
-  return **bare** series keys (`cloud_cover`, not `cloud_cover_icon_global`),
-  which `seriesKey()` already handles.
+- **All four models, one drawn at a time.** The 雲量來源 tabs above the grid pick
+  which one every row is drawn from — and which one 觀星 is scored with. They all
+  arrive in the same request, so switching is a re-render, not a refetch, and
+  disagreement between them is itself information. The default is `icon_global`,
+  the first tab. Two or more models makes Open-Meteo **suffix** every series key
+  (`cloud_cover_icon_global`), which `seriesKey()` resolves; clearing `models=`
+  in the extra params drops back to bare keys and a single tab. `jma_seamless`
+  publishes no `precipitation_probability`, so 降雨 is a row of dashes there.
 - **Six variables, not ten.** The cloud decks plus 降雨 and 氣溫 —
   能見度/濕度/露點/風速 are dropped, along with the `daily=` and `past_days=`
   extras. 降雨 and 氣溫 are not score inputs (`astroScore()` reads `cloud_cover`
   alone); they are on screen to be read by eye when picking a night out. A 7-day
-  response is about **7.0 KB / 168 hours**, versus ~64 KB / 336 hours on
-  `open_meteo/open-meteo_readable.html`.
+  response is about **18 KB / 168 hours** across the four models (~7.0 KB for one),
+  versus ~64 KB / 336 hours on `open_meteo/open-meteo_readable.html`.
 - **A row per variable**, labelled in Chinese with the unit and an abbreviated
   API name underneath. The label column is frozen while the hours scroll, so its
   width costs a column of forecast at every scroll position — keep new labels to
