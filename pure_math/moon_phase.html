@@ -178,7 +178,7 @@
         <form id="form">
             <div class="grid">
                 <div class="field wide">
-                    <label for="when">time <span class="hint">UTC &mdash; not your local clock</span></label>
+                    <label for="when">time <span class="hint">local time at the location &mdash; <span id="zone">UTC+8</span>, from its longitude</span></label>
                     <div class="timerow">
                         <input type="datetime-local" id="when" step="60">
                         <button type="button" class="secondary tiny" id="now">now</button>
@@ -456,6 +456,13 @@ const compass = (az) => COMPASS[Math.round(mod360(az) / 45) % 8];
 /** The instant, as the UTC string the whole page is computed from. */
 const utcLabel = (ms) => `${new Date(ms).toISOString().slice(0, 16).replace("T", " ")} UTC`;
 
+/** An offset in whole hours as "UTC+8" / "UTC−5". */
+const zoneLabel = (h) => `UTC${h < 0 ? "−" : "+"}${Math.abs(h)}`;
+
+/** The instant as local wall time at the location, with the offset assumed. */
+const localLabel = (ms, h) =>
+    `${new Date(ms + h * 3600000).toISOString().slice(0, 16).replace("T", " ")} ${zoneLabel(h)}`;
+
 /* ------------------------------------------------------------------ *
  * The working
  * ------------------------------------------------------------------ */
@@ -467,7 +474,7 @@ const utcLabel = (ms) => `${new Date(ms).toISOString().slice(0, 16).replace("T",
  * ±7° off its mean longitude, which is why the lunar series needs fourteen terms
  * where the sun's needed two.
  */
-function working(utcMs, lat, lon) {
+function working(utcMs, lat, lon, offsetHours) {
     const jd = julianDay(utcMs);
     const t = (jd - 2451545.0) / 36525;
     const eps = obliquity(jd);
@@ -494,7 +501,9 @@ function working(utcMs, lat, lon) {
 
     const rows = [
         { stage: "輸入 · input" },
-        { label: "時刻", sym: "t", val: utcLabel(utcMs), note: "the instant everything below is for" },
+        { label: "當地時刻", sym: "t·local", val: localLabel(utcMs, offsetHours), note: "what the time box says — local wall time at this location" },
+        { label: "時區偏移", sym: "Δutc", val: `${offsetHours < 0 ? "−" : "+"}${Math.abs(offsetHours)} h`, note: "round(經度 / 15) — the solar zone, not the legal one; no DST" },
+        { label: "世界時", sym: "t", val: utcLabel(utcMs), note: "當地時刻 − 偏移; the instant everything below is computed from" },
         { label: "緯度", sym: "φ", val: deg(lat, 6), note: "north positive" },
         { label: "經度", sym: "λ", val: deg(lon, 6), note: "east positive" },
 
@@ -568,26 +577,64 @@ function working(utcMs, lat, lon) {
 // DEFAULT_LAT/DEFAULT_LON derived from its first entry come from ../places.js,
 // loaded just above. Add or reorder a spot there, not here.
 
-/** "now", to the minute, in the YYYY-MM-DDTHH:MM the input wants -- as UTC. */
-function nowValue() {
-    const ms = Date.now();
+/**
+ * The zone offset a longitude implies, in whole hours east of UTC.
+ *
+ * Pure geometry, which is why it belongs here: the sun crosses 15 deg of
+ * longitude an hour, so the clock that best matches the sky at a longitude is
+ * round(lon / 15). Every spot in places.js lands on +8, which is Taiwan's real
+ * offset.
+ *
+ * This is the *solar* zone, not the legal one. Real zones are drawn by
+ * legislatures, so the two part company wherever a country runs one clock across
+ * a wide span (western China), keeps a neighbour's (Spain), or sits far from its
+ * meridian (Iceland at -22 deg runs UTC+0, not the -1 this returns) -- and there
+ * is no notion of DST here at all. The offset only *labels* the input: everything
+ * below is computed from the UTC instant it produces, so where the legal zone
+ * differs the wall-clock reading is an hour or two out while every angle stays
+ * exact. Deliberately no table of zone boundaries -- that would be a dataset, and
+ * this folder computes rather than looks up.
+ */
+function zoneOffsetHours(lon) {
+    return Math.round(lon / 15);
+}
+
+/** "now" at the location, to the minute, in the YYYY-MM-DDTHH:MM the input wants. */
+function nowValue(offsetHours) {
+    const ms = Date.now() + offsetHours * 3600000;
     return new Date(ms - (ms % 60000)).toISOString().slice(0, 16);
 }
 
 /**
  * The time box read as a UTC instant, in ms.
  *
- * <input type="datetime-local"> has no zone, so the value is appended with "Z"
- * and read as UTC -- the label says so. Keeping the input in UTC means
- * julianDay() takes it unchanged and nothing on the page depends on the
- * browser's zone.
+ * The box holds local wall time *at the location*, so the longitude's offset comes
+ * back off to give the UTC instant julianDay() wants. <input
+ * type="datetime-local"> carries no zone of its own, so the value is parsed as if
+ * it were UTC and then shifted -- which means the browser's own zone never enters
+ * into it, and a hand-typed reading means the same thing on any machine.
  */
-function utcFromForm() {
+function utcFromForm(offsetHours) {
     const raw = document.getElementById("when").value.trim();
     if (!raw) throw new Error("No time given — pick one, or press now");
     const ms = Date.parse(raw.length === 16 ? `${raw}:00Z` : `${raw}Z`);
     if (!Number.isFinite(ms)) throw new Error(`Bad time "${raw}"`);
-    return ms;
+    return ms - offsetHours * 3600000;
+}
+
+/**
+ * The offset implied by whatever is in the location box.
+ *
+ * Falls back to the default spot's when the box will not parse: the submit handler
+ * is what reports a bad location, and "now" should still put a sensible reading in
+ * the time box rather than refusing.
+ */
+function offsetFromForm() {
+    try {
+        return zoneOffsetHours(placeFromForm().lon);
+    } catch {
+        return zoneOffsetHours(DEFAULT_LON);
+    }
 }
 
 /** The location box read as {lat, lon}, falling back to the default spot. */
@@ -605,9 +652,17 @@ function placeFromForm() {
     return { lat, lon };
 }
 
+/** Show which offset the location's longitude implied, beside the time label. */
+function markZone(offsetHours) {
+    document.getElementById("zone").textContent = zoneLabel(offsetHours);
+}
+
 function resetDefaults() {
-    document.getElementById("when").value = nowValue();
+    // Location first: the time is "now" *there*, so it needs that offset.
     document.getElementById("location").value = `${DEFAULT_LAT},${DEFAULT_LON}`;
+    const offset = zoneOffsetHours(DEFAULT_LON);
+    document.getElementById("when").value = nowValue(offset);
+    markZone(offset);
     markActivePlace();
 }
 
@@ -689,10 +744,14 @@ function show({ meta, isError, cards, rows }) {
 
 document.getElementById("form").addEventListener("submit", (event) => {
     event.preventDefault();
-    let utcMs, lat, lon;
+    let utcMs, lat, lon, offsetHours;
     try {
-        utcMs = utcFromForm();
+        // Location first: the time box is local to it, so its longitude is what
+        // decides which instant the reading names.
         ({ lat, lon } = placeFromForm());
+        offsetHours = zoneOffsetHours(lon);
+        markZone(offsetHours);
+        utcMs = utcFromForm(offsetHours);
     } catch (err) {
         // Same policy as the API demos next door: show what is wrong with the
         // input instead of throwing. There is nothing to await here, so a bad
@@ -701,11 +760,11 @@ document.getElementById("form").addEventListener("submit", (event) => {
         return;
     }
 
-    const { cards, rows } = working(utcMs, lat, lon);
+    const { cards, rows } = working(utcMs, lat, lon, offsetHours);
     show({
-        // The browser's own zone, purely as a sanity check on the UTC input --
-        // nothing below the meta line reads it.
-        meta: `${utcLabel(utcMs)}   (${new Date(utcMs).toLocaleString()} local)   ${lat}, ${lon}`,
+        // Both readings of the same instant: the local one the box holds, and the
+        // UTC it became. Nothing here consults the browser's zone.
+        meta: `${localLabel(utcMs, offsetHours)}  (= ${utcLabel(utcMs)})   ${lat}, ${lon}`,
         cards,
         rows,
     });
@@ -713,7 +772,7 @@ document.getElementById("form").addEventListener("submit", (event) => {
 
 document.getElementById("reset").addEventListener("click", resetDefaults);
 document.getElementById("now").addEventListener("click", () => {
-    document.getElementById("when").value = nowValue();
+    document.getElementById("when").value = nowValue(offsetFromForm());
     document.getElementById("form").requestSubmit();
 });
 document.getElementById("location").addEventListener("input", markActivePlace);

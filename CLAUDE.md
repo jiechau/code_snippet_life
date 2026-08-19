@@ -582,13 +582,34 @@ step `<table>` in place of `.url` and `<pre>`. The order is deliberate and match
 the Open-Meteo pages' rule for the location box — time, then location, then
 Compute, so the two fields anyone actually edits sit next to the button.
 
-**Time is UTC, and that is load-bearing.** `<input type="datetime-local">` carries
-no zone, so `utcFromForm()` appends `"Z"` and reads the value as UTC; `julianDay()`
-then takes it unchanged and **nothing below the meta line depends on the browser's
-zone**. The meta line prints the local equivalent purely as a sanity check.
-Contrast `astro-score_readable.html`, which must convert: Open-Meteo hands it local
-wall time plus `utc_offset_seconds`. Don't "improve" these inputs to local time —
-it would put a zone conversion in front of the arithmetic the pages exist to show.
+**The time box is local wall time at the location, and the offset is computed from
+the longitude, not looked up.** `zoneOffsetHours(lon)` is `round(lon / 15)` — the
+sun crosses 15° an hour — which puts all ten `places.js` spots on **UTC+8**,
+Taiwan's real offset. `<input type="datetime-local">` carries no zone of its own,
+so `utcFromForm(offsetHours)` parses the value as if UTC and then subtracts the
+offset; **the browser's zone is never consulted**, so a coordinate plus a reading
+means the same instant on any machine. The `#zone` span beside the field shows what
+was assumed and the meta line prints both readings (`12:36 UTC+8 (= 04:36 UTC)`).
+
+Ordering is therefore load-bearing: **the location must be parsed before the
+time**, since its longitude is what decides which instant the reading names. The
+submit handler and `resetDefaults()` both do location first, and `offsetFromForm()`
+exists so the `now` button can still fill the box sensibly when the location is
+malformed (the submit handler is what reports that). Changing the location keeps
+the reading and moves the instant — "22:00 at whichever spot" is the intent, not
+"the same instant relabelled".
+
+This was UTC at first and it read badly: a picker showing a time that is not your
+wall clock is friction on a page meant to be poked at. **It is the solar zone, not
+the legal one**, and the limit is contained — real zones are legislated, so
+geometry disagrees wherever a country spans many meridians (western China), keeps a
+neighbour's clock (Spain) or sits far from its own (Iceland at −22° gets `UTC−1`
+here, but runs `UTC+0`), and there is no DST. Since the offset only *labels the
+input* and everything downstream runs off the UTC instant, a wrong zone shifts the
+wall-clock reading by an hour or two and **leaves every angle exact**. Don't "fix"
+it with a table of zone boundaries — that is a dataset, and this folder computes
+rather than looks up. `astro-score_readable.html` faces the same problem from the
+other side: Open-Meteo hands it local wall time plus `utc_offset_seconds`.
 
 The submit button is a formality and the pages say so: `change` on either field
 recomputes (`input` is deliberately *not* wired — it would flash a parse error
