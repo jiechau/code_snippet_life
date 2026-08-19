@@ -37,6 +37,17 @@ and folds each day's 24 hourly scores into 2 half-day blocks:
 | 1st glyph | 00–11 | the small hours of that date |
 | 2nd glyph | 12–23 | that evening |
 
+**Cloud comes from one model at a time**, picked with the 雲量來源 tabs above the
+grid. All four models are fetched in the same request, so switching is instant
+and costs nothing extra; the default is `jma_seamless`, the only one of the four
+with a ~5 km regional nest over Taiwan instead of an 11–25 km global grid. The
+models disagree substantially — on a sample week `icon_global` scored almost
+every night blank while `gfs_global` filled most of them — and that disagreement
+is itself worth reading: where two independent models agree, the forecast is
+worth something. Requests go out `FETCH_POOL` (4) at a time rather than all at
+once, because Open-Meteo answers a burst of ten four-model requests with HTTP
+429 `Too many concurrent requests`.
+
 Every bar is the same green at every height: the height is the value, so
 colouring it by that value as well only restated it — and the green-to-red scale
 this first used turned a low bar brown, which looked like a different kind of
@@ -88,11 +99,11 @@ The score, the Meeus astronomy and the request core are copies of
 `astro-score_readable.html`'s — change one, change the other. What the daily page
 drops is everything it has no row for: the galactic core altitude, lunar
 illumination, 降雨/氣溫, the place-name lookup, and the location box (the rows
-*are* the places). It asks for `cloud_cover` alone, so each response is ~4.0 KB /
-168 hours — mostly timestamps — and at the nine spots currently saved ~36 KB, against the
-readable page's ~7.0 KB for one place with six variables. The default
-`past_days=7` doubles both: ~69 KB for the round, ~13 KB for the one. The totals track
-`places.js`, so they move whenever a spot is added.
+*are* the places). It asks for `cloud_cover` alone, but for all four models, so
+each response is ~5.9 KB / 168 hours — mostly timestamps — and with the prefilled
+`past_days=7`, ~11.3 KB, making a ten-spot round **~110 KB** in about 1.2 s. The
+readable page fetches ~13 KB for one place, six variables and one model. The
+totals track `places.js`, so they move whenever a spot is added.
 
 ## The four models
 

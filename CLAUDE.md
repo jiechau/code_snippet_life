@@ -210,7 +210,9 @@ which blocks are copies before editing any of them:
 | Meeus solar/lunar series | both `astro_score/astro-score_*.html` pages + `astro_score/milkyway.py` — all in `astro_score/`, none in `open_meteo/`. `astro-score_daily.html` carries only what it draws: no `GC_RA`/`GC_DEC` and no `moonIllumination()` |
 | `DARK_SUN_ALT`, `MOON_KILL_ALT`, `moonPenalty()`, `astroScore()` | both `astro_score/astro-score_*.html` pages, verbatim |
 | `LABELS`, `API_SHORT`, `UNIT_SHORT`, `tint()`, `SCALES`, hour-grid rendering | the 2 hour-by-hour grid pages only — `astro-score_daily.html` draws days as bars, not variables as tinted cells, and has none of them; `open-meteo.html`/`reverse-geocode.html` draw no grid at all |
-| `HOURLY_VARS`, `MODELS`, `DEFAULT_LAT`/`DEFAULT_LON` | `open-meteo*.html` only — both `astro-score_*.html` pages deliberately override these |
+| `MODELS` (the four ids, in order) | `open-meteo*.html` + `astro-score_daily.html` + `milkyway.py` + `open-meteo.py` — **not** `astro-score_readable.html`, which fixes `icon_global` alone |
+| `seriesKey(hourly, name, model, multi)`, `modelsFromParams()`, `renderTabs()`/`.tab` CSS | the 3 multi-model pages. `astro-score_daily.html`'s tabs pick which model is *scored*, not merely shown |
+| `HOURLY_VARS`, `DEFAULT_LAT`/`DEFAULT_LON` | `open-meteo*.html` only — both `astro-score_*.html` pages deliberately override these |
 | The extra-params box + its `key=value` parse loop | all 4 Open-Meteo pages, the loop verbatim. `DEFAULT_EXTRA` is **not** shared: `open-meteo*.html` prefill `daily=...` **and** `past_days=7`, both `astro-score_*.html` prefill `past_days=7` alone (nothing there reads `daily=`) |
 
 **Edit one and you must edit the others in its row.**
@@ -305,22 +307,55 @@ across a column rule, *not* as `██` inside a single cell — a cell showing 
 of one night beside the head of the next. Any prose added here must keep that straight; it
 is the one thing about this grid a reader gets wrong.
 
+It requests **all four models** and scores **one at a time**, picked by the 雲量來源 tabs
+above the grid (`renderTabs()`, the same idiom as `open-meteo_readable.html`). Switching is
+a re-render, not a refetch — every model came back in the same response, which is the whole
+reason all four are asked for. `DEFAULT_MODEL` is **`jma_seamless`, deliberately not
+`MODELS[0]`**: it is the only member with a regional nest over Taiwan (MSM, 0.05° ≈ 5 km,
+against 11–25 km for the globals), and south of MSM's ~22.4°N/120°E domain edge — which
+`柚子湖` at 22.67°N sits near — it falls back to GSM rather than dropping the key, so the
+series is always complete. Verified: all four models return 168/168 non-null `cloud_cover`
+at all ten spots — including `龍磐公園` at 21.92°N, which is **outside** MSM's domain and
+where a raw `models=jma_msm` request answers with the key *absent* and "No data is
+available for this location". That is the failure `jma_seamless` exists to avoid, and
+`places.js` now contains a spot that demonstrates it.
+
+Two or more models means Open-Meteo **suffixes** every series key
+(`cloud_cover_jma_seamless`), so `seriesKey(hourly, name, model, multi)` is back to the
+four-argument form the other pages use, and `modelsFromParams()` reads the list off the
+request rather than off `MODELS` — the extra-params box can override `models=`, and
+clearing it drops back to bare keys and a single `default` tab.
+
+**The models disagree a lot, and that is the point of showing them.** On a sample week
+`icon_global` scored almost every night blank while `gfs_global` filled most of them; where
+two independent models agree the forecast is worth something, where they do not it is not.
+A future formula averaging them, or reading their spread as confidence the way
+`milkyway.py`'s 信心 column does, has the data already in hand.
+
 Its form is `forecast_days`, `timezone` and an **extra params** box prefilled
 `past_days=7`, applied to every request alike — so a typo there costs one call per saved
 place,
 and `paramsFor()` is therefore called for every place *before* the button is disabled, so
 a malformed line reports itself with nothing sent. `past_days` on a day grid means extra
 columns to the **left** of today, hidden until 從今天開始 is unticked. Each past day is
-~540 bytes per place, taking a nine-place round from ~36 KB to ~69 KB.
+~780 bytes per place across four models, taking a ten-place round from ~58 KB to ~110 KB.
 
-It issues **one request per spot** (`Promise.allSettled`, so one failure costs one row,
-which then shows the API's own reason in place of its glyphs) and asks for `cloud_cover`
-alone — `astroScore()` reads nothing else and the page displays no number a human reads
-directly, so the 降雨/氣溫 that `astro-score_readable.html` carries for exactly that
-reason would be one response of undrawn data per place. Each response is ~4.0 KB / 168
-hours (mostly the timestamps), so at the nine spots `places.js` currently holds that is
-~36 KB the round. **The count follows `places.js`** — it was seven when this page was
-written, so treat any figure here as "per place × however many spots are saved".
+It issues **one request per spot**, `FETCH_POOL` (4) in flight at a time via
+`settledPool()` — allSettled's shape with a concurrency cap, so one failure still costs
+exactly one row, which shows the API's own reason in place of its glyphs. **The pool is
+load-bearing, not tidiness:** Open-Meteo answers a burst with HTTP 429 `Too many concurrent
+requests`, and ten places × four models fired at once trips it on a warm limiter (a second
+Fetch click, a few reloads) while passing on a cold one — an intermittent failure that
+looks like flaky rows. Ten places take ~1.2s pooled against ~0.4s unbounded. Don't
+"simplify" it back to `Promise.allSettled`.
+
+It asks for `cloud_cover` alone — `astroScore()` reads nothing else and the page displays
+no number a human reads directly, so the 降雨/氣溫 that `astro-score_readable.html` carries
+for exactly that reason would be one response of undrawn data per place. Each response is ~4.0 KB / 168
+hours for a single model and ~5.9 KB for all four; with the prefilled `past_days=7` that is
+~11.3 KB a place, so at the ten spots `places.js` currently holds a round is **~110 KB**.
+**The count follows `places.js`** — it was seven when this page was written, so treat any
+figure here as "per place × however many spots are saved".
 
 Consequences of having no location box: no `paramsFromForm()` (it has `paramsFor(lat,
 lon)`), no `buildPlaces()`/`markActivePlace()`, no `.locrow`/`.place` CSS, and
@@ -377,10 +412,10 @@ read from `config.yml`. It queries `hourly=` cloud/moisture variables with
 its model name (`cloud_cover_gfs_global`) — and not every model publishes every variable
 (of the four, **only gfs returns `visibility`**; `precipitation_probability` is null for
 jma), so `_hour_vars()` fills gaps from the ensemble mean, which for `visibility` means
-gfs on its own. The model list is shared with `open_meteo/open-meteo.py` and both
-`open_meteo/open-meteo*.html` pages (**not** `astro-score_readable.html`, which fixes
-`icon_global` alone), and its order is the order rows/tabs appear in, so keep the four in
-step across both folders. `jma_seamless` rather
+gfs on its own. The model list is shared with `open_meteo/open-meteo.py`, both
+`open_meteo/open-meteo*.html` pages and `astro_score/astro-score_daily.html` (**not**
+`astro-score_readable.html`, which fixes `icon_global` alone), and its order is the order
+rows/tabs appear in, so keep the four in step across both folders. `jma_seamless` rather
 than `jma_msm` is deliberate: MSM is 0.05° ≈ 5 km over Taiwan but its domain stops near
 22.4°N/120°E and it runs dry after ~3 days, and outside either bound the key is **missing
 from the response entirely**, which `fetch_forecast()` would reject; `jma_seamless` is

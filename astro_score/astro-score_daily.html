@@ -127,6 +127,33 @@
         }
         .meta.error { color: var(--err); }
 
+        /* Model tabs -- one per entry in the models parameter. Unlike the other
+           pages' tabs these do not change what is *shown* so much as what is
+           *scored*: the bars are recomputed from the picked model's cloud cover,
+           with no refetch, since every model came back in the same response. */
+        .tabrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+        .tablabel { font-size: 0.78rem; font-weight: 600; color: var(--muted); }
+        .tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+        .tab {
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+            padding: 7px 14px;
+            border-radius: 999px;
+            border: 1px solid var(--line);
+            background: #f7f9fb;
+            color: var(--muted);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .tab:hover { border-color: var(--accent); color: var(--accent); background: #f7f9fb; }
+        .tab[aria-selected="true"] {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
+
         /* Far fewer columns than the hourly grid -- a week fits on a phone -- but
            forecast_days goes to 16, so keep the same pinned label column. */
         .scroller {
@@ -258,9 +285,10 @@
             cell a four-block sparkline of the night. Same
             <strong style="color:#1e8449;">觀星</strong> score as
             <a href="astro-score_readable.html">astro-score_readable.html</a> &mdash; this page just
-            asks it of all <span id="placeCount">nine</span> saved places and folds each day's 24 hours
+            asks it of all <span id="placeCount">ten</span> saved places and folds each day's 24 hours
             into two half-day blocks. Read it to pick <em>where and when</em>, then open the readable
-            grid for the hour-by-hour detail. No API key needed.
+            grid for the hour-by-hour detail. Four forecast models come back in every request;
+            the tabs pick which one the bars are scored from. No API key needed.
         </p>
 
         <div class="rule">
@@ -295,10 +323,16 @@
                     exact sums.</li>
                 <li>The score itself is <code>(100 &minus; 雲量) &times; (100 &minus; 月亮扣分) / 100</code>,
                     zeroed while the sun is above &minus;10&deg;, 月亮扣分 ramping 0 &rarr; 100 as the
-                    moon climbs 0&deg; &rarr; 10&deg;. Cloud is <code>icon_global</code>; sun and moon
-                    are computed in the page. See
+                    moon climbs 0&deg; &rarr; 10&deg;. Sun and moon are computed in the page. See
                     <a href="astro-score_readable.html">astro-score_readable.html</a> for the worked
                     examples.</li>
+                <li><b>雲量 comes from one model at a time</b>, picked with the 雲量來源 tabs above the
+                    grid. All four are fetched in the same request, so switching is instant and costs
+                    nothing &mdash; and disagreement between them <em>is</em> information: where
+                    <code>jma</code> and <code>icon</code> tell the same story the forecast is worth
+                    trusting, and where they do not, it is not. The default is
+                    <code>jma_seamless</code>, the only one of the four with a ~5 km regional nest
+                    over Taiwan rather than an 11&ndash;25 km global grid.</li>
             </ul>
         </div>
 
@@ -327,6 +361,10 @@
 
         <div class="result" id="result" hidden>
             <div class="meta" id="meta"></div>
+            <div class="tabrow">
+                <span class="tablabel">雲量來源</span>
+                <div id="tabs" class="tabs"></div>
+            </div>
             <div class="scroller" id="scroller"></div>
             <details id="raw" hidden>
                 <summary>request URLs</summary>
@@ -361,13 +399,31 @@ const DEFAULT_DAYS = 7;
 // cloud_cover alone. astroScore() reads nothing else, and this page shows no
 // numbers a human reads directly -- 降雨/氣溫, which astro-score_readable.html
 // carries for exactly that reason, would be one response per place of data nothing
-// on screen draws. One variable × one model puts each response at ~4.0 KB / 168
-// hours (mostly the timestamps), so at nine saved spots that is ~36 KB the round.
+// on screen draws. One variable puts a response at ~4.0 KB / 168 hours for a single
+// model and ~5.9 KB for all four; with the prefilled past_days=7 that is ~11.3 KB
+// a place, so a ten-spot round is ~110 KB.
 const HOURLY_VARS = ["cloud_cover"];
 
-// One model, as on astro-score_readable.html: a single unambiguous 雲量, and bare
-// (unsuffixed) series keys, which is what seriesKey() below resolves.
-const MODELS = ["icon_global"];
+// All four models, as milkyway.py and the open_meteo/ pages ask for -- keep the
+// list and its order in step across all of them. Two or more models makes
+// Open-Meteo suffix every series key with the model name
+// (cloud_cover_jma_seamless), which is what seriesKey() below resolves.
+//
+// The grid scores ONE of them at a time, picked by the tabs above it; the other
+// three are fetched so the comparison costs no extra round trip, and so a future
+// formula can average them or read their spread as confidence the way
+// milkyway.py's 信心 column does. Four models of one variable is ~5.9 KB a place
+// against ~4.0 KB for one -- the timestamps dominate either way -- which is why
+// fetching all four to show one is cheap enough to be the default.
+const MODELS = ["icon_global", "jma_seamless", "gfs_global", "ecmwf_ifs025"];
+
+// Which model the score comes from until a tab is clicked. Deliberately NOT
+// MODELS[0]: jma_seamless is the only member with a regional nest over Taiwan
+// (MSM, 0.05 deg ~ 5 km, against ~11-25 km for the global models), so it is the
+// one that can resolve the Central Range at all. Outside MSM's domain -- which
+// stops near 22.4N/120E, i.e. south of 柚子湖 -- it falls back to GSM rather than
+// dropping the key, so the series is always complete.
+const DEFAULT_MODEL = "jma_seamless";
 
 // Prefilled into the "extra params" box rather than added to defaultParams(). One
 // key=value per line; clear a line to drop that parameter. Applied to every request
@@ -377,8 +433,8 @@ const MODELS = ["icon_global"];
 // to the LEFT of today -- the week just gone, for checking a forecast against what
 // the sky actually did. They are hidden until 從今天開始 is unticked, so the
 // default view is unchanged by this line and only the response size shows it:
-// each past day is another ~540 bytes per place, taking a nine-place round from
-// ~36 KB to ~69 KB.
+// each past day is another ~780 bytes per place across four models, taking a
+// ten-place round from ~58 KB to ~110 KB.
 const DEFAULT_EXTRA = [
     "past_days=7",
 ].join("\n");
@@ -446,6 +502,41 @@ async function fetchForecast(params, timeoutMs = 30000) {
         bytes: new TextEncoder().encode(text).length,
         seconds,
     };
+}
+
+// How many of the per-place requests may be in flight at once.
+//
+// Open-Meteo answers a burst with HTTP 429 and the body {"reason": "Too many
+// concurrent requests"}. Firing every place at once survives a cold limiter but
+// not a warm one -- ten places x four models, a second Fetch click, or a page
+// already refreshed a few times, and rows start coming back 429 instead of
+// forecast. A pool of four costs nothing measurable (ten places in ~1.2s against
+// ~0.4s unbounded) and takes the failure mode off the table.
+const FETCH_POOL = 4;
+
+/**
+ * Promise.allSettled with a concurrency limit.
+ *
+ * Same return shape as allSettled -- {status: "fulfilled", value} or
+ * {status: "rejected", reason} per item, in input order, never rejecting -- so
+ * one place failing still costs exactly one row.
+ */
+async function settledPool(items, limit, fn) {
+    const out = new Array(items.length);
+    let next = 0;
+    const worker = async () => {
+        while (true) {
+            const i = next;
+            next += 1;
+            if (i >= items.length) return;
+            out[i] = await fn(items[i], i).then(
+                (value) => ({ status: "fulfilled", value }),
+                (reason) => ({ status: "rejected", reason }),
+            );
+        }
+    };
+    await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+    return out;
 }
 
 /**
@@ -711,6 +802,10 @@ function barFor(peak) {
  * worth going out for", and one excellent hour is worth the drive even when the
  * rest of the night is clouded in. A sum would average that hour away.
  *
+ * Cloud comes from one model, the one the tabs have selected. A model that the
+ * response does not carry yields no key and so an empty map, which draws as a row
+ * of dashes rather than as a clear sky.
+ *
  * Every hour present is scored, including hours already gone. This page hides
  * past *days* rather than past hours (see visibleDates), so today's column is
  * always a whole 24 hours and its blocks do not shrink through the day -- a
@@ -721,9 +816,9 @@ function barFor(peak) {
  * straight off the string. Latitude/longitude come from the response, i.e. the
  * grid point actually forecast rather than the point that was asked for.
  */
-function blocksByDate(body) {
+function blocksByDate(body, model, multi) {
     const hourly = body.hourly;
-    const key = seriesKey(hourly, "cloud_cover");
+    const key = seriesKey(hourly, "cloud_cover", model, multi);
     const days = new Map();
     if (!key) return days;
 
@@ -749,18 +844,27 @@ function blocksByDate(body) {
 }
 
 /**
- * The key cloud_cover lives under.
+ * The key a variable lives under for a given model, or null if absent.
  *
- * MODELS has one entry, so Open-Meteo returns a bare key -- it only suffixes
- * with the model name (cloud_cover_icon_global) for two or more models. Both
- * spellings are accepted so adding a model to MODELS keeps working.
+ * Verbatim from the other three Open-Meteo pages. Open-Meteo suffixes series keys
+ * with the model name only when two or more models are asked for; with one it
+ * returns a bare key, so both spellings have to be accepted -- clearing the
+ * models line in the extra params drops straight back to bare keys.
  */
-function seriesKey(hourly, name) {
+function seriesKey(hourly, name, model, multi) {
+    if (multi && Object.hasOwn(hourly, `${name}_${model}`)) return `${name}_${model}`;
     if (Object.hasOwn(hourly, name)) return name;
-    for (const model of MODELS) {
-        if (Object.hasOwn(hourly, `${name}_${model}`)) return `${name}_${model}`;
-    }
     return null;
+}
+
+/**
+ * Which models the response carries, read back off the request rather than from
+ * MODELS -- the extra-params box can override models=, and reading the constant
+ * would then resolve the wrong keys.
+ */
+function modelsFromParams(params) {
+    const raw = String(params.models || "").trim();
+    return raw ? raw.split(",").map((m) => m.trim()).filter(Boolean) : [];
 }
 
 /* ------------------------------------------------------------------ *
@@ -843,9 +947,12 @@ function buildTable(results, hidePast) {
     // Every spot is in the same timezone, but the dates are taken as a union
     // anyway: a place across a date line, or a response one day short, would
     // otherwise shift a whole row sideways against the header.
-    const folded = results.map((r) => (r.body ? blocksByDate(r.body) : null));
+    const first = results.find((r) => r.body);
+    const models = modelsFromParams(first.params);
+    const multi = models.length >= 2;
+    const folded = results.map((r) => (r.body ? blocksByDate(r.body, activeModel, multi) : null));
     const all = [...new Set(folded.flatMap((m) => (m ? [...m.keys()] : [])))].sort();
-    const today = localToday(results.find((r) => r.body).body);
+    const today = localToday(first.body);
     const dates = visibleDates(all, today, hidePast);
 
     const table = document.createElement("table");
@@ -931,6 +1038,45 @@ function buildTable(results, hidePast) {
  * ------------------------------------------------------------------ */
 
 let lastResults = null;   // the array buildTable() takes, from the most recent fetch
+let lastStats = null;    // {seconds, bytes} of that fetch, for the meta line
+let activeModel = DEFAULT_MODEL;   // which model the bars are scored from
+
+/**
+ * One tab per model in the response, switching which model the grid scores.
+ *
+ * No refetch: every model is already in hand, so this is a re-render. That is the
+ * whole reason all four are requested rather than just the one being shown.
+ */
+function renderTabs() {
+    const tabs = document.getElementById("tabs");
+    tabs.textContent = "";
+    if (!lastResults) return;
+    const first = lastResults.find((r) => r.body);
+    if (!first) return;
+    const models = modelsFromParams(first.params);
+    // With models= cleared the API returns its default single model under bare
+    // keys -- one tab, so the layout stays the same either way.
+    const names = models.length ? models : ["default"];
+    if (!names.includes(activeModel)) {
+        activeModel = names.includes(DEFAULT_MODEL) ? DEFAULT_MODEL : names[0];
+    }
+
+    for (const name of names) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "tab";
+        button.textContent = name.replace(/_.*$/, "");
+        button.title = name;
+        button.setAttribute("aria-selected", String(name === activeModel));
+        button.addEventListener("click", () => {
+            activeModel = name;
+            renderTabs();
+            renderGrid();
+            setMeta();
+        });
+        tabs.appendChild(button);
+    }
+}
 
 function renderGrid() {
     const scroller = document.getElementById("scroller");
@@ -939,12 +1085,32 @@ function renderGrid() {
     scroller.appendChild(buildTable(lastResults, document.getElementById("hidePast").checked));
 }
 
+/**
+ * The request summary. Split out of the submit handler because a tab click
+ * changes which model is scored without refetching, and the line names it.
+ */
+function setMeta() {
+    if (!lastResults || !lastStats) return;
+    const ok = lastResults.filter((r) => r.body);
+    if (!ok.length) return;
+    const failed = lastResults.length - ok.length;
+    const meta = document.getElementById("meta");
+    meta.classList.remove("error");
+    meta.textContent =
+        `${ok.length}/${lastResults.length} places  ${lastStats.bytes} bytes  ` +
+        `${lastStats.seconds.toFixed(2)}s  ` +
+        `— ${ok[0].body.timezone} (${ok[0].body.timezone_abbreviation}), ` +
+        `scoring ${activeModel} of ${modelsFromParams(ok[0].params).length || 1}` +
+        (failed ? `  — ${failed} failed, see the rows` : "");
+}
+
 function showError(message) {
     document.getElementById("result").hidden = false;
     const meta = document.getElementById("meta");
     meta.textContent = message;
     meta.classList.add("error");
     document.getElementById("scroller").textContent = "";
+    document.getElementById("tabs").textContent = "";
 }
 
 /** One labelled link per request, so every URL stays inspectable. */
@@ -992,14 +1158,16 @@ document.getElementById("form").addEventListener("submit", async (event) => {
 
     button.disabled = true;
     document.getElementById("result").hidden = false;
-    document.getElementById("meta").textContent = `fetching ${PLACES.length} places...`;
+    document.getElementById("meta").textContent =
+        `fetching ${PLACES.length} places, ${FETCH_POOL} at a time...`;
     document.getElementById("meta").classList.remove("error");
 
     const started = performance.now();
-    // All spots at once: one independent GET per place against a keyless endpoint, and
-    // the grid cannot draw until the last of them lands anyway. allSettled, not
-    // all, so one failure costs one row rather than the whole table.
-    const settled = await Promise.allSettled(requests.map((p) => fetchForecast(p)));
+    // One independent GET per place against a keyless endpoint, FETCH_POOL of them
+    // in flight at a time. The grid cannot draw until the last lands anyway, so the
+    // pool costs nothing worth measuring and keeps the API from answering 429.
+    // Settled, not all-or-nothing: one failure costs one row rather than the table.
+    const settled = await settledPool(requests, FETCH_POOL, (p) => fetchForecast(p));
     const seconds = (performance.now() - started) / 1000;
 
     const results = PLACES.map(([place, lat, lon], i) => {
@@ -1007,7 +1175,7 @@ document.getElementById("form").addEventListener("submit", async (event) => {
         if (outcome.status === "rejected") {
             const err = outcome.reason;
             return {
-                place, lat, lon, url: buildUrl(requests[i]), bytes: 0, body: null,
+                place, lat, lon, params: requests[i], url: buildUrl(requests[i]), bytes: 0, body: null,
                 error: `request failed: ${err.name === "TimeoutError" ? "timed out" : err.message}`,
             };
         }
@@ -1015,11 +1183,11 @@ document.getElementById("form").addEventListener("submit", async (event) => {
         if (!r.ok || !r.body.hourly) {
             // Same policy as open_meteo/open-meteo.py: show the API's own reason.
             return {
-                place, lat, lon, url: r.url, bytes: r.bytes, body: null,
+                place, lat, lon, params: requests[i], url: r.url, bytes: r.bytes, body: null,
                 error: `HTTP ${r.status} — ${r.body.reason || "no hourly data in response"}`,
             };
         }
-        return { place, lat, lon, url: r.url, bytes: r.bytes, body: r.body, error: null };
+        return { place, lat, lon, params: requests[i], url: r.url, bytes: r.bytes, body: r.body, error: null };
     });
 
     setUrls(results);
@@ -1032,15 +1200,9 @@ document.getElementById("form").addEventListener("submit", async (event) => {
     }
 
     lastResults = results;
-    const meta = document.getElementById("meta");
-    meta.classList.remove("error");
-    const bytes = results.reduce((sum, r) => sum + r.bytes, 0);
-    const failed = results.length - ok.length;
-    meta.textContent =
-        `${ok.length}/${results.length} places  ${bytes} bytes  ${seconds.toFixed(2)}s  ` +
-        `— ${ok[0].body.timezone} (${ok[0].body.timezone_abbreviation}), ` +
-        `models=${MODELS.join(",")}` +
-        (failed ? `  — ${failed} failed, see the rows` : "");
+    lastStats = { seconds, bytes: results.reduce((sum, r) => sum + r.bytes, 0) };
+    renderTabs();   // resolves activeModel against what actually came back
+    setMeta();
     renderGrid();
     button.disabled = false;
 });
