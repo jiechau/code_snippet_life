@@ -11,6 +11,12 @@ variables × 4 models) bills as a few calls.
 The plain, unscored API demo this folder grew out of lives next door in
 [`open_meteo/`](../open_meteo/README.md).
 
+The astronomy below — solar altitude, lunar altitude and phase, galactic-core
+altitude — is also extracted one formula per page into
+[`pure_math/`](../pure_math/README.md), which prints every intermediate instead of
+folding it into a grid cell. That is the place to check a computed row. It is a
+copy, not an import: change the series here and mirror it there.
+
 **API reference: <https://open-meteo.com/en/docs>** — every variable name used in
 `hourly=` / `daily=`, the model ids for `models=` and the units each field comes
 back in. This folder's page fixes its own variables and model, so the docs matter

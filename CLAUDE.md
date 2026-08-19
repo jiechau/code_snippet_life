@@ -15,7 +15,7 @@ what it does and how to run it.
 - **One folder per snippet.** Keep everything a snippet needs inside its folder. Do not
   introduce cross-snippet imports or a shared root package. **There is exactly one
   sanctioned exception:** root `places.js`, the saved stargazing spots shared by all
-  three demo pages (see below). Do not widen it — nothing else moves to the root.
+  eight demo pages (see below). Do not widen it — nothing else moves to the root.
 - **Each snippet folder gets its own `README.md`**, and the new snippet must be added as a
   row to the table in the root `README.md`.
 - **Parallel implementations stay equivalent.** Some snippets ship the same logic in
@@ -38,11 +38,15 @@ Navigation is two levels of list page: root `index.html` links to one
 `<snippet>/index.html` per snippet folder, and that folder list links to one page per
 demo, **named after the script it ports** (`open_meteo/open-meteo.html` ports
 `open_meteo/open-meteo.py`); an alternate view of the same script adds a `_suffix`
-(`open-meteo_readable.html`). Two pages have no script to be named after:
+(`open-meteo_readable.html`). Six pages have no script to be named after:
 the two `astro_score/astro-score_*.html` pages are forks of
 `open_meteo/open-meteo_readable.html` rather than ports of one script, so they take
-their folder's name, and `bigdatacloud/reverse-geocode.html` is named after the
-endpoint it calls because `bigdatacloud/` holds no script at all. List pages carry no logic — they are the same small card
+their folder's name; `bigdatacloud/reverse-geocode.html` is named after the
+endpoint it calls because `bigdatacloud/` holds no script at all; and the three
+`pure_math/*.html` pages are named after the **quantity each computes**
+(`galactic_center.html`, `sun_phase.html`, `moon_phase.html`) for the same reason —
+that folder holds no script either, and each page is one block lifted out of
+`astro_score/astro-score_readable.html` rather than a port of anything. List pages carry no logic — they are the same small card
 markup, differing only in title and links.
 
 **Adding a demo means: a `<snippet>/<script-name>.html` page, a link on that folder's
@@ -59,7 +63,9 @@ This is effortless for keyless, CORS-enabled APIs (Open-Meteo, BigDataCloud's
 API key, which would be readable in page source, so it has no demo and is deliberately
 listed as todo in `index.html` rather than half-implemented. `google_news_url` is
 cross-origin with no CORS headers at all and gets around it with a **user-selected public
-CORS proxy** — see below; that is the only reason it has a page.
+CORS proxy** — see below; that is the only reason it has a page. `pure_math/` is the
+one folder none of this constrains: it calls nothing, so a static host was always
+sufficient for it.
 
 ## Running
 
@@ -190,36 +196,46 @@ silent no-op: `requestSubmit()` does nothing while the submit button is disabled
 
 ## What is duplicated across the demo pages
 
-There are **five demo pages** (ignoring `google_news_url`, which shares nothing),
-four of them built on one Open-Meteo request core, and no shared file except
-`places.js` — by the one-folder-per-snippet rule, keeping them in step is a manual
-discipline. They are `open_meteo/open-meteo.html`,
+There are **eight demo pages** (ignoring `google_news_url`, which shares nothing),
+four of them built on one Open-Meteo request core, three that issue no request at
+all, and no shared file except `places.js` — by the one-folder-per-snippet rule,
+keeping them in step is a manual discipline. They are `open_meteo/open-meteo.html`,
 `open_meteo/open-meteo_readable.html`, `astro_score/astro-score_readable.html`,
-`astro_score/astro-score_daily.html` and `bigdatacloud/reverse-geocode.html`. Know
+`astro_score/astro-score_daily.html`, `bigdatacloud/reverse-geocode.html` and the
+three `pure_math/{galactic_center,sun_phase,moon_phase}.html`. The `pure_math/`
+three copy the *page chrome* and the *astronomy* but none of the request machinery,
+so they appear in some rows below and are pointedly absent from others. Know
 which blocks are copies before editing any of them:
 
 | Block | Copies |
 | --- | --- |
-| Request core (`buildUrl`, `fetchForecast`, `FORECAST_URL`) | the 4 Open-Meteo pages + `open_meteo/open-meteo.py`; `bigdatacloud/` has the same `buildUrl` shape against its own endpoint |
-| `paramsFromForm()` | the 3 pages with a location box; `astro-score_daily.html` has `paramsFor(lat, lon)` instead — its rows *are* the places, so there is no location to parse |
-| Page chrome (whole `<style>` block, `show()`, submit handler) | `open_meteo/open-meteo.html` + `bigdatacloud/reverse-geocode.html` — the latter is that page with the form cut to one field |
-| `.locrow`/`.place` CSS, `buildPlaces()` / `markActivePlace()` | 4 pages — **not** `astro-score_daily.html`, which has no location box to put buttons beside |
-| `PLACES` | **not duplicated** — root `places.js`, loaded by all 5 pages. `DEFAULT_LAT`/`DEFAULT_LON` from that file are unused by `astro-score_daily.html` |
+| Request core (`buildUrl`, `fetchForecast`, `FORECAST_URL`) | the 4 Open-Meteo pages + `open_meteo/open-meteo.py`; `bigdatacloud/` has the same `buildUrl` shape against its own endpoint. **No `pure_math/` page has one** — there is no URL to build |
+| `paramsFromForm()` | the 3 pages with a location box **and** a request to make; `astro-score_daily.html` has `paramsFor(lat, lon)` instead — its rows *are* the places, so there is no location to parse. The `pure_math/` pages parse the same box into `placeFromForm()` → `{lat, lon}`: same parse and same error text, but there are no request params to return |
+| Page chrome (whole `<style>` block, `show()`, submit handler) | `open_meteo/open-meteo.html` + `bigdatacloud/reverse-geocode.html` + the 3 `pure_math/` pages. `reverse-geocode.html` is `open-meteo.html` with the form cut to one field; the `pure_math/` three are `reverse-geocode.html` with a time field added, `Fetch` renamed `Compute`, the `.url`/`<pre>` panes swapped for `.card`/step-table CSS, and `show()` taking `{cards, rows}` instead of `{url, json}`. The submit handler loses its `async`, its `try/finally` and the button disabling — nothing is in flight — but keeps the policy of *displaying* a bad input rather than throwing |
+| `.locrow`/`.place` CSS, `buildPlaces()` / `markActivePlace()` | 7 pages, verbatim — **not** `astro-score_daily.html`, which has no location box to put buttons beside |
+| `PLACES` | **not duplicated** — root `places.js`, loaded by all 8 pages. `DEFAULT_LAT`/`DEFAULT_LON` from that file are unused by `astro-score_daily.html` |
 | The `countryName/principalSubdivision/city/locality` join | `astro_score/astro-score_readable.html` (`reverseGeocode()`) + `bigdatacloud/reverse-geocode.html` (`placeName()`) |
 | `reverseGeocode()` / `appendPlaceName()` (the *deferred, never-awaited* lookup) | `astro_score/astro-score_readable.html` only; **never** either `open_meteo/` page |
-| Meeus solar/lunar series | both `astro_score/astro-score_*.html` pages + `astro_score/milkyway.py` — all in `astro_score/`, none in `open_meteo/`. `astro-score_daily.html` carries only what it draws: no `GC_RA`/`GC_DEC` and no `moonIllumination()` |
-| `DARK_SUN_ALT`, `MOON_KILL_ALT`, `moonPenalty()`, `astroScore()` | both `astro_score/astro-score_*.html` pages, verbatim |
-| `LABELS`, `API_SHORT`, `UNIT_SHORT`, `tint()`, `SCALES`, hour-grid rendering | the 2 hour-by-hour grid pages only — `astro-score_daily.html` draws days as bars, not variables as tinted cells, and has none of them; `open-meteo.html`/`reverse-geocode.html` draw no grid at all |
+| Meeus solar/lunar series | both `astro_score/astro-score_*.html` pages + `astro_score/milkyway.py` + the 3 `pure_math/` pages — never in `open_meteo/`. Every copy carries **only what it draws**: `astro-score_daily.html` has no `GC_RA`/`GC_DEC` and no `moonIllumination()`; `pure_math/galactic_center.html` has no `obliquity()`/`eclipticToEquatorial()` at all (A* is already equatorial); `pure_math/sun_phase.html` has nothing lunar; `pure_math/moon_phase.html` carries `sunPosition()` too, because the illuminated fraction needs the moon–sun elongation |
+| `DARK_SUN_ALT`, `MOON_KILL_ALT`, `moonPenalty()`, `astroScore()` | both `astro_score/astro-score_*.html` pages, verbatim. Split across `pure_math/`: `sun_phase.html` takes `DARK_SUN_ALT`, `moon_phase.html` takes `MOON_KILL_ALT` + `moonPenalty()`. **`astroScore()` is in neither** — a pure-math page has no cloud figure to score |
+| `LABELS`, `API_SHORT`, `UNIT_SHORT`, `tint()`, `SCALES`, hour-grid rendering | the 2 hour-by-hour grid pages only — `astro-score_daily.html` draws days as bars, not variables as tinted cells, and has none of them; `open-meteo.html`/`reverse-geocode.html`/the `pure_math/` three draw no grid at all |
 | `MODELS` (the four ids, in order) | `open-meteo*.html` + `astro-score_daily.html` + `milkyway.py` + `open-meteo.py` — **not** `astro-score_readable.html`, which fixes `icon_global` alone |
 | `seriesKey(hourly, name, model, multi)`, `modelsFromParams()`, `renderTabs()`/`.tab` CSS | the 3 multi-model pages. `astro-score_daily.html`'s tabs pick which model is *scored*, not merely shown |
 | `HOURLY_VARS`, `DEFAULT_LAT`/`DEFAULT_LON` | `open-meteo*.html` only — both `astro-score_*.html` pages deliberately override these |
-| The extra-params box + its `key=value` parse loop | all 4 Open-Meteo pages, the loop verbatim. `DEFAULT_EXTRA` is **not** shared: `open-meteo*.html` prefill `daily=...` **and** `past_days=7`, both `astro-score_*.html` prefill `past_days=7` alone (nothing there reads `daily=`) |
+| The extra-params box + its `key=value` parse loop | all 4 Open-Meteo pages, the loop verbatim; no `pure_math/` page has one, having no request to add params to. `DEFAULT_EXTRA` is **not** shared: `open-meteo*.html` prefill `daily=...` **and** `past_days=7`, both `astro-score_*.html` prefill `past_days=7` alone (nothing there reads `daily=`) |
 
 **Edit one and you must edit the others in its row.**
 
 The Meeus row is the strictest: the JavaScript is **verified to agree with `milkyway.py`
-to four decimal places**, so changing the astronomy in either means re-checking both. `julianDay()` uses the Unix epoch (JD 2440587.5) instead of the Python's
-Gregorian calendar arithmetic; the two are exactly equivalent.
+to four decimal places**, so changing the astronomy in any copy means re-checking all of
+them. `julianDay()` uses the Unix epoch (JD 2440587.5) instead of the Python's
+Gregorian calendar arithmetic; the two are exactly equivalent. Every function in that
+row is **byte-identical** across the five HTML copies, with two deliberate exceptions,
+both in `pure_math/moon_phase.html` and both documented there: `moonPosition()` returns
+five extra fields (`lp`/`d`/`m`/`mp`/`f` and `eclLat`) so the page can draw the
+fundamental arguments — every computed term is unchanged — and `moonPhaseName()` /
+`MOON_PHASE_NAMES` are ported from `milkyway.py`'s `moon_phase_name()`, which no other
+page has, making those two the pair to keep in step.
 
 `reverseGeocode()` puts `countryName/principalSubdivision/city/locality` (e.g.
 中華民國/宜蘭縣/南澳鄉/蘇澳鎮) on a **second meta line** from BigDataCloud's keyless,
@@ -244,6 +260,11 @@ until the folder was renamed; two carried-over forks of the `open_meteo/` pages 
 deleted at the same time. Both are named after the folder rather than a script because
 they are forks of `open_meteo/open-meteo_readable.html`, not ports of one script. See the
 duplication table above before editing either.
+
+The locally computed astronomy on these pages is also extracted, one formula per
+page, into `pure_math/` — same functions, every intermediate printed. That folder
+is where to look when a computed row needs checking, and it is a **copy**, not an
+import: see the duplication table above.
 
 The two answer different questions and that is the whole reason both exist:
 `astro-score_readable.html` is **which hour tonight, at one place**;
@@ -447,6 +468,84 @@ low-precision series rather than fetched — Open-Meteo offers only sunrise/suns
 drops hours before the current one. When tuning the formula, sanity-check both ends:
 Taiwan in monsoon season should score near zero, and a pristine site (e.g. Atacama
 `-24.6,-70.4`) should reach ~100%.
+
+## pure_math specifics
+
+The astronomy of `astro_score/` pulled out one formula per page, and the **only
+folder with neither a script nor an API call**: `galactic_center.html`,
+`sun_phase.html` and `moon_phase.html` are numbers in, numbers out. Each is one
+block lifted out of `astro_score/astro-score_readable.html` — the 銀心/銀心 (max)
+rows, the 太陽 row, the 月亮/月相 rows respectively — shown with **every
+intermediate printed** instead of folded into a grid cell. They exist so the
+readable page's computed rows can be checked: when it draws 太陽 −6.6° for an hour,
+this is where the eight lines that produced the number are visible.
+
+Pages are named after the **quantity computed**, not a script (there is none) and
+not the folder (there are three of them) — the third naming case in this repo,
+after `astro_score/`'s folder-named forks and `bigdatacloud/`'s endpoint-named
+page. See the duplication table above before editing any of them.
+
+Each page is `bigdatacloud/reverse-geocode.html` with a **time field added above
+the location row** and the output panes swapped: `.card` headline values and a
+step `<table>` in place of `.url` and `<pre>`. The order is deliberate and matches
+the Open-Meteo pages' rule for the location box — time, then location, then
+Compute, so the two fields anyone actually edits sit next to the button.
+
+**Time is UTC, and that is load-bearing.** `<input type="datetime-local">` carries
+no zone, so `utcFromForm()` appends `"Z"` and reads the value as UTC; `julianDay()`
+then takes it unchanged and **nothing below the meta line depends on the browser's
+zone**. The meta line prints the local equivalent purely as a sanity check.
+Contrast `astro-score_readable.html`, which must convert: Open-Meteo hands it local
+wall time plus `utc_offset_seconds`. Don't "improve" these inputs to local time —
+it would put a zone conversion in front of the arithmetic the pages exist to show.
+
+The submit button is a formality and the pages say so: `change` on either field
+recomputes (`input` is deliberately *not* wired — it would flash a parse error
+after every keystroke of a half-typed coordinate), a place button recomputes, and
+the initial `requestSubmit()` at the end of the script means a page shows an answer
+the moment it opens. There is nothing in flight, so unlike the API pages the
+handler is not `async`, disables nothing and needs no `try/finally`.
+
+`working(utcMs, lat, lon)` is the shape all three share: it returns
+`{cards, rows}` — the answer, then the arithmetic — and `rows` is a flat list where
+`{stage}` starts a group and `{label, sym, val, note}` is one quantity. The `note`
+column holds the formula and is `display: none` under 640px, which is why nothing
+load-bearing may go in it. Values are ASCII-minus and copy-pasteable; the
+typographic `−` belongs to the formula column and the prose.
+
+Two things the pages compute that no `astro_score/` file does, both display-only:
+`degToHms()`/`degToDms()` (RA as `17h45m40.0s`, Dec as `−29°00′28″` — the form an
+atlas quotes, shown beside the decimal degrees) and `COMPASS`/`compass()`, which
+turns an azimuth into 朝西南 because nobody reads a bearing at a glance. Neither has
+a Python counterpart and neither feeds a number.
+
+`sun_phase.html` adds `twilightBand()` — the conventional 0/−6/−12/−18 boundaries —
+as **context only**. Nothing scores against it: `astro-score_readable.html` reduces
+the whole question to `DARK_SUN_ALT` (−10°), and `milkyway.py` ramps its darkness
+term over −18°..−12° instead. Showing the standard bands next to the page's own
+threshold is the point; do not make the threshold *be* one of them.
+
+`moon_phase.html` is the largest of the three because the phase needs the sun:
+`sunPosition()` is there for `moonIllumination()`'s elongation, not for anything on
+the horizon. It also prints 黃經修正 — the 14 periodic terms summed, up to about
+±7° — which is the number that explains why the lunar series needs fourteen terms
+where the solar one needs two.
+
+Accuracy is the series' and no more: sun ~0.01°, moon ~0.3° in longitude, **no
+refraction and no lunar parallax**, so a horizon altitude can be a degree out.
+That is well inside "is it dark" and "is the moon up", which is all `astroScore()`
+asks. The READMEs say so; these are not an ephemeris.
+
+Verified against `milkyway.py` across 24 (instant, place) combinations — Taiwan,
+Atacama, Reykjavík, 1970 to 2099 — every angle agreeing to within 1e-13° and every
+phase name matching exactly, plus a no-NaN sweep at both poles and the equator.
+Re-run that comparison when touching the astronomy in any copy. There is no test
+command, so the way to do it is mechanical: slice each page's `<script>` from after
+`places.js` down to the `* Formatting` banner (everything above it is DOM-free),
+append an `export {...}`, and `node` it against a `uv run` harness that
+`sys.path`-inserts `astro_score/` and imports `milkyway` — that catches a drifted
+term, which eyeballing two 14-term series does not. Slicing at `* The form` instead
+gives you `working()` for a NaN sweep.
 
 ## bigdatacloud specifics
 

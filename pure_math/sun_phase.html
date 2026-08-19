@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex, nocache">
+    <title>sun altitude &mdash; pure_math</title>
+    <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+    <style>
+        :root {
+            --fg: #333;
+            --muted: #777;
+            --line: #e3e6ea;
+            --grid: #eef1f4;
+            --accent: #2196F3;
+            --err: #c0392b;
+            --ok: #2e7d32;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            color: var(--fg);
+            margin: 0;
+            padding: 24px 12px 60px;
+        }
+        .container {
+            background: white;
+            padding: 28px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        h1 { margin: 0 0 4px; font-size: 1.6rem; }
+        p.sub { margin: 0 0 22px; color: var(--muted); font-size: 0.9rem; }
+        p.sub a { color: var(--accent); }
+        p.sub code { background: #f0f2f5; padding: 1px 5px; border-radius: 4px; }
+        a.back { color: var(--accent); text-decoration: none; font-size: 0.9rem; }
+        a.back:hover { text-decoration: underline; }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+            gap: 14px;
+        }
+        .field { display: flex; flex-direction: column; }
+        .field.wide { grid-column: 1 / -1; }
+        label { font-size: 0.8rem; font-weight: 600; margin-bottom: 5px; }
+        label .hint { font-weight: 400; color: var(--muted); }
+        input {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.85rem;
+            padding: 8px 10px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: #fbfcfd;
+            color: var(--fg);
+        }
+        input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+        /* time: the box beside its "now" button, the same shape the location row
+           below uses for its saved spots. */
+        .timerow { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+        .timerow input { width: 200px; flex: 0 0 auto; }
+
+        /* location: a box just wide enough for "25.070602,121.592399", with the
+           saved spots sitting beside it rather than under it. */
+        .locrow { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+        .locrow input { width: 200px; flex: 0 0 auto; }
+        .places { display: flex; gap: 6px; flex-wrap: wrap; }
+        .place {
+            font: inherit;
+            font-size: 0.85rem;
+            font-weight: 600;
+            padding: 6px 12px;
+            border-radius: 999px;
+            border: 1px solid var(--line);
+            background: #f7f9fb;
+            color: var(--accent);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .place:hover { border-color: var(--accent); background: #eaf4fd; }
+        .place[aria-pressed="true"] {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
+
+        .actions { margin-top: 18px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        button {
+            font: inherit;
+            font-weight: 600;
+            padding: 9px 22px;
+            border-radius: 8px;
+            border: 2px solid var(--accent);
+            background: var(--accent);
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        button:hover:not(:disabled) { background: #1976d2; border-color: #1976d2; }
+        button.secondary { background: white; color: var(--accent); }
+        button.secondary:hover:not(:disabled) { background: var(--accent); color: white; }
+        button.tiny { font-size: 0.85rem; padding: 6px 12px; border-radius: 999px; border-width: 1px; }
+
+        .result { margin-top: 26px; border-top: 1px solid var(--line); padding-top: 20px; }
+        .meta {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.8rem;
+            color: var(--muted);
+            margin-bottom: 14px;
+        }
+        .meta.error { color: var(--err); }
+
+        /* The answer, before the working that produced it. */
+        .out { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+        .card {
+            flex: 1 1 150px;
+            background: #f7f9fb;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 12px 14px;
+        }
+        .card .k { font-size: 0.75rem; font-weight: 600; color: var(--muted); }
+        .card .v {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 1.35rem;
+            margin-top: 5px;
+            word-break: break-all;
+        }
+        .card .n { font-size: 0.72rem; color: var(--muted); margin-top: 4px; }
+        .card.good .v { color: var(--ok); }
+        .card.bad .v { color: var(--err); }
+
+        /* The working: one row per intermediate quantity, grouped into stages. */
+        table { width: 100%; border-collapse: collapse; }
+        th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--grid); font-size: 0.8rem; }
+        thead th {
+            color: var(--muted);
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border-bottom: 1px solid var(--line);
+        }
+        tr.stage td {
+            background: #f7f9fb;
+            font-weight: 700;
+            font-size: 0.78rem;
+            border-bottom: 1px solid var(--line);
+        }
+        td.sym, td.val {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        }
+        td.sym { color: var(--accent); white-space: nowrap; }
+        td.val { text-align: right; white-space: nowrap; }
+        td.note { color: var(--muted); font-size: 0.74rem; }
+        @media (max-width: 640px) {
+            th.note, td.note { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a class="back" href="index.html">&larr; pure_math</a>
+        <h1>sun altitude</h1>
+        <p class="sub">
+            Is it dark yet? A time and a <code>lat,lon</code> in, the sun's altitude out
+            &mdash; the <strong>太陽</strong> row of
+            <a href="../astro_score/astro-score_readable.html">astro-score_readable</a> and the
+            gate that zeroes its 觀星 score, with every intermediate shown.
+            <strong>No API call:</strong> Open-Meteo returns only sunrise and sunset, so the
+            angle in between is computed locally from Meeus' low-precision solar series
+            &mdash; two sine terms, good to about 0.01°.
+        </p>
+
+        <form id="form">
+            <div class="grid">
+                <div class="field wide">
+                    <label for="when">time <span class="hint">UTC &mdash; not your local clock</span></label>
+                    <div class="timerow">
+                        <input type="datetime-local" id="when" step="60">
+                        <button type="button" class="secondary tiny" id="now">now</button>
+                    </div>
+                </div>
+                <div class="field wide">
+                    <label for="location">location <span class="hint">lat,lon &mdash; or pick a spot</span></label>
+                    <div class="locrow">
+                        <input id="location" name="location" spellcheck="false">
+                        <div class="places" id="places"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="actions">
+                <button type="submit" id="submit">Compute</button>
+                <button type="button" class="secondary" id="reset">Reset defaults</button>
+            </div>
+        </form>
+
+        <div class="result" id="result" hidden>
+            <div class="meta" id="meta"></div>
+            <div class="out" id="out"></div>
+            <table id="steps">
+                <thead>
+                    <tr><th>step</th><th>sym</th><th style="text-align:right">value</th><th class="note">formula</th></tr>
+                </thead>
+                <tbody id="tbody"></tbody>
+            </table>
+        </div>
+    </div>
+
+<script src="../places.js"></script>
+<script>
+"use strict";
+
+// One formula per page, and this page's is the sun's altitude.
+//
+// The astronomy is a verbatim copy of the corresponding block in
+// astro_score/astro-score_readable.html, which is itself a port of
+// astro_score/milkyway.py -- the JavaScript and the Python are verified to agree
+// to four decimal places, so changing the series in one means re-checking all
+// three. It copies only what it draws: the solar position needs the ecliptic
+// conversion that galactic_center.html could skip, but nothing lunar.
+//
+// The form machinery below (buildPlaces, markActivePlace, show, the submit
+// handler) is shared with the other two pages in this folder, and the location
+// row is in turn a copy of bigdatacloud/reverse-geocode.html's.
+
+/* ------------------------------------------------------------------ *
+ * The astronomy
+ * ------------------------------------------------------------------ */
+
+const DEG = Math.PI / 180;
+const sin = (d) => Math.sin(d * DEG);
+const cos = (d) => Math.cos(d * DEG);
+const clamp1 = (x) => Math.min(1, Math.max(-1, x));
+const mod360 = (x) => ((x % 360) + 360) % 360;
+
+/**
+ * Julian Day from a UTC timestamp in milliseconds.
+ *
+ * The Unix epoch is JD 2440587.5 by definition, which makes this exactly
+ * equivalent to milkyway.py's calendar-based julian_day() without repeating
+ * the Gregorian bookkeeping.
+ */
+function julianDay(utcMs) {
+    return utcMs / 86400000 + 2440587.5;
+}
+
+/** Mean obliquity of the ecliptic, in degrees. */
+function obliquity(jd) {
+    return 23.439291 - 0.0130042 * ((jd - 2451545.0) / 36525);
+}
+
+/** Ecliptic (lon, lat) in degrees -> {ra, dec} in degrees. */
+function eclipticToEquatorial(lon, lat, eps) {
+    const x = cos(lat) * cos(lon);
+    const y = cos(eps) * cos(lat) * sin(lon) - sin(eps) * sin(lat);
+    const z = sin(eps) * cos(lat) * sin(lon) + cos(eps) * sin(lat);
+    return {
+        ra: mod360(Math.atan2(y, x) / DEG),
+        dec: Math.asin(clamp1(z)) / DEG,
+    };
+}
+
+/** Solar right ascension, declination and ecliptic longitude, in degrees. */
+function sunPosition(jd) {
+    const n = jd - 2451545.0;
+    const meanLon = mod360(280.460 + 0.9856474 * n);
+    const meanAnom = mod360(357.528 + 0.9856003 * n);
+    const eclLon = mod360(
+        meanLon + 1.915 * sin(meanAnom) + 0.020 * sin(2 * meanAnom),
+    );
+    const { ra, dec } = eclipticToEquatorial(eclLon, 0.0, obliquity(jd));
+    return { ra, dec, eclLon };
+}
+
+/** Local apparent sidereal time in degrees. */
+function localSiderealTime(jd, lonDeg) {
+    const t = (jd - 2451545.0) / 36525;
+    const gmst =
+        280.46061837
+        + 360.98564736629 * (jd - 2451545.0)
+        + 0.000387933 * t * t;
+    return mod360(gmst + lonDeg);
+}
+
+/** Equatorial (ra, dec) -> {alt, az} in degrees, azimuth measured from north. */
+function altAz(ra, dec, lat, lst) {
+    const ha = mod360(lst - ra);
+    const sinAlt = sin(lat) * sin(dec) + cos(lat) * cos(dec) * cos(ha);
+    const alt = Math.asin(clamp1(sinAlt)) / DEG;
+    const az = mod360(
+        Math.atan2(
+            -cos(dec) * sin(ha),
+            sin(dec) * cos(lat) - sin(lat) * cos(dec) * cos(ha),
+        ) / DEG,
+    );
+    return { alt, az };
+}
+
+// Sun this far below the horizon or lower counts as dark. -10° is well into
+// nautical twilight: the sky is not yet fully dark at -10, so this is generous
+// on purpose, and the hour either side of it is the one to distrust. Copied from
+// astro-score_readable.html, where a sun above it scores the hour 0 outright.
+const DARK_SUN_ALT = -10;
+
+/**
+ * The conventional twilight band for a solar altitude.
+ *
+ * These four boundaries are the standard ones, shown here for context only --
+ * neither demo page scores against them. milkyway.py is the file that uses them,
+ * and it ramps its darkness term over -18°..-12° rather than switching at any one
+ * of them; astro-score_readable.html reduces the whole question to DARK_SUN_ALT.
+ */
+function twilightBand(alt) {
+    if (alt > 0) return "白天 · day";
+    if (alt > -6) return "民用曙暮光 · civil";
+    if (alt > -12) return "航海曙暮光 · nautical";
+    if (alt > -18) return "天文曙暮光 · astronomical";
+    return "天文黑夜 · night";
+}
+
+/* ------------------------------------------------------------------ *
+ * Formatting
+ * ------------------------------------------------------------------ */
+
+const num = (x, d = 4) => Number(x).toFixed(d);
+const deg = (x, d = 3) => `${num(x, d)}°`;
+
+/** Degrees -> h m s, the form an atlas quotes right ascension in. */
+function degToHms(d) {
+    const hours = mod360(d) / 15;
+    const h = Math.floor(hours);
+    const m = Math.floor((hours - h) * 60);
+    const s = ((hours - h) * 60 - m) * 60;
+    return `${h}h${String(m).padStart(2, "0")}m${s.toFixed(1).padStart(4, "0")}s`;
+}
+
+/** Degrees -> +/-d° m′ s″, the form an atlas quotes declination in. */
+function degToDms(d) {
+    const sign = d < 0 ? "−" : "+";
+    const a = Math.abs(d);
+    const whole = Math.floor(a);
+    const m = Math.floor((a - whole) * 60);
+    const s = ((a - whole) * 60 - m) * 60;
+    return `${sign}${whole}°${String(m).padStart(2, "0")}′${s.toFixed(0).padStart(2, "0")}″`;
+}
+
+// Azimuth is a bearing from north, which nobody reads at a glance; this turns it
+// into the direction you would actually face.
+const COMPASS = ["北", "東北", "東", "東南", "南", "西南", "西", "西北"];
+const compass = (az) => COMPASS[Math.round(mod360(az) / 45) % 8];
+
+/** The instant, as the UTC string the whole page is computed from. */
+const utcLabel = (ms) => `${new Date(ms).toISOString().slice(0, 16).replace("T", " ")} UTC`;
+
+/* ------------------------------------------------------------------ *
+ * The working
+ * ------------------------------------------------------------------ */
+
+/**
+ * Every intermediate between (time, place) and the sun's altitude, in order.
+ *
+ * The interesting line is 中心差: the whole difference between "the sun moves at
+ * a constant rate" and where it actually is comes to under two degrees, and two
+ * sine terms are enough to capture it for this purpose.
+ */
+function working(utcMs, lat, lon) {
+    const jd = julianDay(utcMs);
+    const n = jd - 2451545.0;
+    const t = n / 36525;
+
+    const meanLon = mod360(280.460 + 0.9856474 * n);
+    const meanAnom = mod360(357.528 + 0.9856003 * n);
+    const centre = 1.915 * sin(meanAnom) + 0.020 * sin(2 * meanAnom);
+    const eps = obliquity(jd);
+    const sun = sunPosition(jd);
+
+    const gmst = mod360(280.46061837 + 360.98564736629 * n + 0.000387933 * t * t);
+    const lst = localSiderealTime(jd, lon);
+    const ha = mod360(lst - sun.ra);
+    const haSigned = ha > 180 ? ha - 360 : ha;
+    const sinAlt = sin(lat) * sin(sun.dec) + cos(lat) * cos(sun.dec) * cos(ha);
+    const { alt, az } = altAz(sun.ra, sun.dec, lat, lst);
+    const dark = alt <= DARK_SUN_ALT;
+
+    const rows = [
+        { stage: "輸入 · input" },
+        { label: "時刻", sym: "t", val: utcLabel(utcMs), note: "the instant everything below is for" },
+        { label: "緯度", sym: "φ", val: deg(lat, 6), note: "north positive" },
+        { label: "經度", sym: "λ", val: deg(lon, 6), note: "east positive" },
+
+        { stage: "儒略日 · Julian Day" },
+        { label: "儒略日", sym: "JD", val: num(jd, 6), note: "unixMs / 86400000 + 2440587.5" },
+        { label: "距 J2000", sym: "n", val: `${num(n, 6)} d`, note: "JD − 2451545.0" },
+        { label: "儒略世紀", sym: "T", val: num(t, 8), note: "n / 36525" },
+
+        { stage: "太陽黃經 · solar longitude" },
+        { label: "平黃經", sym: "L", val: deg(meanLon), note: "280.460 + 0.9856474 n  (mod 360) — a perfectly even sun" },
+        { label: "平近點角", sym: "g", val: deg(meanAnom), note: "357.528 + 0.9856003 n  (mod 360) — where Earth is in its orbit" },
+        { label: "中心差", sym: "C", val: deg(centre), note: "1.915 sin g + 0.020 sin 2g — the whole eccentricity correction" },
+        { label: "真黃經", sym: "λ☉", val: deg(sun.eclLon), note: "(L + C) mod 360" },
+
+        { stage: "赤道座標 · equatorial" },
+        { label: "黃赤交角", sym: "ε", val: deg(eps, 5), note: "23.439291 − 0.0130042 T — Earth's tilt" },
+        { label: "黃緯", sym: "β☉", val: deg(0, 1), note: "the sun defines the ecliptic, so this is 0 by construction" },
+        { label: "赤經", sym: "α", val: deg(sun.ra), note: degToHms(sun.ra) },
+        { label: "赤緯", sym: "δ", val: deg(sun.dec), note: `${degToDms(sun.dec)} — between ±ε over the year` },
+
+        { stage: "恆星時 · sidereal time" },
+        { label: "格林威治恆星時", sym: "GMST", val: deg(gmst), note: "280.46061837 + 360.98564736629 n + 0.000387933 T²  (mod 360)" },
+        { label: "本地恆星時", sym: "LST", val: deg(lst), note: "(GMST + λ) mod 360" },
+        { label: "時角", sym: "H", val: deg(ha), note: "(LST − α) mod 360" },
+        { label: "時角 (±)", sym: "H", val: `${deg(haSigned, 2)} = ${num(haSigned / 15, 2)} h`, note: "0 at local solar noon; hours from it, near enough" },
+
+        { stage: "高度方位 · alt/az" },
+        { label: "高度正弦", sym: "sin h", val: num(sinAlt, 6), note: "sin φ sin δ + cos φ cos δ cos H" },
+        { label: "高度", sym: "h", val: deg(alt), note: "asin of the line above; no refraction correction" },
+        { label: "方位", sym: "A", val: deg(az), note: "atan2 form; 0° = 北, clockwise" },
+
+        { stage: "判讀 · verdict" },
+        { label: "天光", sym: "band", val: twilightBand(alt), note: "the conventional bands: 0, −6, −12, −18" },
+        { label: "暗空門檻", sym: "DARK_SUN_ALT", val: deg(DARK_SUN_ALT, 0), note: "astro-score_readable.html scores an hour 0 while the sun is above this" },
+        { label: "夠暗？", sym: "h ≤ −10", val: dark ? "是 · yes" : "否 · no", note: "the only thing the 觀星 score asks of the sun" },
+    ];
+
+    const cards = [
+        {
+            k: "太陽高度",
+            v: deg(alt, 2),
+            n: alt > 0 ? "地平線上" : "地平線下",
+            cls: alt > 0 ? "bad" : "good",
+        },
+        { k: "方位", v: deg(az, 1), n: `朝${compass(az)}` },
+        { k: "天光", v: twilightBand(alt).split(" · ")[0], n: twilightBand(alt).split(" · ")[1] },
+        {
+            k: "夠暗？",
+            v: dark ? "是" : "否",
+            n: `門檻 ${DARK_SUN_ALT}°`,
+            cls: dark ? "good" : "bad",
+        },
+    ];
+
+    return { cards, rows };
+}
+
+/* ------------------------------------------------------------------ *
+ * The form
+ * ------------------------------------------------------------------ */
+
+// PLACES (the saved spots offered as buttons beside the location box) and the
+// DEFAULT_LAT/DEFAULT_LON derived from its first entry come from ../places.js,
+// loaded just above. Add or reorder a spot there, not here.
+
+/** "now", to the minute, in the YYYY-MM-DDTHH:MM the input wants -- as UTC. */
+function nowValue() {
+    const ms = Date.now();
+    return new Date(ms - (ms % 60000)).toISOString().slice(0, 16);
+}
+
+/**
+ * The time box read as a UTC instant, in ms.
+ *
+ * <input type="datetime-local"> has no zone, so the value is appended with "Z"
+ * and read as UTC -- the label says so. Keeping the input in UTC means
+ * julianDay() takes it unchanged and nothing on the page depends on the
+ * browser's zone.
+ */
+function utcFromForm() {
+    const raw = document.getElementById("when").value.trim();
+    if (!raw) throw new Error("No time given — pick one, or press now");
+    const ms = Date.parse(raw.length === 16 ? `${raw}:00Z` : `${raw}Z`);
+    if (!Number.isFinite(ms)) throw new Error(`Bad time "${raw}"`);
+    return ms;
+}
+
+/** The location box read as {lat, lon}, falling back to the default spot. */
+function placeFromForm() {
+    const loc = document.getElementById("location").value.trim();
+    let lat = DEFAULT_LAT, lon = DEFAULT_LON;
+    if (loc) {
+        const [latS, lonS] = loc.split(",");
+        lat = Number(latS);
+        lon = Number(lonS);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+            throw new Error(`Bad location "${loc}": expected "lat,lon"`);
+        }
+    }
+    return { lat, lon };
+}
+
+function resetDefaults() {
+    document.getElementById("when").value = nowValue();
+    document.getElementById("location").value = `${DEFAULT_LAT},${DEFAULT_LON}`;
+    markActivePlace();
+}
+
+/**
+ * Highlight whichever saved spot matches the box, so after a click it is clear
+ * which one is showing -- and after a manual edit, that none of them is.
+ */
+function markActivePlace() {
+    const current = document.getElementById("location").value.trim();
+    for (const button of document.querySelectorAll(".place")) {
+        button.setAttribute("aria-pressed", String(button.dataset.coords === current));
+    }
+}
+
+/**
+ * One button per saved spot. Clicking fills the box and recomputes: leaving the
+ * previous answer on screen under a new location would just be misleading.
+ */
+function buildPlaces() {
+    const box = document.getElementById("places");
+    for (const [name, lat, lon] of PLACES) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "place";
+        button.textContent = name;
+        button.dataset.coords = `${lat},${lon}`;
+        button.title = `${lat}, ${lon}`;
+        button.addEventListener("click", () => {
+            document.getElementById("location").value = button.dataset.coords;
+            markActivePlace();
+            document.getElementById("form").requestSubmit();
+        });
+        box.appendChild(button);
+    }
+}
+
+function show({ meta, isError, cards, rows }) {
+    const metaEl = document.getElementById("meta");
+    document.getElementById("result").hidden = false;
+    metaEl.textContent = meta;
+    metaEl.classList.toggle("error", Boolean(isError));
+
+    const out = document.getElementById("out");
+    out.textContent = "";
+    for (const card of cards || []) {
+        const div = document.createElement("div");
+        div.className = `card ${card.cls || ""}`.trim();
+        for (const [cls, text] of [["k", card.k], ["v", card.v], ["n", card.n]]) {
+            if (!text) continue;
+            const line = document.createElement("div");
+            line.className = cls;
+            line.textContent = text;
+            div.appendChild(line);
+        }
+        out.appendChild(div);
+    }
+
+    const tbody = document.getElementById("tbody");
+    tbody.textContent = "";
+    document.getElementById("steps").hidden = !(rows && rows.length);
+    for (const row of rows || []) {
+        const tr = tbody.insertRow();
+        if (row.stage) {
+            tr.className = "stage";
+            const td = tr.insertCell();
+            td.colSpan = 4;
+            td.textContent = row.stage;
+            continue;
+        }
+        tr.insertCell().textContent = row.label;
+        tr.insertCell().textContent = row.sym;
+        tr.insertCell().textContent = row.val;
+        tr.insertCell().textContent = row.note || "";
+        tr.cells[1].className = "sym";
+        tr.cells[2].className = "val";
+        tr.cells[3].className = "note";
+    }
+}
+
+document.getElementById("form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    let utcMs, lat, lon;
+    try {
+        utcMs = utcFromForm();
+        ({ lat, lon } = placeFromForm());
+    } catch (err) {
+        // Same policy as the API demos next door: show what is wrong with the
+        // input instead of throwing. There is nothing to await here, so a bad
+        // value costs a line of text and nothing else.
+        show({ meta: err.message, isError: true, cards: [], rows: [] });
+        return;
+    }
+
+    const { cards, rows } = working(utcMs, lat, lon);
+    show({
+        // The browser's own zone, purely as a sanity check on the UTC input --
+        // nothing below the meta line reads it.
+        meta: `${utcLabel(utcMs)}   (${new Date(utcMs).toLocaleString()} local)   ${lat}, ${lon}`,
+        cards,
+        rows,
+    });
+});
+
+document.getElementById("reset").addEventListener("click", resetDefaults);
+document.getElementById("now").addEventListener("click", () => {
+    document.getElementById("when").value = nowValue();
+    document.getElementById("form").requestSubmit();
+});
+document.getElementById("location").addEventListener("input", markActivePlace);
+// Committing a value (blur, or the picker closing) recomputes: it is pure
+// arithmetic, so there is no reason to make anyone press the button twice.
+document.getElementById("when").addEventListener("change", () => document.getElementById("form").requestSubmit());
+document.getElementById("location").addEventListener("change", () => document.getElementById("form").requestSubmit());
+
+buildPlaces();
+resetDefaults();
+document.getElementById("form").requestSubmit();
+</script>
+</body>
+</html>

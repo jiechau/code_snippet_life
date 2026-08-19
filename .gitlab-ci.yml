@@ -8,6 +8,7 @@ pages:
     - cp robots.txt public/
     - cp -r open_meteo public/
     - cp -r astro_score public/
+    - cp -r pure_math public/
     - cp -r google_news_url public/
     - cp -r bigdatacloud public/
   artifacts:

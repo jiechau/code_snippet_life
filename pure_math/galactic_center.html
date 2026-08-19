@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex, nocache">
+    <title>galactic center A* &mdash; pure_math</title>
+    <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+    <style>
+        :root {
+            --fg: #333;
+            --muted: #777;
+            --line: #e3e6ea;
+            --grid: #eef1f4;
+            --accent: #2196F3;
+            --err: #c0392b;
+            --ok: #2e7d32;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            color: var(--fg);
+            margin: 0;
+            padding: 24px 12px 60px;
+        }
+        .container {
+            background: white;
+            padding: 28px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        h1 { margin: 0 0 4px; font-size: 1.6rem; }
+        p.sub { margin: 0 0 22px; color: var(--muted); font-size: 0.9rem; }
+        p.sub a { color: var(--accent); }
+        p.sub code { background: #f0f2f5; padding: 1px 5px; border-radius: 4px; }
+        a.back { color: var(--accent); text-decoration: none; font-size: 0.9rem; }
+        a.back:hover { text-decoration: underline; }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+            gap: 14px;
+        }
+        .field { display: flex; flex-direction: column; }
+        .field.wide { grid-column: 1 / -1; }
+        label { font-size: 0.8rem; font-weight: 600; margin-bottom: 5px; }
+        label .hint { font-weight: 400; color: var(--muted); }
+        input {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.85rem;
+            padding: 8px 10px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: #fbfcfd;
+            color: var(--fg);
+        }
+        input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+        /* time: the box beside its "now" button, the same shape the location row
+           below uses for its saved spots. */
+        .timerow { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+        .timerow input { width: 200px; flex: 0 0 auto; }
+
+        /* location: a box just wide enough for "25.070602,121.592399", with the
+           saved spots sitting beside it rather than under it. */
+        .locrow { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+        .locrow input { width: 200px; flex: 0 0 auto; }
+        .places { display: flex; gap: 6px; flex-wrap: wrap; }
+        .place {
+            font: inherit;
+            font-size: 0.85rem;
+            font-weight: 600;
+            padding: 6px 12px;
+            border-radius: 999px;
+            border: 1px solid var(--line);
+            background: #f7f9fb;
+            color: var(--accent);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .place:hover { border-color: var(--accent); background: #eaf4fd; }
+        .place[aria-pressed="true"] {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
+
+        .actions { margin-top: 18px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        button {
+            font: inherit;
+            font-weight: 600;
+            padding: 9px 22px;
+            border-radius: 8px;
+            border: 2px solid var(--accent);
+            background: var(--accent);
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        button:hover:not(:disabled) { background: #1976d2; border-color: #1976d2; }
+        button.secondary { background: white; color: var(--accent); }
+        button.secondary:hover:not(:disabled) { background: var(--accent); color: white; }
+        button.tiny { font-size: 0.85rem; padding: 6px 12px; border-radius: 999px; border-width: 1px; }
+
+        .result { margin-top: 26px; border-top: 1px solid var(--line); padding-top: 20px; }
+        .meta {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.8rem;
+            color: var(--muted);
+            margin-bottom: 14px;
+        }
+        .meta.error { color: var(--err); }
+
+        /* The answer, before the working that produced it. */
+        .out { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+        .card {
+            flex: 1 1 150px;
+            background: #f7f9fb;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 12px 14px;
+        }
+        .card .k { font-size: 0.75rem; font-weight: 600; color: var(--muted); }
+        .card .v {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 1.35rem;
+            margin-top: 5px;
+            word-break: break-all;
+        }
+        .card .n { font-size: 0.72rem; color: var(--muted); margin-top: 4px; }
+        .card.good .v { color: var(--ok); }
+        .card.bad .v { color: var(--err); }
+
+        /* The working: one row per intermediate quantity, grouped into stages. */
+        table { width: 100%; border-collapse: collapse; }
+        th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--grid); font-size: 0.8rem; }
+        thead th {
+            color: var(--muted);
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border-bottom: 1px solid var(--line);
+        }
+        tr.stage td {
+            background: #f7f9fb;
+            font-weight: 700;
+            font-size: 0.78rem;
+            border-bottom: 1px solid var(--line);
+        }
+        td.sym, td.val {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        }
+        td.sym { color: var(--accent); white-space: nowrap; }
+        td.val { text-align: right; white-space: nowrap; }
+        td.note { color: var(--muted); font-size: 0.74rem; }
+        @media (max-width: 640px) {
+            th.note, td.note { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a class="back" href="index.html">&larr; pure_math</a>
+        <h1>galactic center A*</h1>
+        <p class="sub">
+            How high is the Milky Way core right now? A time and a <code>lat,lon</code> in,
+            an altitude out &mdash; the <strong>銀心</strong> row of
+            <a href="../astro_score/astro-score_readable.html">astro-score_readable</a> and
+            <code>gc_alt</code> in <code>milkyway.py</code>, with every intermediate shown.
+            <strong>No API call:</strong> Sagittarius&nbsp;A* is a fixed point in the sky, so its
+            altitude needs no ephemeris at all &mdash; just sidereal time and one spherical
+            triangle.
+        </p>
+
+        <form id="form">
+            <div class="grid">
+                <div class="field wide">
+                    <label for="when">time <span class="hint">UTC &mdash; not your local clock</span></label>
+                    <div class="timerow">
+                        <input type="datetime-local" id="when" step="60">
+                        <button type="button" class="secondary tiny" id="now">now</button>
+                    </div>
+                </div>
+                <div class="field wide">
+                    <label for="location">location <span class="hint">lat,lon &mdash; or pick a spot</span></label>
+                    <div class="locrow">
+                        <input id="location" name="location" spellcheck="false">
+                        <div class="places" id="places"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="actions">
+                <button type="submit" id="submit">Compute</button>
+                <button type="button" class="secondary" id="reset">Reset defaults</button>
+            </div>
+        </form>
+
+        <div class="result" id="result" hidden>
+            <div class="meta" id="meta"></div>
+            <div class="out" id="out"></div>
+            <table id="steps">
+                <thead>
+                    <tr><th>step</th><th>sym</th><th style="text-align:right">value</th><th class="note">formula</th></tr>
+                </thead>
+                <tbody id="tbody"></tbody>
+            </table>
+        </div>
+    </div>
+
+<script src="../places.js"></script>
+<script>
+"use strict";
+
+// One formula per page, and this page's is the galactic core's altitude.
+//
+// Everything here is a verbatim copy of the corresponding block in
+// astro_score/astro-score_readable.html, which is itself a port of
+// astro_score/milkyway.py -- the JavaScript and the Python are verified to agree
+// to four decimal places, so changing the astronomy in one means re-checking all
+// three. The point of this page is that it copies only what it draws: a fixed
+// equatorial position needs no obliquity, no ecliptic conversion and no periodic
+// series, so none of that is here.
+
+/* ------------------------------------------------------------------ *
+ * The astronomy
+ * ------------------------------------------------------------------ */
+
+const DEG = Math.PI / 180;
+const sin = (d) => Math.sin(d * DEG);
+const cos = (d) => Math.cos(d * DEG);
+const clamp1 = (x) => Math.min(1, Math.max(-1, x));
+const mod360 = (x) => ((x % 360) + 360) % 360;
+
+// Galactic center, J2000: RA 17h45m40.04s, Dec -29deg00'28" -- the same pair
+// milkyway.py uses, and for the same reason: precession since J2000 moves it by
+// well under a degree, far below the accuracy of the rest of this arithmetic.
+// Fixed equatorial coordinates, so only the sidereal time makes its altitude move.
+const GC_RA = 266.41683;
+const GC_DEC = -29.00781;
+
+/**
+ * Julian Day from a UTC timestamp in milliseconds.
+ *
+ * The Unix epoch is JD 2440587.5 by definition, which makes this exactly
+ * equivalent to milkyway.py's calendar-based julian_day() without repeating
+ * the Gregorian bookkeeping.
+ */
+function julianDay(utcMs) {
+    return utcMs / 86400000 + 2440587.5;
+}
+
+/** Local apparent sidereal time in degrees. */
+function localSiderealTime(jd, lonDeg) {
+    const t = (jd - 2451545.0) / 36525;
+    const gmst =
+        280.46061837
+        + 360.98564736629 * (jd - 2451545.0)
+        + 0.000387933 * t * t;
+    return mod360(gmst + lonDeg);
+}
+
+/** Equatorial (ra, dec) -> {alt, az} in degrees, azimuth measured from north. */
+function altAz(ra, dec, lat, lst) {
+    const ha = mod360(lst - ra);
+    const sinAlt = sin(lat) * sin(dec) + cos(lat) * cos(dec) * cos(ha);
+    const alt = Math.asin(clamp1(sinAlt)) / DEG;
+    const az = mod360(
+        Math.atan2(
+            -cos(dec) * sin(ha),
+            sin(dec) * cos(lat) - sin(lat) * cos(dec) * cos(ha),
+        ) / DEG,
+    );
+    return { alt, az };
+}
+
+/**
+ * The highest the galactic core ever gets at a latitude, in degrees.
+ *
+ * A fixed point is at its highest crossing the meridian, where the hour angle is
+ * 0 and altAz()'s sinAlt collapses to sin(lat)sin(dec) + cos(lat)cos(dec), i.e.
+ * cos(lat - dec). So the peak is 90 - |lat - dec|: no time argument, no ephemeris,
+ * the same every night of the year. Taiwan spans roughly 36 deg (三總) to 39 deg
+ * (龍磐公園) -- the further south, the higher the core rides.
+ */
+function gcMaxAlt(lat) {
+    return 90 - Math.abs(lat - GC_DEC);
+}
+
+/* ------------------------------------------------------------------ *
+ * Formatting
+ * ------------------------------------------------------------------ */
+
+const num = (x, d = 4) => Number(x).toFixed(d);
+const deg = (x, d = 3) => `${num(x, d)}°`;
+
+/** Degrees -> h m s, the form an atlas quotes right ascension in. */
+function degToHms(d) {
+    const hours = mod360(d) / 15;
+    const h = Math.floor(hours);
+    const m = Math.floor((hours - h) * 60);
+    const s = ((hours - h) * 60 - m) * 60;
+    return `${h}h${String(m).padStart(2, "0")}m${s.toFixed(1).padStart(4, "0")}s`;
+}
+
+/** Degrees -> +/-d° m′ s″, the form an atlas quotes declination in. */
+function degToDms(d) {
+    const sign = d < 0 ? "−" : "+";
+    const a = Math.abs(d);
+    const whole = Math.floor(a);
+    const m = Math.floor((a - whole) * 60);
+    const s = ((a - whole) * 60 - m) * 60;
+    return `${sign}${whole}°${String(m).padStart(2, "0")}′${s.toFixed(0).padStart(2, "0")}″`;
+}
+
+// Azimuth is a bearing from north, which nobody reads at a glance; this turns it
+// into the direction you would actually face.
+const COMPASS = ["北", "東北", "東", "東南", "南", "西南", "西", "西北"];
+const compass = (az) => COMPASS[Math.round(mod360(az) / 45) % 8];
+
+/** The instant, as the UTC string the whole page is computed from. */
+const utcLabel = (ms) => `${new Date(ms).toISOString().slice(0, 16).replace("T", " ")} UTC`;
+
+/* ------------------------------------------------------------------ *
+ * The working
+ * ------------------------------------------------------------------ */
+
+/**
+ * Every intermediate between (time, place) and (altitude, azimuth), in order.
+ *
+ * Returns {cards, rows}: the answer, and the arithmetic that produced it. The
+ * signed hour angle is shown alongside the 0..360 one because 0 is transit and
+ * that is the number worth recognising -- negative means still climbing.
+ */
+function working(utcMs, lat, lon) {
+    const jd = julianDay(utcMs);
+    const n = jd - 2451545.0;
+    const t = n / 36525;
+    const gmst = mod360(280.46061837 + 360.98564736629 * n + 0.000387933 * t * t);
+    const lst = localSiderealTime(jd, lon);
+    const ha = mod360(lst - GC_RA);
+    const haSigned = ha > 180 ? ha - 360 : ha;
+    const sinAlt = sin(lat) * sin(GC_DEC) + cos(lat) * cos(GC_DEC) * cos(ha);
+    const { alt, az } = altAz(GC_RA, GC_DEC, lat, lst);
+    const max = gcMaxAlt(lat);
+
+    const rows = [
+        { stage: "輸入 · input" },
+        { label: "時刻", sym: "t", val: utcLabel(utcMs), note: "the instant everything below is for" },
+        { label: "緯度", sym: "φ", val: deg(lat, 6), note: "north positive" },
+        { label: "經度", sym: "λ", val: deg(lon, 6), note: "east positive" },
+
+        { stage: "儒略日 · Julian Day" },
+        { label: "儒略日", sym: "JD", val: num(jd, 6), note: "unixMs / 86400000 + 2440587.5" },
+        { label: "距 J2000", sym: "n", val: `${num(n, 6)} d`, note: "JD − 2451545.0" },
+        { label: "儒略世紀", sym: "T", val: num(t, 8), note: "n / 36525" },
+
+        { stage: "恆星時 · sidereal time" },
+        { label: "格林威治恆星時", sym: "GMST", val: deg(gmst), note: "280.46061837 + 360.98564736629 n + 0.000387933 T²  (mod 360)" },
+        { label: "本地恆星時", sym: "LST", val: deg(lst), note: "(GMST + λ) mod 360" },
+        { label: "本地恆星時", sym: "LST", val: degToHms(lst), note: "the same angle in hours — the RA now on the meridian" },
+
+        { stage: "A* 座標 · J2000, fixed" },
+        { label: "赤經", sym: "α", val: deg(GC_RA, 5), note: `${degToHms(GC_RA)} — a constant, not a computed position` },
+        { label: "赤緯", sym: "δ", val: deg(GC_DEC, 5), note: `${degToDms(GC_DEC)} — deep in the southern sky` },
+
+        { stage: "高度方位 · alt/az" },
+        { label: "時角", sym: "H", val: deg(ha), note: "(LST − α) mod 360" },
+        { label: "時角 (±)", sym: "H", val: `${deg(haSigned, 2)} = ${num(haSigned / 15, 2)} h`, note: "0 at transit; negative means still climbing" },
+        { label: "高度正弦", sym: "sin h", val: num(sinAlt, 6), note: "sin φ sin δ + cos φ cos δ cos H" },
+        { label: "高度", sym: "h", val: deg(alt), note: "asin of the line above" },
+        { label: "方位", sym: "A", val: deg(az), note: "atan2 form; 0° = 北, clockwise" },
+
+        { stage: "上限 · the ceiling" },
+        { label: "銀心 (max)", sym: "h·max", val: deg(max), note: "90 − |φ − δ| — the highest A* ever gets at this latitude" },
+        { label: "距上限", sym: "h − max", val: deg(alt - max, 2), note: "0 exactly at transit, negative the rest of the day" },
+    ];
+
+    const cards = [
+        {
+            k: "銀心高度",
+            v: deg(alt, 2),
+            n: alt > 0 ? "地平線上" : "地平線下 — 看不到",
+            cls: alt > 0 ? "good" : "bad",
+        },
+        { k: "方位", v: deg(az, 1), n: `朝${compass(az)}` },
+        { k: "銀心 (max)", v: deg(max, 2), n: "此緯度的上限，一年不變" },
+    ];
+
+    return { cards, rows };
+}
+
+/* ------------------------------------------------------------------ *
+ * The form
+ * ------------------------------------------------------------------ */
+
+// PLACES (the saved spots offered as buttons beside the location box) and the
+// DEFAULT_LAT/DEFAULT_LON derived from its first entry come from ../places.js,
+// loaded just above. Add or reorder a spot there, not here.
+
+/** "now", to the minute, in the YYYY-MM-DDTHH:MM the input wants -- as UTC. */
+function nowValue() {
+    const ms = Date.now();
+    return new Date(ms - (ms % 60000)).toISOString().slice(0, 16);
+}
+
+/**
+ * The time box read as a UTC instant, in ms.
+ *
+ * <input type="datetime-local"> has no zone, so the value is appended with "Z"
+ * and read as UTC -- the label says so. Keeping the input in UTC means
+ * julianDay() takes it unchanged and nothing on the page depends on the
+ * browser's zone.
+ */
+function utcFromForm() {
+    const raw = document.getElementById("when").value.trim();
+    if (!raw) throw new Error("No time given — pick one, or press now");
+    const ms = Date.parse(raw.length === 16 ? `${raw}:00Z` : `${raw}Z`);
+    if (!Number.isFinite(ms)) throw new Error(`Bad time "${raw}"`);
+    return ms;
+}
+
+/** The location box read as {lat, lon}, falling back to the default spot. */
+function placeFromForm() {
+    const loc = document.getElementById("location").value.trim();
+    let lat = DEFAULT_LAT, lon = DEFAULT_LON;
+    if (loc) {
+        const [latS, lonS] = loc.split(",");
+        lat = Number(latS);
+        lon = Number(lonS);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+            throw new Error(`Bad location "${loc}": expected "lat,lon"`);
+        }
+    }
+    return { lat, lon };
+}
+
+function resetDefaults() {
+    document.getElementById("when").value = nowValue();
+    document.getElementById("location").value = `${DEFAULT_LAT},${DEFAULT_LON}`;
+    markActivePlace();
+}
+
+/**
+ * Highlight whichever saved spot matches the box, so after a click it is clear
+ * which one is showing -- and after a manual edit, that none of them is.
+ */
+function markActivePlace() {
+    const current = document.getElementById("location").value.trim();
+    for (const button of document.querySelectorAll(".place")) {
+        button.setAttribute("aria-pressed", String(button.dataset.coords === current));
+    }
+}
+
+/**
+ * One button per saved spot. Clicking fills the box and recomputes: leaving the
+ * previous answer on screen under a new location would just be misleading.
+ */
+function buildPlaces() {
+    const box = document.getElementById("places");
+    for (const [name, lat, lon] of PLACES) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "place";
+        button.textContent = name;
+        button.dataset.coords = `${lat},${lon}`;
+        button.title = `${lat}, ${lon}`;
+        button.addEventListener("click", () => {
+            document.getElementById("location").value = button.dataset.coords;
+            markActivePlace();
+            document.getElementById("form").requestSubmit();
+        });
+        box.appendChild(button);
+    }
+}
+
+function show({ meta, isError, cards, rows }) {
+    const metaEl = document.getElementById("meta");
+    document.getElementById("result").hidden = false;
+    metaEl.textContent = meta;
+    metaEl.classList.toggle("error", Boolean(isError));
+
+    const out = document.getElementById("out");
+    out.textContent = "";
+    for (const card of cards || []) {
+        const div = document.createElement("div");
+        div.className = `card ${card.cls || ""}`.trim();
+        for (const [cls, text] of [["k", card.k], ["v", card.v], ["n", card.n]]) {
+            if (!text) continue;
+            const line = document.createElement("div");
+            line.className = cls;
+            line.textContent = text;
+            div.appendChild(line);
+        }
+        out.appendChild(div);
+    }
+
+    const tbody = document.getElementById("tbody");
+    tbody.textContent = "";
+    document.getElementById("steps").hidden = !(rows && rows.length);
+    for (const row of rows || []) {
+        const tr = tbody.insertRow();
+        if (row.stage) {
+            tr.className = "stage";
+            const td = tr.insertCell();
+            td.colSpan = 4;
+            td.textContent = row.stage;
+            continue;
+        }
+        tr.insertCell().textContent = row.label;
+        tr.insertCell().textContent = row.sym;
+        tr.insertCell().textContent = row.val;
+        tr.insertCell().textContent = row.note || "";
+        tr.cells[1].className = "sym";
+        tr.cells[2].className = "val";
+        tr.cells[3].className = "note";
+    }
+}
+
+document.getElementById("form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    let utcMs, lat, lon;
+    try {
+        utcMs = utcFromForm();
+        ({ lat, lon } = placeFromForm());
+    } catch (err) {
+        // Same policy as the API demos next door: show what is wrong with the
+        // input instead of throwing. There is nothing to await here, so a bad
+        // value costs a line of text and nothing else.
+        show({ meta: err.message, isError: true, cards: [], rows: [] });
+        return;
+    }
+
+    const { cards, rows } = working(utcMs, lat, lon);
+    show({
+        // The browser's own zone, purely as a sanity check on the UTC input --
+        // nothing below the meta line reads it.
+        meta: `${utcLabel(utcMs)}   (${new Date(utcMs).toLocaleString()} local)   ${lat}, ${lon}`,
+        cards,
+        rows,
+    });
+});
+
+document.getElementById("reset").addEventListener("click", resetDefaults);
+document.getElementById("now").addEventListener("click", () => {
+    document.getElementById("when").value = nowValue();
+    document.getElementById("form").requestSubmit();
+});
+document.getElementById("location").addEventListener("input", markActivePlace);
+// Committing a value (blur, or the picker closing) recomputes: it is pure
+// arithmetic, so there is no reason to make anyone press the button twice.
+document.getElementById("when").addEventListener("change", () => document.getElementById("form").requestSubmit());
+document.getElementById("location").addEventListener("change", () => document.getElementById("form").requestSubmit());
+
+buildPlaces();
+resetDefaults();
+document.getElementById("form").requestSubmit();
+</script>
+</body>
+</html>
