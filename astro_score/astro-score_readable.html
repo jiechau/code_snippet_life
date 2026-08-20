@@ -1401,46 +1401,6 @@ function buildTable(body, params, fromNow) {
         }
     };
 
-    // 銀心 -- above 天氣 rather than with the other computed rows: it says whether
-    // the core is even up, which is the second thing to look at after the score.
-    // Its ceiling follows immediately, so the two read as a pair.
-    drawAstroRow(GC_ROW);
-    drawAstroRow(GC_MAX_ROW);
-
-    // 光害 / Bortle / LP Zone -- fetched, not computed, and possibly not here yet.
-    // undefined means the lookup is still in flight (drawn "…"), null means it
-    // failed or the browser has no DecompressionStream (drawn "–"); either way the
-    // grid above and below is untouched.
-    const lp = lpPointCache.get(lpKey(params.latitude, params.longitude));
-    for (const spec of LP_ROWS) {
-        const row = addRow(spec.label, spec.api, "calc", spec.title);
-        for (const i of indices) {
-            const td = row.insertCell();
-            markBreak(td, i);
-            if (lp === undefined || lp === null) {
-                td.textContent = lp === undefined ? "…" : "–";
-                td.className += " na";
-                continue;
-            }
-            const value = lp[spec.key];
-            td.textContent = spec.digits ? value.toFixed(spec.digits) : String(value);
-        }
-    }
-
-    // 天氣 -- only when cloud cover was actually requested.
-    if (coverKey) {
-        const iconRow = addRow("天氣", "", "icon");
-        for (const i of indices) {
-            const td = iconRow.insertCell();
-            markBreak(td, i);
-            td.appendChild(skyIcon(hourly[coverKey][i], astro[i].sunAlt > 0));
-        }
-    }
-
-    // Sun, moon and core all render the same way, so 銀心 above 天氣 and the three
-    // rows below it share one routine.
-    for (const spec of ASTRO_ROWS) drawAstroRow(spec);
-
     // One row per requested variable, in the order they were asked for.
     for (const name of varsFromParams(params)) {
         const key = seriesKey(hourly, name, model, multi);
@@ -1471,6 +1431,49 @@ function buildTable(body, params, fromNow) {
                 td.style.background = style.background;
                 td.style.color = style.color;
             }
+        }
+    }
+
+    // 天氣 -- only when cloud cover was actually requested. Under the API series
+    // it illustrates: the glyph is that model's 雲量 plus the locally computed
+    // solar altitude, so it says nothing the rows above it do not.
+    if (coverKey) {
+        const iconRow = addRow("天氣", "icon", "icon", "cloud cover as a glyph, day or night from the local sun altitude");
+        for (const i of indices) {
+            const td = iconRow.insertCell();
+            markBreak(td, i);
+            td.appendChild(skyIcon(hourly[coverKey][i], astro[i].sunAlt > 0));
+        }
+    }
+
+    // 太陽 / 月亮 / 月相 -- under the API series, so the forecast reads first and
+    // the locally computed sky follows it. They share drawAstroRow() with the
+    // 銀心 rows below.
+    for (const spec of ASTRO_ROWS) drawAstroRow(spec);
+
+    // 銀心 and its ceiling, read as a pair: how high the core is against how high
+    // it can ever get here. Last block on the grid, with the light pollution rows
+    // below -- they are about the place rather than the night.
+    drawAstroRow(GC_ROW);
+    drawAstroRow(GC_MAX_ROW);
+
+    // 光害 / Bortle / LP Zone -- fetched, not computed, and possibly not here yet.
+    // undefined means the lookup is still in flight (drawn "…"), null means it
+    // failed or the browser has no DecompressionStream (drawn "–"); either way the
+    // grid above and below is untouched.
+    const lp = lpPointCache.get(lpKey(params.latitude, params.longitude));
+    for (const spec of LP_ROWS) {
+        const row = addRow(spec.label, spec.api, "calc", spec.title);
+        for (const i of indices) {
+            const td = row.insertCell();
+            markBreak(td, i);
+            if (lp === undefined || lp === null) {
+                td.textContent = lp === undefined ? "…" : "–";
+                td.className += " na";
+                continue;
+            }
+            const value = lp[spec.key];
+            td.textContent = spec.digits ? value.toFixed(spec.digits) : String(value);
         }
     }
 
