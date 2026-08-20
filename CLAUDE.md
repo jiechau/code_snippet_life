@@ -282,19 +282,45 @@ is `觀星 (%)` with the API sub-label `AstroScore`, and the scoring function is
 `astroScore()`. Only comments that point at the Python file still say `milkyway.py`, which
 is correct: that file kept its name.
 
+**Grid labels stay CJK; the prose around them names things in English with the CJK in
+parentheses** — `AstroScore (觀星)`, `Cloud (雲量)`, `MoonPenalty (月亮扣分)`,
+`Sgr A* (銀心)`, `SQM (光害)`, `cloud source (雲量來源)`. The rows themselves keep their
+short CJK label plus the small `.api` sub-label, because the label column is sticky and
+CJK is narrower; it is only the explanatory blocks that spell both out, on first use per
+block. Both pages follow it. Formulas are the exception: a `<code>`/`.formula` line keeps
+plain English tokens (`(100 − Cloud) × (100 − MoonPenalty) / 100`) and the CJK attaches in
+the gloss or the sentence around it, since parentheticals inside a monospace formula are
+unreadable. What is still CJK-only, deliberately: the widget labels themselves
+(從現在開始 / 從今天開始 / 地點), which already carry an English gloss or would widen the
+sticky column, and the JS/CSS source comments.
+
+`astro-score_readable.html`'s notes are **two black-bar (`.rule notes`) blocks, not one**:
+what the page *computes* (太陽/月亮/月相, 銀心, 銀心 (max)) then what it *fetches*
+(光害/Bortle/LP Zone), each ending with a memo saying which it is. That contrast is the
+whole reason for the split, and each block links out to the folder that shows its working —
+`pure_math/` for the astronomy, `light_pollution/` for the tile. Only the second block
+carries the margin down to the form (`.rule.notes + .rule.notes`).
+
 `astro-score_readable.html` is the `*_readable` grid stripped to what stargazing needs. It
 fixes `hourly` (the four cloud decks, plus `precipitation_probability` and
 `temperature_2m` — 降雨 and 氣溫, which `astroScore()` does not read but a human picking a
 night does) and `models` (**all four**, `MODELS` in the shared order), removing those two
-textareas from the form; `forecast_days`, `timezone`, **extra params** and the location
-remain. It fetched `icon_global` alone until the 雲量來源 tabs were added: the grid is
+textareas from the form; `forecast_days`, **extra params** and the location
+remain — `timezone` was dropped as a field too, since the API resolves it from the
+coordinates, but `timezone=auto` is still **sent** as a constant in `defaultParams()`:
+without it `hourly.time` comes back in GMT and every hour label, date break and
+從現在開始 trim on the page reads local wall time. It fetched `icon_global` alone until the 雲量來源 tabs were added: the grid is
 drawn from **one model at a time** and 觀星 is scored with that model, `DEFAULT_MODEL` is
 `icon_global` (= `MODELS[0]`, so the view matches the first tab), and switching is a
 **re-render, not a refetch** — all four came back together, exactly as on
 `astro-score_daily.html`. Four models means **suffixed series keys**, which `seriesKey()`
 resolves; clearing `models=` in the extra params drops back to bare keys and one tab. The
-response is ~18 KB / 168 hours against ~7.0 KB for a single model, still well under the
-~64 KB / 336 of `open_meteo/open-meteo_readable.html`. **`jma_seamless` publishes no
+response is ~43 KB / 384 hours at the 16-day default, against ~19 KB / 168 for a week.
+`DEFAULT_DAYS` is **16, Open-Meteo's maximum**, which puts the models' differing horizons
+on screen: at that range `icon_global` stops after ~7.5 days (177 of 384 hours),
+`jma_seamless` ~11 (266) and `ecmwf_ifs025` ~15 (359), and only `gfs_global` fills all 384.
+Past its own horizon a model returns nulls, drawn as dashes, so the **default tab runs out
+mid-scroll** — documented on the page so it is not read as a fault. **`jma_seamless` publishes no
 `precipitation_probability`**, so 降雨 is a row of dashes on that tab — the same "key
 present, nulls all the way down, unit the literal string `undefined`" quirk
 `open-meteo_readable.html` documents for `visibility`. The tab click deliberately does
@@ -305,14 +331,21 @@ Its `DEFAULT_EXTRA` is **one line, `past_days=7`** — not the `open_meteo/` pai
 page here reads `daily=`. It is deliberately invisible in the default view: the 從現在開始
 trim hides every past hour, so the grid looks the same until the box is unticked, and then
 it shows the week just gone — a forecast next to what the sky actually did. It costs the
-response ~18 KB / 168 hours → ~34 KB / 336. Since `hourly` is fixed here, this is the only
+response ~43 KB / 384 hours → ~60 KB / 552. Since `hourly` is fixed here, this is the only
 free-form parameter box on the form — and the only way to override `models=` — which is why
-it survived the strip. The 觀星 row goes between 時間 and 天氣, green
-label, tinted `[0, 100, false]` so 100 is green, and the `銀心` row sits between the
-two — galactic core altitude from the same `GC_RA`/`GC_DEC` as `milkyway.py`, tinted
-`[0, 25, false]` after that file's `core_up` ramp. It is drawn by `drawAstroRow()`,
-the same routine the `ASTRO_ROWS` below 天氣 use, and is **display only**:
-`astroScore()` does not read it, so a core below the horizon does not lower the score.
+it survived the strip.
+
+**Row order is: 時間, 觀星, the API series, 天氣, then everything computed or fetched** —
+太陽/月亮/月相, 銀心/銀心 (max), and the three light-pollution rows last. What is forecast
+reads first; what is fixed by where you are stands at the bottom. 觀星 keeps its place
+directly under the clock, green label, tinted `[0, 100, false]` so 100 is green. 天氣 sits
+under 氣溫 rather than above the API rows because it *illustrates* 雲量 rather than adding
+to it, and carries an `icon` sub-label like every other row — upright, not italic, since
+italic is `tr.calc`'s marker for a row computed in the page and this one draws a series the
+API returned. `銀心` is galactic core altitude from the same `GC_RA`/`GC_DEC` as
+`milkyway.py`, tinted `[0, 25, false]` after that file's `core_up` ramp, drawn by
+`drawAstroRow()` like the rest and **display only**: `astroScore()` does not read it, so a
+core below the horizon does not lower the score.
 
 Directly under it sits **`銀心 (max)` (`A* max`, `GC_MAX_ROW`)** — the ceiling that row is
 measured against. A fixed point is highest at transit, where the hour angle is 0 and
@@ -399,11 +432,18 @@ and is not.
 ### astro-score_daily.html
 
 A week for every saved spot at once: **a row per `PLACES` entry, a column per day**, and
-each cell **two** block glyphs — `▂ ▄ ▆ █` or blank — one per half-day (00–11 / 12–23,
+each cell **two** block glyphs — `▂ ▄ ▆ █`, blank, or a faint `·` — one per half-day (00–11 / 12–23,
 left to right, local time). A block's value is the **maximum** 觀星 in it, i.e. its best
 single hour on the plain 0–100 scale, and that peak picks a height: `>90` `█`, `>70` `▆`,
 `>50` `▄`, `>30` `▂`, at or below 30 blank. Thresholds are **strictly greater** — a peak
 of exactly 90 draws `▆`.
+
+**Blank and `·` are different answers.** Blank is a scored block that came out hopeless;
+`·` (`NO_DATA_GLYPH`, `.bar.nodata`) is a block where *nothing was scored* — past a model's
+horizon Open-Meteo returns nulls, `blocksByDate()` declines to score them, and the block
+keeps `peak 0`. Without the dot a missing forecast drew exactly the blank a washed-out sky
+draws, which at the 16-day default is most of the right half of the `icon_global` grid. The
+cell title still reports the `(0/12 hr)` count behind it. Don't collapse the two back.
 
 Max rather than sum or average is the point: the grid answers "is there an hour worth
 going out for", and one excellent hour justifies the drive even when the rest of the night
@@ -460,13 +500,17 @@ two independent models agree the forecast is worth something, where they do not 
 A future formula averaging them, or reading their spread as confidence the way
 `milkyway.py`'s 信心 column does, has the data already in hand.
 
-Its form is `forecast_days`, `timezone` and an **extra params** box prefilled
+Its form is `forecast_days` (default **16**, Open-Meteo's maximum, matching
+`astro-score_readable.html`) and an **extra params** box prefilled
 `past_days=7`, applied to every request alike — so a typo there costs one call per saved
 place,
 and `paramsFor()` is therefore called for every place *before* the button is disabled, so
 a malformed line reports itself with nothing sent. `past_days` on a day grid means extra
 columns to the **left** of today, hidden until 從今天開始 is unticked. Each past day is
-~780 bytes per place across four models, taking a ten-place round from ~58 KB to ~110 KB.
+~770 bytes per place across four models, taking a ten-place round from ~137 KB to ~190 KB.
+`timezone` is not a field here either — every row carries its own coordinates — but
+`timezone=auto` is still sent, and the extra-params box overriding it is what moves the
+today column (see `localToday()`).
 
 It issues **one request per spot**, `FETCH_POOL` (4) in flight at a time via
 `settledPool()` — allSettled's shape with a concurrency cap, so one failure still costs
@@ -479,15 +523,20 @@ looks like flaky rows. Ten places take ~1.2s pooled against ~0.4s unbounded. Don
 
 It asks for `cloud_cover` alone — `astroScore()` reads nothing else and the page displays
 no number a human reads directly, so the 降雨/氣溫 that `astro-score_readable.html` carries
-for exactly that reason would be one response of undrawn data per place. Each response is ~4.0 KB / 168
-hours for a single model and ~5.9 KB for all four; with the prefilled `past_days=7` that is
-~11.3 KB a place, so at the ten spots `places.js` currently holds a round is **~110 KB**.
+for exactly that reason would be one response of undrawn data per place. At the 16-day
+default each response is ~9.0 KB / 384 hours for a single model and ~13.3 KB for all four;
+with the prefilled `past_days=7` that is ~18.6 KB a place, so at the ten spots `places.js`
+currently holds a round is **~190 KB**.
 **The count follows `places.js`** — it was seven when this page was written, so treat any
 figure here as "per place × however many spots are saved".
 
 Consequences of having no location box: no `paramsFromForm()` (it has `paramsFor(lat,
 lon)`), no `buildPlaces()`/`markActivePlace()`, no `.locrow`/`.place` CSS, and
-`DEFAULT_LAT`/`DEFAULT_LON` go unused. It also has no `moonIllumination()`: the
+`DEFAULT_LAT`/`DEFAULT_LON` go unused. The row label stacks **three** lines — name, then
+latitude and longitude one per line, a `.api` span each — because the label column is
+`position: sticky` and its width comes off every scroll position, so one long `lat, lon`
+line was setting it; three short lines buy the grid two more days on a phone. It also has
+no `moonIllumination()`: the
 astronomy it copies is only what it draws — `GC_RA`/`GC_DEC` are there because the
 MilkyScore strip needs the core's altitude, the lunar illuminated fraction is not
 because there is no 月相 row. The block

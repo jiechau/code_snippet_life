@@ -174,7 +174,8 @@
             color: white;
         }
 
-        /* Far fewer columns than the hourly grid -- a week fits on a phone -- but
+        /* Far fewer columns than the hourly grid -- 16 days scroll where 384 hours
+           would not -- but
            forecast_days goes to 16, so keep the same pinned label column. */
         .scroller {
             overflow-x: auto;
@@ -264,7 +265,11 @@
                letter-spacing is zeroed in case the page font stack ever sets it. */
             width: 1ch;
             letter-spacing: 0;
-            /* The glyphs sit on the text baseline, so they grow upwards out of a
+            /* No hour in the block carried a cloud figure: not a bad night, no
+           forecast. Faint and small so it reads as an absence rather than as a
+           fifth, shortest bar -- see NO_DATA_GLYPH. */
+        .bar.nodata { color: #c3ccd5; font-size: 1rem; }
+        /* The glyphs sit on the text baseline, so they grow upwards out of a
                common floor and read as a bar chart rather than as letters. */
             vertical-align: baseline;
             /* One green for every bar, at every height. Height already encodes the
@@ -348,9 +353,9 @@
         <a class="back" href="index.html">&larr; astro_score</a>
         <h1>AstroScore <span style="color:#777;font-weight:400;">daily</span></h1>
         <p class="sub">
-            The whole week for every saved spot at once: a row per place, a column per day, and each
+            The next 16 days for every saved spot at once: a row per place, a column per day, and each
             cell a four-block sparkline of the night. Same
-            <strong style="color:#1e8449;">觀星</strong> score as
+            <strong style="color:#1e8449;">AstroScore</strong> (觀星 score) as
             <a href="astro-score_readable.html">astro-score_readable.html</a> &mdash; this page just
             asks it of all <span id="placeCount">ten</span> saved places and folds each day's 24 hours
             into two half-day blocks. Read it to pick <em>where and when</em>, then open the readable
@@ -359,9 +364,9 @@
         </p>
 
         <div class="rule">
-            <span class="formula">每格 = 2 blocks &mdash; 00&ndash;11 &middot; 12&ndash;23
+            <span class="formula">each cell (每格) = 2 blocks &mdash; 00&ndash;11 &middot; 12&ndash;23
                 <span class="gloss">&nbsp; local time; left = after midnight, right = this evening</span></span>
-            <span class="formula">block = max 觀星 over its 12 hours
+            <span class="formula">block = max AstroScore (觀星) over its 12 hours
                 <span class="gloss">&nbsp; the best single hour in it, 0&ndash;100</span></span>
             <div class="example">
                 <div><b>█</b>  &gt; 90   drop everything and drive</div>
@@ -369,12 +374,13 @@
                 <div><b>▄</b>  &gt; 50</div>
                 <div><b>▂</b>  &gt; 30</div>
                 <div>   &le; 30   blank &mdash; nothing worth the trip</div>
+                <div><b style="color:#c3ccd5;">&middot;</b>         no forecast &mdash; this model does not reach that far</div>
             </div>
         </div>
 
         <div class="rule milky">
-            <span class="formula">strip = max (銀心&deg; &times; 觀星/100) over the same 12 hours
-                <span class="gloss">&nbsp; MilkyScore &mdash; the sky <em>and</em> the subject</span></span>
+            <span class="formula">strip = max (A* alt&deg; &times; AstroScore/100) over the same 12 hours
+                <span class="gloss">&nbsp; MilkyScore &mdash; the sky (觀星) <em>and</em> the subject (銀心)</span></span>
             <div class="example">
                 <div><b style="color:#3d0f6b;">▀</b>  &gt; 50</div>
                 <div><b style="color:#5b21a3;">▀</b>  &gt; 40</div>
@@ -383,12 +389,13 @@
                 <div>   &le; 20   blank &mdash; core too low, or the sky too poor</div>
             </div>
             <ul>
-                <li>觀星 says the sky is dark, moonless and clear but knows nothing about where
+                <li>AstroScore (觀星) says the sky is dark, moonless and clear but knows nothing about where
                     <b>A*</b> is; the core's altitude says the subject is up but knows nothing about
                     the sky. Only both at once colour the strip, so a green bar with no purple under
                     it is a fine night with the core down.</li>
                 <li>It is in <b>degrees</b>, so its ceiling is the core's own transit altitude
-                    &mdash; ~35.9&deg; (三總) to ~39.1&deg; (龍磐公園) over Taiwan. The top two shades
+                    &mdash; ~35.9&deg; at the northernmost saved spot (三總) to ~39.1&deg; at the
+                    southernmost (龍磐公園) over Taiwan. The top two shades
                     belong to lower latitudes.</li>
             </ul>
         </div>
@@ -407,17 +414,26 @@
                     the drive even when the rest of the night clouds over, and a sum would average it
                     away. It also means a bar says nothing about <em>how long</em> the window lasts:
                     open the readable grid for that.</li>
-                <li><b>從今天開始</b> hides whole days before today; it never shortens a day it
+                <li><b>Hide past days (從今天開始)</b> drops whole days before today; it never shortens a day it
                     shows. Today's column always covers the full 24 hours, hours already gone
                     included, so a block does not shrink as the afternoon wears on. Untick it to
                     bring back whatever <code>past_days</code> asked for. Hover any cell for the
                     exact sums.</li>
-                <li>The score itself is <code>(100 &minus; 雲量) &times; (100 &minus; 月亮扣分) / 100</code>,
-                    zeroed while the sun is above &minus;10&deg;, 月亮扣分 ramping 0 &rarr; 100 as the
+                <li>The score itself is <code>(100 &minus; Cloud) &times; (100 &minus; MoonPenalty) / 100</code>,
+                    zeroed while the sun is above &minus;10&deg;, MoonPenalty (月亮扣分) ramping 0 &rarr; 100 as the
                     moon climbs 0&deg; &rarr; 10&deg;. Sun and moon are computed in the page. See
                     <a href="astro-score_readable.html">astro-score_readable.html</a> for the worked
                     examples.</li>
-                <li><b>雲量 comes from one model at a time</b>, picked with the 雲量來源 tabs above the
+                <li><b>The models do not all reach 16 days out</b>, and here that reads as a blank,
+                    not a dash: <code>icon_global</code> stops after about 7.5 days,
+                    <code>jma_seamless</code> after 11 and <code>ecmwf_ifs025</code> after 15, while
+                    <code>gfs_global</code> fills all 16. Beyond its own horizon a model returns
+                    nothing and no hour is scored, which is <em>not</em> the same answer as a
+                    hopeless night &mdash; so those blocks draw a faint <b>&middot;</b> rather than
+                    the blank a washed-out sky gets. Expect a field of them at the right end of the
+                    grid; hover for the <code>(0/12 hr)</code> count behind it.</li>
+                <li><b>Cloud (雲量) comes from one model at a time</b>, picked with the cloud source
+                    (雲量來源) tabs above the
                     grid. All four are fetched in the same request, so switching is instant and costs
                     nothing &mdash; and disagreement between them <em>is</em> information: where
                     <code>jma</code> and <code>icon</code> tell the same story the forecast is worth
@@ -432,11 +448,7 @@
             <div class="grid">
                 <div class="field">
                     <label for="forecast_days">forecast_days <span class="hint">1&ndash;16</span></label>
-                    <input id="forecast_days" name="forecast_days" value="7" spellcheck="false">
-                </div>
-                <div class="field">
-                    <label for="timezone">timezone</label>
-                    <input id="timezone" name="timezone" value="auto" spellcheck="false">
+                    <input id="forecast_days" name="forecast_days" value="16" spellcheck="false">
                 </div>
                 <div class="field wide">
                     <label for="extra">extra params <span class="hint">one <code>key=value</code> per line; empty value drops a parameter. <code>past_days</code> adds columns to the <em>left</em> of today &mdash; untick 從今天開始 to show them. It takes 0&ndash;93, but the models only keep about 61 days of history</span></label>
@@ -454,7 +466,7 @@
         <div class="result" id="result" hidden>
             <div class="meta" id="meta"></div>
             <div class="tabrow">
-                <span class="tablabel">雲量來源</span>
+                <span class="tablabel">cloud source (雲量來源)</span>
                 <div id="tabs" class="tabs"></div>
             </div>
             <div class="scroller" id="scroller"></div>
@@ -486,14 +498,24 @@ const FORECAST_URL = "https://api.open-meteo.com/v1/forecast";
 // other pages it fills buttons beside a location box; here it IS the row list, so
 // adding a spot there adds a row here. DEFAULT_LAT/DEFAULT_LON from that file are
 // unused on this page: nothing picks a single place.
-const DEFAULT_DAYS = 7;
+// 16 days: Open-Meteo's maximum, matching astro-score_readable.html. It is a
+// column per day here, so 16 is the width of the grid rather than a scroll depth.
+//
+// The models do not all reach that far, and on this page that shows up as a
+// SILENCE rather than a dash: at 16 days icon_global stops after ~7.5 (177 of
+// 384 hours), jma_seamless ~11 (266) and ecmwf_ifs025 ~15 (359), while only
+// gfs_global fills all 384. blocksByDate() scores no hour it has no cloud figure
+// for, so those days leave peak 0 and draw a blank bar -- the same blank a
+// hopeless night draws. The cell title is what tells them apart, reporting
+// "(0/12 hr)" where a bar is missing for want of data.
+const DEFAULT_DAYS = 16;
 
 // cloud_cover alone. astroScore() reads nothing else, and this page shows no
 // numbers a human reads directly -- 降雨/氣溫, which astro-score_readable.html
 // carries for exactly that reason, would be one response per place of data nothing
-// on screen draws. One variable puts a response at ~4.0 KB / 168 hours for a single
-// model and ~5.9 KB for all four; with the prefilled past_days=7 that is ~11.3 KB
-// a place, so a ten-spot round is ~110 KB.
+// on screen draws. One variable puts a response at ~9.0 KB / 384 hours for a single
+// model and ~13.3 KB for all four; with the prefilled past_days=7 that is ~18.6 KB
+// a place, so a ten-spot round is ~190 KB.
 const HOURLY_VARS = ["cloud_cover"];
 
 // All four models, as milkyway.py and the open_meteo/ pages ask for -- keep the
@@ -504,8 +526,8 @@ const HOURLY_VARS = ["cloud_cover"];
 // The grid scores ONE of them at a time, picked by the tabs above it; the other
 // three are fetched so the comparison costs no extra round trip, and so a future
 // formula can average them or read their spread as confidence the way
-// milkyway.py's 信心 column does. Four models of one variable is ~5.9 KB a place
-// against ~4.0 KB for one -- the timestamps dominate either way -- which is why
+// milkyway.py's 信心 column does. Four models of one variable is ~13.3 KB a place
+// against ~9.0 KB for one -- the timestamps dominate either way -- which is why
 // fetching all four to show one is cheap enough to be the default.
 const MODELS = ["icon_global", "jma_seamless", "gfs_global", "ecmwf_ifs025"];
 
@@ -527,8 +549,8 @@ const DEFAULT_MODEL = "icon_global";
 // to the LEFT of today -- the week just gone, for checking a forecast against what
 // the sky actually did. They are hidden until 從今天開始 is unticked, so the
 // default view is unchanged by this line and only the response size shows it:
-// each past day is another ~780 bytes per place across four models, taking a
-// ten-place round from ~58 KB to ~110 KB.
+// each past day is another ~770 bytes per place across four models, taking a
+// ten-place round from ~137 KB to ~190 KB.
 const DEFAULT_EXTRA = [
     "past_days=7",
 ].join("\n");
@@ -540,6 +562,12 @@ function defaultParams(lat, lon, days = DEFAULT_DAYS) {
         longitude: lon,
         hourly: HOURLY_VARS.join(","),
         models: MODELS.join(","),
+        // Resolved by the API from latitude/longitude, which is why this is a
+        // constant and not a field: every row already carries its own coordinates.
+        // It has to be sent -- without it hourly.time comes back in GMT, and the
+        // half-day split, localToday() and the whole date axis read local wall
+        // time. Still overridable from the extra params box, which is how a
+        // hand-typed timezone= moves the today column (see visibleDates).
         timezone: "auto",
         forecast_days: days,
     };
@@ -634,7 +662,7 @@ async function settledPool(items, limit, fn) {
 }
 
 /**
- * The two form fields, applied to one spot's parameters.
+ * The one remaining form field, applied to one spot's parameters.
  *
  * The other pages read a location out of a box here too; this one takes it from
  * PLACES instead, so lat/lon are arguments rather than parsed input. An empty
@@ -642,9 +670,7 @@ async function settledPool(items, limit, fn) {
  */
 function paramsFor(lat, lon) {
     const overrides = {};
-    for (const id of ["forecast_days", "timezone"]) {
-        overrides[id] = document.getElementById(id).value.trim();
-    }
+    overrides.forecast_days = document.getElementById("forecast_days").value.trim();
 
     // The same key=value loop the open_meteo/ pages run, and it throws the same
     // way. Thrown from inside the per-place map, so the submit handler catches it
@@ -892,6 +918,15 @@ const BARS = [
 // Drawn under every half-day bar whose MilkyScore clears the lowest band.
 const UNDER_GLYPH = "▀";   // UPPER HALF BLOCK
 
+// Drawn where a block scored no hour at all -- past a model's horizon Open-Meteo
+// returns nulls, and blocksByDate() declines to score them, so the block keeps
+// peak 0 and would otherwise draw the same blank as a hopeless night. A missing
+// forecast and a washed-out sky are not the same answer, and at the 16-day
+// default the right half of the icon_global grid is the first kind. One faint
+// middle dot says "nothing to score" without competing with the bars; the cell
+// title still carries the (0/12 hr) count behind it.
+const NO_DATA_GLYPH = "·";   // MIDDLE DOT
+
 /**
  * MilkyScore for one hour: 觀星 as a fraction, times the galactic core's
  * altitude in degrees.
@@ -1083,8 +1118,8 @@ function blocksCell(place, date, blocks) {
         const stack = document.createElement("span");
         stack.className = "stack";
         const span = document.createElement("span");
-        span.className = "bar";
-        span.textContent = barFor(peak);
+        span.className = scored ? "bar" : "bar nodata";
+        span.textContent = scored ? barFor(peak) : NO_DATA_GLYPH;
         stack.appendChild(span);
         // The MilkyScore strip. Its span is appended whatever the value, so the
         // stack keeps its height and the bars keep a common floor; below the
@@ -1179,10 +1214,18 @@ function buildTable(results, hidePast) {
         name.className = "name";
         name.textContent = r.place;
         th.appendChild(name);
-        const api = document.createElement("span");
-        api.className = "api";
-        api.textContent = `${r.lat}, ${r.lon}`;
-        th.appendChild(api);
+        // Latitude and longitude on their own lines rather than "lat, lon" on
+        // one: the label column is position: sticky, so its width is subtracted
+        // from every scroll position, and one long coordinate line was setting
+        // that width. Three short lines cost a row of height once and buy the
+        // grid two more days on a phone. .api is display: block, so a span per
+        // number is all it takes.
+        for (const coord of [r.lat, r.lon]) {
+            const api = document.createElement("span");
+            api.className = "api";
+            api.textContent = String(coord);
+            th.appendChild(api);
+        }
         tr.appendChild(th);
 
         const days = folded[index];
@@ -1313,7 +1356,6 @@ function setUrls(results) {
 
 function resetDefaults() {
     document.getElementById("forecast_days").value = String(DEFAULT_DAYS);
-    document.getElementById("timezone").value = "auto";
     document.getElementById("extra").value = DEFAULT_EXTRA;
 }
 

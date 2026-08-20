@@ -80,11 +80,14 @@
         .rule .example b { color: var(--ok); font-weight: 700; }
         .rule ul { margin: 8px 0 0; padding-left: 20px; color: var(--muted); }
         .rule li { margin: 3px 0; }
+        /* Notes on the rows the grid draws, in two blocks: what this page
+           computes, then what it fetches. Only the second carries the gap down
+           to the form -- between the two the default 6px keeps them a pair. */
         .rule.notes {
             border-left-color: #333;
             background: #f7f8f9;
-            margin-bottom: 22px;
         }
+        .rule.notes + .rule.notes { margin-bottom: 22px; }
 
         .grid {
             display: grid;
@@ -280,64 +283,97 @@
         <p class="sub">
             Which hours are worth going out for, drawn as the same grid as
             <a href="../open_meteo/open-meteo_readable.html">open-meteo_readable.html</a> with a
-            <strong style="color:#1e8449;">觀星</strong> score on top. Dark sky, moon low or down, few
+            <strong style="color:#1e8449;">AstroScore</strong> (觀星 score) on top. Dark sky, moon low or down, few
             clouds &mdash; nothing else. The variables are fixed, so the only things to set are the place,
-            how far ahead to look, and any extra parameters; all four forecast models come back in
-            every request and the 雲量來源 tabs pick which one the grid is drawn from. Scroll the grid sideways for
+            how far ahead to look (up to Open-Meteo's 16 days), and any extra parameters &mdash; the time
+            zone follows the location, so there is no field for it; all four forecast models come back in
+            every request and the cloud source (雲量來源) tabs pick which one the grid is drawn from. Scroll the grid sideways for
             later hours. No API key needed. Variable names and model ids come from the
             <a href="https://open-meteo.com/en/docs" target="_blank" rel="noopener">Open-Meteo API
             docs</a>.
         </p>
 
         <div class="rule">
-            <span class="formula">觀星 = 0
-                <span class="gloss">&nbsp; if 太陽 &gt; &minus;10&deg; &mdash; daylight or bright twilight is out, whatever the sky looks like</span></span>
-            <span class="formula">月亮扣分 = min(100, max(0, 月亮 / 10 &times; 100))
+            <span class="formula">AstroScore (觀星) = 0
+                <span class="gloss">&nbsp; if Sun (太陽) &gt; &minus;10&deg; &mdash; daylight or bright twilight is out, whatever the sky looks like</span></span>
+            <span class="formula">MoonPenalty (月亮扣分) = min(100, max(0, Moon (月亮) / 10 &times; 100))
                 <span class="gloss">&nbsp; 0 at or below the horizon, 100 from +10&deg; up</span></span>
-            <span class="formula">觀星 = (100 &minus; 雲量) &times; (100 &minus; 月亮扣分) / 100
+            <span class="formula">AstroScore = (100 &minus; Cloud (雲量)) &times; (100 &minus; MoonPenalty) / 100
                 <span class="gloss">&nbsp; otherwise</span></span>
             <div class="example">
-                <div>雲量 20, 月亮 &minus;5&deg;  &rarr;  (100&minus;20) &times; (100&minus;<b>0</b>)   / 100 = <b>80</b>   moon down, near enough a clear night</div>
-                <div>雲量 20, 月亮 &nbsp;+2&deg;  &rarr;  (100&minus;20) &times; (100&minus;<b>20</b>)  / 100 = <b>64</b>   low moon costs a fifth, not the hour</div>
-                <div>雲量 20, 月亮 &nbsp;+8&deg;  &rarr;  (100&minus;20) &times; (100&minus;<b>80</b>)  / 100 = <b>16</b>   almost gone</div>
-                <div>雲量 20, 月亮 +10&deg;  &rarr;  (100&minus;20) &times; (100&minus;<b>100</b>) / 100 = <b>0</b>    moon high enough to write off</div>
+                <div>Cloud 20, Moon  &minus;5&deg;  &rarr;  (100&minus;20) &times; (100&minus;  <b>0</b>) / 100 =  <b>80</b>   moon down, near enough a clear night</div>
+                <div>Cloud 20, Moon  +2&deg;  &rarr;  (100&minus;20) &times; (100&minus; <b>20</b>) / 100 =  <b>64</b>   low moon costs a fifth, not the hour</div>
+                <div>Cloud 20, Moon  +8&deg;  &rarr;  (100&minus;20) &times; (100&minus; <b>80</b>) / 100 =  <b>16</b>   almost gone</div>
+                <div>Cloud 20, Moon +10&deg;  &rarr;  (100&minus;20) &times; (100&minus;<b>100</b>) / 100 =   <b>0</b>   moon high enough to write off</div>
             </div>
             <ul>
-                <li>月亮扣分 is <b>altitude only</b> &mdash; a crescent and a full moon at the same height score
-                    alike, so read the 月相 row alongside it.</li>
-                <li><b>雲量</b> is total cloud cover from whichever model the <b>雲量來源</b> tabs have
+                <li>MoonPenalty (月亮扣分) is <b>altitude only</b> &mdash; a crescent and a full moon at the same height score
+                    alike, so read the moon phase (月相) row alongside it.</li>
+                <li><b>Cloud (雲量)</b> is total cloud cover from whichever model the <b>cloud source (雲量來源)</b> tabs have
                     selected; the deck rows below are for context and do not enter the score.
-                    Switching tab redraws every row from that model &mdash; and rescores 觀星 with it
+                    Switching tab redraws every row from that model &mdash; and rescores AstroScore (觀星) with it
                     &mdash; without another request, since all four came back together. Where two
                     models tell the same story the forecast is worth trusting, and where they do not,
                     it is not. <code>jma_seamless</code> publishes no
-                    <code>precipitation_probability</code>, so 降雨 is a row of dashes on that tab.</li>
+                    <code>precipitation_probability</code>, so rain (降雨) is a row of dashes on that tab.</li>
+                <li><b>The models do not reach equally far ahead</b>, which the 16-day default puts on
+                    screen: at that range <code>icon_global</code> stops after about 7.5 days,
+                    <code>jma_seamless</code> after 11 and <code>ecmwf_ifs025</code> after 15, while
+                    <code>gfs_global</code> fills all 16. Past its own horizon a model returns nothing,
+                    drawn as dashes &mdash; so the grid running out mid-scroll is the forecast ending,
+                    not a fault. Ask for fewer days, or switch tab, and it fills again.</li>
             </ul>
         </div>
 
         <div class="rule notes">
             <ul>
-                <li><b>銀心</b> is the altitude of the Milky Way core (Sgr A*, RA 17h45m, Dec &minus;29&deg;),
+                <li><b>Sun (太陽)</b> is the sun's altitude &mdash; negative once it has set, and the
+                    gate on the whole score: above <b>&minus;10&deg;</b> the hour is written off
+                    outright, whatever the clouds are doing. That one threshold stands in for the
+                    conventional twilight bands (civil &minus;6&deg;, nautical &minus;12&deg;,
+                    astronomical &minus;18&deg;), which are worth knowing but are not what is
+                    scored here.</li>
+                <li><b>Moon (月亮)</b> is the moon's altitude, and the input to MoonPenalty (月亮扣分) above: nothing
+                    below the horizon, the full penalty from +10&deg; up, ramped in between.</li>
+                <li><b>Moon phase (月相)</b> is the illuminated fraction, 0 at new moon to 100 at full. It is
+                    <b>not</b> in the score &mdash; the penalty reads height alone &mdash; so it is on
+                    screen to be read beside Moon (月亮): a thin crescent 20&deg; up is a different night from
+                    a full moon at the same height.</li>
+                <li><b>Sgr A* (銀心)</b> is the altitude of the Milky Way core (Sagittarius A*, RA 17h45m,
+                    Dec &minus;29&deg;),
                     up only part of the night. It does
                     <b>not</b> enter the score &mdash; a dark clear hour is worth going out for either
                     way &mdash; but below roughly +25&deg; the core is shot through too much airmass to
-                    photograph, so read it beside a high 觀星 before packing for the core.</li>
-                <li><b>銀心 (max)</b> is the ceiling that row is measured against: how high the core
+                    photograph, so read it beside a high AstroScore (觀星) before packing for the core.</li>
+                <li><b>Sgr A* max (銀心 (max))</b> is the ceiling that row is measured against: how high the core
                     gets at this latitude when it crosses the meridian, which is
-                    <code>90&deg; &minus; |緯度 &minus; (&minus;29&deg;)|</code> &mdash; fixed by the
+                    <code>90&deg; &minus; |lat &minus; (&minus;29&deg;)|</code> &mdash; fixed by the
                     location, so the same number in every column, and untinted for that reason. Taiwan
-                    runs about +36&deg; in Taipei to +39&deg; at 墾丁: the further south, the higher
+                    runs about +36&deg; in Taipei to +39&deg; at Kenting (墾丁): the further south, the higher
                     the core rides. It is a ceiling, <b>not</b> a forecast &mdash; the core reaches it
-                    once a day whether or not the sun is down, so a whole night can pass with 銀心
+                    once a day whether or not the sun is down, so a whole night can pass with Sgr A*
                     well short of it.</li>
-                <li><b>光害 (SQM)</b> is how bright the sky itself is at the zenith, in mag/arcsec&sup2;
+                <li>All five are <b>computed from the location</b> with this page's own astronomy, not
+                    read from the response &mdash; Open-Meteo returns only sunrise/sunset and a daily
+                    <code>moon_phase</code>, neither of which is an hourly altitude. They are the same
+                    Meeus series <code>milkyway.py</code> uses, and every intermediate step is printed
+                    out on <a href="../pure_math/sun_phase.html">sun_phase</a>,
+                    <a href="../pure_math/moon_phase.html">moon_phase</a> and
+                    <a href="../pure_math/galactic_center.html">galactic_center</a>, which exist to
+                    check exactly these rows.</li>
+            </ul>
+        </div>
+
+        <div class="rule notes">
+            <ul>
+                <li><b>SQM (光害)</b> is how bright the sky itself is at the zenith, in mag/arcsec&sup2;
                     &mdash; bigger is darker, and it is fixed by <em>where you stand</em>, not by the
                     hour, so it fills every column with one number. It comes from
                     <a href="https://djlorenz.github.io/astronomy/lp/" target="_blank" rel="noopener">David
                     Lorenz's World Atlas of Artificial Night Sky Brightness</a> (modelled from NOAA/VIIRS
                     satellite data by the Earth Observation Group), the one light-pollution source that
                     needs no API key. It is <b>modelled, not measured</b>, on a ~0.9 km grid. Not a score
-                    input: 觀星 rates tonight's sky, and no forecast can move the city.</li>
+                    input: AstroScore (觀星) rates tonight's sky, and no forecast can move the city.</li>
                 <li><b>Bortle</b> and <b>LP Zone</b> are two labels for that same number, shown under it
                     rather than instead of it. LP Zone is the atlas's own banding; <b>Bortle</b> is the
                     familiar 1&ndash;9 scale, read off SQM by the conventional ladder &mdash; a rule of
@@ -347,23 +383,20 @@
                     also coarse exactly where it matters: <b>Bortle 4 spans 21.69 down to 20.49</b>, so
                     most decent sites in Taiwan read &quot;4&quot; while LP Zone still tells them apart.
                     Read the SQM.</li>
-                <li>The <b>太陽/月亮/月相/銀心</b> rows are computed from the location with this page's own
-                    astronomy, not read from the response &mdash; Open-Meteo returns only sunrise/sunset
-                    and a daily <code>moon_phase</code>, neither of which is an hourly altitude. They are
-                    the same Meeus series <code>milkyway.py</code> uses, and they are what the score above
-                    is built on.</li>
+                <li>Unlike the rows above, these three are <b>fetched, not computed</b>: one ~65 KB
+                    compressed tile of the atlas, read for the single grid point you asked about. It is
+                    loaded after the forecast is already on screen and never waited for, so the rows
+                    show &hellip; until it lands and &ndash; if it never does. The decode is shown byte
+                    by byte on <a href="../light_pollution/binary-tile.html">binary tile</a>, which also
+                    reads the same point back through ten years of the atlas.</li>
             </ul>
         </div>
 
         <form id="form">
             <div class="grid">
                 <div class="field">
-                    <label for="forecast_days">forecast_days</label>
-                    <input id="forecast_days" name="forecast_days" value="7" spellcheck="false">
-                </div>
-                <div class="field">
-                    <label for="timezone">timezone</label>
-                    <input id="timezone" name="timezone" value="auto" spellcheck="false">
+                    <label for="forecast_days">forecast_days <span class="hint">1&ndash;16</span></label>
+                    <input id="forecast_days" name="forecast_days" value="16" spellcheck="false">
                 </div>
                 <div class="field wide">
                     <label for="extra">extra params <span class="hint">one <code>key=value</code> per line; empty value drops a parameter. <code>past_days</code> extends the grid backwards &mdash; untick 從現在開始 to see it. It takes 0&ndash;93, but the models only keep about 61 days of history &mdash; past that the hours come back empty</span></label>
@@ -388,7 +421,7 @@
         <div class="result" id="result" hidden>
             <div class="meta" id="meta"></div>
             <div class="tabrow">
-                <span class="tablabel">雲量來源</span>
+                <span class="tablabel">cloud source (雲量來源)</span>
                 <div id="tabs" class="tabs"></div>
             </div>
             <div class="scroller" id="scroller"></div>
@@ -419,7 +452,14 @@ const FORECAST_URL = "https://api.open-meteo.com/v1/forecast";
 // PLACES (the saved spots offered as buttons beside the location box) and the
 // DEFAULT_LAT/DEFAULT_LON derived from its first entry come from ../places.js,
 // loaded just above. Add or reorder a spot there, not here.
-const DEFAULT_DAYS = 7;
+// 16 days: Open-Meteo's maximum, and the grid scrolls, so there is no reason to
+// ask for less. What it exposes is that the models have different horizons -- at
+// 16 days icon_global runs out after ~7.5 (177 hours), jma_seamless ~11 (266),
+// ecmwf_ifs025 ~15 (359) and only gfs_global fills all 384. Past its own horizon
+// a model returns nulls, which the grid draws as dashes, so the default
+// icon_global tab goes blank about halfway across while the gfs tab keeps going.
+// That is the honest picture of how far ahead each model actually forecasts.
+const DEFAULT_DAYS = 16;
 
 // The cloud decks plus 降雨 and 氣溫: this page drops 能見度/濕度/露點/風速, which
 // nothing on it reads. The two survivors are not score inputs either -- astroScore()
@@ -457,9 +497,9 @@ const DEFAULT_MODEL = "icon_global";
 // past_days= extends the series backwards, which is how you check a forecast
 // against what actually happened: score a night, then come back and see what the
 // sky did. It is invisible until 從現在開始 is unticked, since that trim is what
-// hides past hours. Not free -- 7 past days takes the response from ~18 KB /
-// 168 hours to ~34 KB / 336 across the four models, and Open-Meteo bills by time
-// range as well as variable count. The API accepts 0..93, but the models' rolling archive only
+// hides past hours. Not free -- at the 16-day default, 7 past days takes the
+// response from ~43 KB / 384 hours to ~60 KB / 552 across the four models, and
+// Open-Meteo bills by time range as well as variable count. The API accepts 0..93, but the models' rolling archive only
 // reaches about 61 days back, so beyond that the hours come back null.
 //
 // This page fixes hourly rather than exposing it, so unlike the open_meteo/ pages
@@ -476,6 +516,12 @@ function defaultParams(lat, lon, days = DEFAULT_DAYS) {
         longitude: lon,
         hourly: HOURLY_VARS.join(","),
         models: MODELS.join(","),
+        // Resolved by the API from latitude/longitude, which is why this is a
+        // constant and not a field -- the location already says which zone the
+        // hours are in, and the meta line reports whichever one came back. It
+        // has to be sent: without it hourly.time comes back in GMT, and every
+        // hour label, date break and "from now" trim on this page reads local
+        // wall time. Still overridable from the extra params box.
         timezone: "auto",
         forecast_days: days,
     };
@@ -595,9 +641,10 @@ function appendPlaceName(metaEl, lat, lon) {
 }
 
 /**
- * Build the request parameters from the form: a "lat,lon" location plus the two
- * fields this page still exposes. hourly/models are fixed constants here, so
- * unlike the other pages there is nothing else to override.
+ * Build the request parameters from the form: a "lat,lon" location plus the one
+ * field this page still exposes. hourly/models/timezone are fixed constants
+ * here, so unlike the other pages there is nothing else to override -- bar the
+ * extra params box, which can still set any of them.
  */
 function paramsFromForm() {
     const el = (id) => document.getElementById(id);
@@ -614,9 +661,7 @@ function paramsFromForm() {
         }
     }
 
-    for (const id of ["forecast_days", "timezone"]) {
-        overrides[id] = el(id).value.trim();
-    }
+    overrides.forecast_days = el("forecast_days").value.trim();
 
     for (const line of el("extra").value.split("\n")) {
         const trimmed = line.trim();
@@ -1558,7 +1603,6 @@ function setUrl(url) {
 function resetDefaults() {
     document.getElementById("location").value = `${DEFAULT_LAT},${DEFAULT_LON}`;
     document.getElementById("forecast_days").value = String(DEFAULT_DAYS);
-    document.getElementById("timezone").value = "auto";
     document.getElementById("extra").value = DEFAULT_EXTRA;
     markActivePlace();
 }
