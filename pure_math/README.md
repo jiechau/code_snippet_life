@@ -19,7 +19,8 @@ can see the eight lines of arithmetic that produced the number.
 | [moon_phase.html](moon_phase.html) | Is the moon up, and how bright? | the `月亮` and `月相` rows, plus 月亮扣分 |
 
 Each takes a time and a `lat,lon` (the saved spots from
-[`places.js`](../places.js) are offered as buttons) and prints three things: the
+[`places.js`](../places.js) are offered as buttons, and **📍 使用目前位置** fills
+the box from the device's own GPS) and prints three things: the
 answer as a few cards, then a table of every intermediate — Julian Day, sidereal
 time, the series terms, the spherical-triangle conversion — with the formula that
 produced each one. Committing either input recomputes; there is no request in
@@ -29,7 +30,7 @@ flight to wait for, so the button is a formality.
 
 The time box holds **local wall time at the location**, not UTC, and the offset is
 **computed from the longitude** rather than looked up: the sun crosses 15° an hour,
-so `zoneOffsetHours(lon)` is `round(lon / 15)`. All ten saved spots land on
+so `zoneOffsetHours(lon)` is `round(lon / 15)`. Every spot in `places.js` lands on
 **UTC+8**, which is Taiwan's real offset. The label beside the field says which
 offset was assumed, and the meta line prints both readings of the instant
 (`12:36 UTC+8 (= 04:36 UTC)`) so nothing is hidden.
@@ -111,5 +112,7 @@ No build, no server needed — open a page straight off disk:
 open pure_math/galactic_center.html
 ```
 
-`../places.js` is a classic script, so `file://` works. Or serve the repo root
+`../places.js` is a classic script, so `file://` works — except for
+**使用目前位置**, since geolocation is a secure-context API and needs `https://` or
+`localhost`. Or serve the repo root
 with `python3 -m http.server` and browse to `/pure_math/`.

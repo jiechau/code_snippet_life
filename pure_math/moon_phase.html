@@ -63,11 +63,14 @@
         .timerow { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
         .timerow input { width: 200px; flex: 0 0 auto; }
 
-        /* location: a box just wide enough for "25.070602,121.592399", with the
-           saved spots sitting beside it rather than under it. */
+        /* location: a box just wide enough for "25.070602,121.592399", with
+           使用目前位置 beside it and the saved spots wrapped onto a line of their
+           own (.places is flex-basis: 100%). The button is the one control that
+           has to stay within reach of the box -- it writes into it -- and the
+           spots, being many and growing, are what gives way. */
         .locrow { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
         .locrow input { width: 200px; flex: 0 0 auto; }
-        .places { display: flex; gap: 6px; flex-wrap: wrap; }
+        .places { display: flex; gap: 6px; flex-wrap: wrap; flex-basis: 100%; }
         .place {
             font: inherit;
             font-size: 0.85rem;
@@ -86,6 +89,15 @@
             border-color: var(--accent);
             color: white;
         }
+
+        /* 使用目前位置 is an action, not a spot: it borrows the pill shape but is
+           never pressed, and greys out while a fix is in flight. Its message --
+           the accuracy, or why it failed -- sits beside it rather than in the
+           result area, which belongs to the response. */
+        .place.geo { color: var(--fg); }
+        .place.geo:disabled { opacity: 0.55; cursor: default; }
+        .geonote { font-size: 0.8rem; color: var(--muted); }
+        .geonote.error { color: var(--err); }
 
         .actions { margin-top: 18px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
         button {
@@ -188,6 +200,8 @@
                     <label for="location">location <span class="hint">lat,lon &mdash; or pick a spot</span></label>
                     <div class="locrow">
                         <input id="location" name="location" spellcheck="false">
+                        <button type="button" class="place geo" id="geo" title="device GPS → the 輸入 spot">📍 使用目前位置</button>
+                        <span class="geonote" id="geonote"></span>
                         <div class="places" id="places"></div>
                     </div>
                 </div>
@@ -660,6 +674,11 @@ function markZone(offsetHours) {
 function resetDefaults() {
     // Location first: the time is "now" *there*, so it needs that offset.
     document.getElementById("location").value = `${DEFAULT_LAT},${DEFAULT_LON}`;
+    // ...and 輸入 -- PLACES[0] -- goes back to what places.js says, so the pill
+    // matches the box again after 使用目前位置 has moved it. Rebuilt because the
+    // coordinates a pill carries are baked into its dataset.
+    setInputPlace(DEFAULT_LAT, DEFAULT_LON);
+    buildPlaces();
     const offset = zoneOffsetHours(DEFAULT_LON);
     document.getElementById("when").value = nowValue(offset);
     markZone(offset);
@@ -678,11 +697,45 @@ function markActivePlace() {
 }
 
 /**
+ * 使用目前位置 (use current position): the device's own coordinates into the
+ * location box and into PLACES[0], the 輸入 spot, so its pill lights up like any
+ * saved one and the box and the list agree. Then it recomputes, exactly as clicking
+ * a spot does -- a stale answer under a new location would mislead either way.
+ *
+ * Geolocation is a secure-context API, which makes this the one control here
+ * that cannot work over file://. It fails as an ordinary rejection, and the
+ * reason is printed beside the button rather than thrown, leaving whatever is
+ * already on screen alone.
+ */
+async function useCurrentPosition() {
+    const button = document.getElementById("geo");
+    const note = document.getElementById("geonote");
+    button.disabled = true;
+    note.classList.remove("error");
+    note.textContent = "定位中...";
+    try {
+        const { lat, lon, accuracy } = await currentPosition();
+        setInputPlace(lat, lon);
+        buildPlaces();   // the 輸入 pill carries coordinates in a dataset, so redraw it
+        document.getElementById("location").value = `${lat},${lon}`;
+        note.textContent = `±${Math.round(accuracy)} m`;
+        markActivePlace();
+        document.getElementById("form").requestSubmit();
+    } catch (err) {
+        note.classList.add("error");
+        note.textContent = err.message;
+    } finally {
+        button.disabled = false;
+    }
+}
+
+/**
  * One button per saved spot. Clicking fills the box and recomputes: leaving the
  * previous answer on screen under a new location would just be misleading.
  */
 function buildPlaces() {
     const box = document.getElementById("places");
+    box.replaceChildren();   // 使用目前位置 moves 輸入, so this runs more than once
     for (const [name, lat, lon] of PLACES) {
         const button = document.createElement("button");
         button.type = "button";
@@ -776,12 +829,12 @@ document.getElementById("now").addEventListener("click", () => {
     document.getElementById("form").requestSubmit();
 });
 document.getElementById("location").addEventListener("input", markActivePlace);
+document.getElementById("geo").addEventListener("click", useCurrentPosition);
 // Committing a value (blur, or the picker closing) recomputes: it is pure
 // arithmetic, so there is no reason to make anyone press the button twice.
 document.getElementById("when").addEventListener("change", () => document.getElementById("form").requestSubmit());
 document.getElementById("location").addEventListener("change", () => document.getElementById("form").requestSubmit());
 
-buildPlaces();
 resetDefaults();
 document.getElementById("form").requestSubmit();
 </script>

@@ -107,7 +107,10 @@ open light_pollution/binary-tile.html      # or any static server
 ```
 
 It works straight off `file://` because the tiles are served with
-`access-control-allow-origin: *`.
+`access-control-allow-origin: *`. The one control that does not is
+**📍 使用目前位置**, which fills the location box from the device's own GPS:
+geolocation is a secure-context API, so it needs `https://` or `localhost`, and
+says so beside the button when it is refused.
 
 ## Credit
 

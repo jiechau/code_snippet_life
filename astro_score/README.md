@@ -30,14 +30,15 @@ here mainly when changing those constants; the adjustable form is
   the fixed 銀心 (max) ceiling, and the site's 光害 (SQM) / Bortle / LP Zone; the
   雲量來源 tabs pick which of the four models it is drawn from.
 - [AstroScore daily](https://jiechau.github.io/code_snippet_life/astro_score/astro-score_daily.html)
-  — the same score folded into a week-at-a-glance grid: a row per saved spot, a
+  — the same score folded into a week-at-a-glance grid: a row per place, a
   column per day, two block glyphs per cell, each over a purple MilkyScore strip.
+  The first row is 輸入, which 使用目前位置 points at wherever you are standing.
 
 ## The two pages
 
 `astro-score_readable.html` answers *which hour tonight*, for one place.
 `astro-score_daily.html` answers *which place, which night* — it asks the same
-question of every spot in [`places.js`](../places.js) at once (one request each)
+question of every entry in [`places.js`](../places.js) at once (one request each)
 and folds each day's 24 hourly scores into 2 half-day blocks:
 
 | block | hours (local) | what it is |
@@ -57,6 +58,16 @@ is itself worth reading: where two independent models agree, the forecast is
 worth something. Requests go out `FETCH_POOL` (4) at a time rather than all at
 once, because Open-Meteo answers a burst of ten four-model requests with HTTP
 429 `Too many concurrent requests`.
+
+**The first row is 輸入**, the one `places.js` entry that is not a saved spot, and
+**📍 使用目前位置** in the actions row points it at the device's own GPS and
+refetches. That is how this page gets a "here" row while keeping the thing that
+defines it — no location box, because the rows *are* the places: the button moves
+the shared entry and the row follows, coordinates and all. The note beside the
+button repeats what was found, with the accuracy the device claimed, since there is
+no box to show it in. Geolocation needs a secure context (`https://` or
+`localhost`, not `file://`) and nothing is stored, so a reload is back to the
+coordinate in the file.
 
 Every bar is the same green at every height: the height is the value, so
 colouring it by that value as well only restated it — and the green-to-red scale
@@ -101,7 +112,7 @@ the core down:
 | ≤ 20 | blank |
 
 It is in **degrees**, so its ceiling is the core's own transit altitude,
-`90 − |lat − dec|` — ~35.9° at 三總 to ~39.1° at 龍磐公園. Over Taiwan the top two
+`90 − |lat − dec|` — ~35.8° at 大武崙砲台 to ~39.1° at 龍磐公園. Over Taiwan the top two
 shades are therefore unreachable and belong to lower latitudes; retune
 `MILKY_BANDS` in the page if you want the range spread across the local ceiling.
 
@@ -131,7 +142,8 @@ drops is everything it has no row for: the galactic core altitude, lunar
 illumination, 降雨/氣溫, the place-name lookup, and the location box (the rows
 *are* the places). It asks for `cloud_cover` alone, but for all four models, so
 each response is ~5.9 KB / 168 hours — mostly timestamps — and with the prefilled
-`past_days=7`, ~11.3 KB, making a ten-spot round **~110 KB** in about 1.2 s. The
+`past_days=7`, ~11.3 KB, making a round of the eleven rows **~124 KB** in about
+1.2 s. The
 readable page fetches ~34 KB for one place, six variables and four models. The
 totals track `places.js`, so they move whenever a spot is added.
 
@@ -285,8 +297,8 @@ does not feed it removed.
   against. A fixed point is highest crossing the meridian, so the peak is simply
   `90° − |緯度 − (−29°)|` — no ephemeris and no time, hence **the same number in every
   column**, and left untinted for exactly that reason (a constant painted across a row
-  would read as data changing by the hour). Across the saved spots it runs 35.9° at
-  三總 to 39.1° at 龍磐公園 — the further south, the higher the core rides. It is a
+  would read as data changing by the hour). Across the saved spots it runs 35.8° at
+  大武崙砲台 to 39.1° at 龍磐公園 — the further south, the higher the core rides. It is a
   ceiling, not a forecast: the core reaches it once a day whether or not the sun is
   down, so a whole night can pass with 銀心 well short of it.
 
@@ -336,14 +348,23 @@ no longer a duplicated block to keep in step; it is this page's own.
 
 The location box sits **last in the form, directly above Fetch**, out of normal
 parameter order on purpose: it is the only field normally touched, so it belongs
-next to the button. A narrow `lat,lon` box with the saved spots beside it: 三總,
-瑞光路, 大崙頭山, 大武崙砲台, 東澳, 烏石港, 暗空公園. Clicking one fills the
+next to the button. A narrow `lat,lon` box with **📍 使用目前位置** beside it and the
+saved spots wrapped onto a line of their own: 輸入, 瑞光路, 大崙頭山, 大武崙砲台,
+內洞停車場, 烏石港, 東澳, 石梯坪, 柚子湖, 龍磐公園, 暗空公園. Clicking one fills the
 coordinates **and refetches** — leaving a stale grid under a new location would
 misrepresent it. The pressed button shows which spot is displayed, and a
 hand-typed coordinate presses none. They come from the `PLACES` array in
 [`../places.js`](../places.js), shared by every demo page in the repo, whose first
 entry is also the default location — so adding, removing or reordering a spot is a
 one-line change **in that one file**, and it changes what all three pages open on.
+
+**使用目前位置 (use current position)** fills the box from the device's own GPS and
+writes the coordinates into **輸入** — `PLACES[0]`, the one entry that is not a
+saved spot — so that pill lights up like any other, then refetches. Geolocation is
+a secure-context API: it works on the published `https://` page and on `localhost`,
+never on `file://`, and any refusal (no permission, no fix, timed out) is printed
+beside the button instead of thrown. Nothing is stored, so a reload — or Reset
+defaults — puts 輸入 back to the coordinate `places.js` was written with.
 
 `index.html` is just the list page for this folder, reached from the root hub.
 

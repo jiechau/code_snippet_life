@@ -181,7 +181,7 @@ The location field sits **last in the form, directly above Fetch**, out of norma
 parameter order on purpose: it is the only field a user changes, so it belongs next to the
 button rather than at the top above five fields nobody edits. Keep it there.
 
-`PLACES` drives both the default location and the buttons beside the location box, and it
+`PLACES` drives both the default location and the buttons under the location box, and it
 lives in **root `places.js`**, not in the pages — each page loads it with
 `<script src="../places.js"></script>` immediately before its own inline script, and
 `DEFAULT_LAT`/`DEFAULT_LON` are destructured from `PLACES[0]` in that same file. Adding,
@@ -195,6 +195,27 @@ Clicking a button fills the box **and refetches** — leaving a stale result und
 location would misrepresent it. The buttons only reflect the box, so a hand-typed
 coordinate leaves all of them unpressed. Note a click while a fetch is in flight is a
 silent no-op: `requestSubmit()` does nothing while the submit button is disabled.
+
+**`PLACES[0]` is `輸入`, not a saved spot.** It is wherever the user is asking about
+right now — the default coordinate, and what **使用目前位置** overwrites with the
+device's GPS position (`setInputPlace()`, also in `places.js`). Keeping it in the
+shared list rather than in a page is precisely what gives `astro-score_daily.html` a
+"here" row without reopening its no-location-box design: its rows *are* `PLACES`, so
+moving entry 0 moves a row. The mutation lasts one page load — nothing is stored, so
+a reload, and `resetDefaults()`, put it back to what the file says (`DEFAULT_LAT`/
+`DEFAULT_LON` are destructured at load time and therefore keep the file's value
+whatever `setInputPlace()` does). Because a pill bakes its coordinates into
+`dataset.coords`, every caller of `setInputPlace()` rebuilds the pills — which is why
+`buildPlaces()` now starts with `box.replaceChildren()` and `resetDefaults()` calls
+it, replacing the standalone load-time `buildPlaces()` those pages used to end with.
+
+`currentPosition()` (also `places.js`) wraps `navigator.geolocation` as a promise of
+`{lat, lon, accuracy}`, rounded to 6 decimals. It is the **only thing in the repo that
+cannot work over `file://`**, which the READMEs otherwise offer as a way to run these
+pages: geolocation is a secure-context API, so it needs `https://` or `localhost`.
+Every failure — no support, no permission, no fix, timeout — arrives as an ordinary
+rejection carrying a `GEO_ERRORS` message, and every page prints it beside the button
+rather than into the result area, leaving whatever is on screen alone.
 
 ## What is duplicated across the demo pages
 
@@ -217,6 +238,7 @@ which blocks are copies before editing any of them:
 | `paramsFromForm()` | the 3 pages with a location box **and** a request to make; `astro-score_daily.html` has `paramsFor(lat, lon)` instead — its rows *are* the places, so there is no location to parse. The `pure_math/` pages parse the same box into `placeFromForm()` → `{lat, lon}`: same parse and same error text, but there are no request params to return |
 | Page chrome (whole `<style>` block, `show()`, submit handler) | `open_meteo/open-meteo.html` + `bigdatacloud/reverse-geocode.html` + the 3 `pure_math/` pages. `reverse-geocode.html` is `open-meteo.html` with the form cut to one field; the `pure_math/` three are `reverse-geocode.html` with a time field added, `Fetch` renamed `Compute`, the `.url`/`<pre>` panes swapped for `.card`/step-table CSS, and `show()` taking `{cards, rows}` instead of `{url, json}`. The submit handler loses its `async`, its `try/finally` and the button disabling — nothing is in flight — but keeps the policy of *displaying* a bad input rather than throwing |
 | `.locrow`/`.place` CSS, `buildPlaces()` / `markActivePlace()` | 8 pages, verbatim — **not** `astro-score_daily.html`, which has no location box to put buttons beside |
+| `useCurrentPosition()` + the 使用目前位置 button and its `.geonote` | the same 8 pages, verbatim; `astro-score_daily.html` has its **own** shorter variant — no box to fill, so it moves 輸入, prints the coordinates in the note and refetches every row. `setInputPlace()`/`currentPosition()`/`GEO_ERRORS` are **not** duplicated: root `places.js` |
 | `PLACES` | **not duplicated** — root `places.js`, loaded by all 9 pages. `DEFAULT_LAT`/`DEFAULT_LON` from that file are unused by `astro-score_daily.html` |
 | The `countryName/principalSubdivision/city/locality` join | `astro_score/astro-score_readable.html` (`reverseGeocode()`) + `bigdatacloud/reverse-geocode.html` (`placeName()`) |
 | `reverseGeocode()` / `appendPlaceName()` (the *deferred, never-awaited* lookup) | `astro_score/astro-score_readable.html` only; **never** either `open_meteo/` page |
@@ -306,6 +328,7 @@ fixes `hourly` (the four cloud decks, plus `precipitation_probability` and
 `temperature_2m` — 降雨 and 氣溫, which `astroScore()` does not read but a human picking a
 night does) and `models` (**all four**, `MODELS` in the shared order), removing those two
 textareas from the form; `forecast_days`, **extra params** and the location
+(now with **使用目前位置** beside it, writing the device's GPS into `輸入`)
 remain — `timezone` was dropped as a field too, since the API resolves it from the
 coordinates, but `timezone=auto` is still **sent** as a constant in `defaultParams()`:
 without it `hourly.time` comes back in GMT and every hour label, date break and
@@ -351,9 +374,9 @@ Directly under it sits **`銀心 (max)` (`A* max`, `GC_MAX_ROW`)** — the ceili
 measured against. A fixed point is highest at transit, where the hour angle is 0 and
 `altAz()`'s `sinAlt` collapses to `cos(lat - dec)`, so `gcMaxAlt(lat)` is just
 `90 - |lat - GC_DEC|`: no ephemeris, no time argument, **the same number in every column**.
-Verified against a brute-force 10-minute sweep over 400 days at all ten saved spots —
-agreement to 1.6e-7°. Taiwan runs ~35.9° (三總) to ~39.1° (龍磐公園); the further south, the
-higher the core rides.
+Verified against a brute-force 10-minute sweep over 400 days at every saved spot —
+agreement to 1.6e-7°. Taiwan runs ~35.8° (大武崙砲台) to ~39.1° (龍磐公園); the further
+south, the higher the core rides.
 
 It is the one computed row with **no `scale`**, deliberately: `tint(v, undefined)` returns
 null, so `drawAstroRow()` leaves it untinted, and a constant repeated across a row would
@@ -431,7 +454,7 @@ and is not.
 
 ### astro-score_daily.html
 
-A week for every saved spot at once: **a row per `PLACES` entry, a column per day**, and
+A week for every place at once: **a row per `PLACES` entry, a column per day**, and
 each cell **two** block glyphs — `▂ ▄ ▆ █`, blank, or a faint `·` — one per half-day (00–11 / 12–23,
 left to right, local time). A block's value is the **maximum** 觀星 in it, i.e. its best
 single hour on the plain 0–100 scale, and that peak picks a height: `>90` `█`, `>70` `▆`,
@@ -467,7 +490,7 @@ below-horizon core clamped to 0. It is the one value on this page that picks a
 `astro-score_readable.html`'s `gcMaxAlt`). Bands are `>50 / >40 / >30 / >20`, deepest
 first, blank at or below 20. Two things to keep straight before retuning it:
 **it is in degrees, not a percentage**, so the ceiling is the core's own transit
-altitude — ~35.9° (三總) to ~39.1° (龍磐公園) over Taiwan, which makes the top two
+altitude — ~35.8° (大武崙砲台) to ~39.1° (龍磐公園) over Taiwan, which makes the top two
 shades unreachable here and reserved for lower latitudes; and it is the **max of the
 product**, not the product of the maxima, because the best sky and the highest core
 can fall in different hours. The strip's span is appended whatever the value — empty
@@ -483,7 +506,7 @@ tab order. `jma_seamless` is the one to switch to over the Central Range — the
 with a regional nest over Taiwan (MSM, 0.05° ≈ 5 km, against 11–25 km for the globals), and
 south of MSM's ~22.4°N/120°E domain edge — which `柚子湖` at 22.67°N sits near — it falls
 back to GSM rather than dropping the key, so the series is always complete. Verified: all four models return 168/168 non-null `cloud_cover`
-at all ten spots — including `龍磐公園` at 21.92°N, which is **outside** MSM's domain and
+at every saved spot — including `龍磐公園` at 21.92°N, which is **outside** MSM's domain and
 where a raw `models=jma_msm` request answers with the key *absent* and "No data is
 available for this location". That is the failure `jma_seamless` exists to avoid, and
 `places.js` now contains a spot that demonstrates it.
@@ -507,7 +530,7 @@ place,
 and `paramsFor()` is therefore called for every place *before* the button is disabled, so
 a malformed line reports itself with nothing sent. `past_days` on a day grid means extra
 columns to the **left** of today, hidden until 從今天開始 is unticked. Each past day is
-~770 bytes per place across four models, taking a ten-place round from ~137 KB to ~190 KB.
+~770 bytes per place across four models, taking an eleven-row round from ~151 KB to ~209 KB.
 `timezone` is not a field here either — every row carries its own coordinates — but
 `timezone=auto` is still sent, and the extra-params box overriding it is what moves the
 today column (see `localToday()`).
@@ -516,23 +539,29 @@ It issues **one request per spot**, `FETCH_POOL` (4) in flight at a time via
 `settledPool()` — allSettled's shape with a concurrency cap, so one failure still costs
 exactly one row, which shows the API's own reason in place of its glyphs. **The pool is
 load-bearing, not tidiness:** Open-Meteo answers a burst with HTTP 429 `Too many concurrent
-requests`, and ten places × four models fired at once trips it on a warm limiter (a second
-Fetch click, a few reloads) while passing on a cold one — an intermittent failure that
-looks like flaky rows. Ten places take ~1.2s pooled against ~0.4s unbounded. Don't
+requests`, and a dozen places × four models fired at once trips it on a warm limiter (a
+second Fetch click, a few reloads) while passing on a cold one — an intermittent failure
+that looks like flaky rows. Eleven rows take ~1.3s pooled against ~0.4s unbounded. Don't
 "simplify" it back to `Promise.allSettled`.
 
 It asks for `cloud_cover` alone — `astroScore()` reads nothing else and the page displays
 no number a human reads directly, so the 降雨/氣溫 that `astro-score_readable.html` carries
 for exactly that reason would be one response of undrawn data per place. At the 16-day
 default each response is ~9.0 KB / 384 hours for a single model and ~13.3 KB for all four;
-with the prefilled `past_days=7` that is ~18.6 KB a place, so at the ten spots `places.js`
-currently holds a round is **~190 KB**.
+with the prefilled `past_days=7` that is ~18.6 KB a place, so at the eleven rows
+`places.js` currently holds a round is **~209 KB**.
 **The count follows `places.js`** — it was seven when this page was written, so treat any
-figure here as "per place × however many spots are saved".
+figure here as "per place × however many rows the file holds".
 
 Consequences of having no location box: no `paramsFromForm()` (it has `paramsFor(lat,
 lon)`), no `buildPlaces()`/`markActivePlace()`, no `.locrow`/`.place` CSS, and
-`DEFAULT_LAT`/`DEFAULT_LON` go unused. The row label stacks **three** lines — name, then
+`DEFAULT_LAT`/`DEFAULT_LON` go unused. Its **使用目前位置** button therefore sits in
+the actions row beside Fetch rather than next to a box, and is its own shorter copy of
+`useCurrentPosition()`: it moves `PLACES[0]` (`輸入`) with `setInputPlace()`, prints the
+coordinates and the claimed accuracy in the note beside itself since there is no box to
+show them in, and refetches every row. That is how the page gained a "here" row without
+acquiring the location field it deliberately lacks — the row list is `PLACES`, so moving
+entry 0 moves a row. The row label stacks **three** lines — name, then
 latitude and longitude one per line, a `.api` span each — because the label column is
 `position: sticky` and its width comes off every scroll position, so one long `lat, lon`
 line was setting it; three short lines buy the grid two more days on a phone. It also has
@@ -664,7 +693,7 @@ Compute, so the two fields anyone actually edits sit next to the button.
 
 **The time box is local wall time at the location, and the offset is computed from
 the longitude, not looked up.** `zoneOffsetHours(lon)` is `round(lon / 15)` — the
-sun crosses 15° an hour — which puts all ten `places.js` spots on **UTC+8**,
+sun crosses 15° an hour — which puts every `places.js` spot on **UTC+8**,
 Taiwan's real offset. `<input type="datetime-local">` carries no zone of its own,
 so `utcFromForm(offsetHours)` parses the value as if UTC and then subtracts the
 offset; **the browser's zone is never consulted**, so a coordinate plus a reading

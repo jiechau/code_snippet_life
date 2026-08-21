@@ -78,12 +78,18 @@ page as [`open_meteo/open-meteo.html`](../open_meteo/README.md) — same layout,
 behaviour, same request core — with the form cut down to the one input this endpoint
 needs:
 
-- **location** — a `lat,lon` box with the saved spots beside it: 三總, 瑞光路,
-  大崙頭山, 大武崙砲台, 東澳, 烏石港, 暗空公園. Clicking one fills the coordinates
-  and refetches; the pressed button shows which spot is displayed, and a hand-typed
-  coordinate presses none. They come from the `PLACES` array in
-  [`../places.js`](../places.js), shared by every demo page in the repo, whose first
-  entry is also the default location.
+- **location** — a `lat,lon` box with **📍 使用目前位置** beside it and the saved
+  spots wrapped onto a line of their own: 輸入, 瑞光路, 大崙頭山, 大武崙砲台, 內洞停車場, 烏石港, 東澳, 石梯坪, 柚子湖,
+  龍磐公園, 暗空公園.
+  Clicking one fills the coordinates and refetches; the pressed button shows which
+  spot is displayed, and a hand-typed coordinate presses none. They come from the
+  `PLACES` array in [`../places.js`](../places.js), shared by every demo page in the
+  repo, whose first entry is also the default location.
+- **使用目前位置 (use current position)** — the device's own GPS into the box, and
+  into 輸入, `PLACES[0]`, the one entry that is not a saved spot. Geolocation is a
+  secure-context API, so it needs the published `https://` page or `localhost`, not
+  `file://`; a refusal is printed beside the button rather than thrown, and nothing
+  is stored.
 
 `localityLanguage` is fixed at `zh` in the page rather than exposed as a field, so
 location really is the only input. Change the constant to see other languages.

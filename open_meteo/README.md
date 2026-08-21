@@ -171,13 +171,22 @@ retyping anything:
 - **location** — deliberately **last, immediately above Fetch**, because it is the
   only field normally touched: everything above it is left at its default, so the
   one control in constant use sits where the hand already is. A `lat,lon` box,
-  narrow because that is all it ever holds, with the saved spots beside it: 三總,
-  瑞光路, 大崙頭山, 大武崙砲台, 東澳, 烏石港, 暗空公園. Clicking one fills the
-  coordinates and refetches; the pressed button shows which spot is displayed, and
-  a hand-typed coordinate presses none. They come from the `PLACES` array in
-  [`../places.js`](../places.js), shared by every demo page in the repo, whose first
-  entry is also the default location — so adding, removing or reordering a spot is a
-  one-line change **in that one file**, and it changes what all three pages open on.
+  narrow because that is all it ever holds, with **📍 使用目前位置** beside it and
+  the saved spots wrapped onto a line of their own: 輸入, 瑞光路, 大崙頭山, 大武崙砲台, 內洞停車場, 烏石港, 東澳, 石梯坪, 柚子湖,
+  龍磐公園, 暗空公園.
+  Clicking one fills the coordinates and refetches; the pressed button shows which
+  spot is displayed, and a hand-typed coordinate presses none. They come from the
+  `PLACES` array in [`../places.js`](../places.js), shared by every demo page in the
+  repo, whose first entry is also the default location — so adding, removing or
+  reordering a spot is a one-line change **in that one file**, and it changes what
+  all three pages open on.
+- **使用目前位置 (use current position)** — the device's own GPS into the box, and
+  into 輸入, `PLACES[0]`, the one entry that is not a saved spot; then it refetches
+  like any spot click. Geolocation is a secure-context API, so it works on the
+  published `https://` page and on `localhost` but not on `file://`, and a refusal
+  (no permission, no fix, timed out) is printed beside the button rather than
+  thrown. Nothing is stored: a reload, or Reset defaults, puts 輸入 back to the
+  coordinate `places.js` was written with.
 
 Four defaults deliberately differ from `open-meteo.py`: the location (三總 rather
 than Taipei), the cloud decks listed high → low, the `daily=` line, and the extra
