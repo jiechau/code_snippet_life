@@ -197,11 +197,12 @@ coordinate leaves all of them unpressed. Note a click while a fetch is in flight
 silent no-op: `requestSubmit()` does nothing while the submit button is disabled.
 
 **`PLACES[0]` is `輸入`, not a saved spot.** It is wherever the user is asking about
-right now — the default coordinate, and what **使用目前位置** overwrites with the
-device's GPS position (`setInputPlace()`, also in `places.js`). Keeping it in the
-shared list rather than in a page is precisely what gives `astro-score_daily.html` a
-"here" row without reopening its no-location-box design: its rows *are* `PLACES`, so
-moving entry 0 moves a row. The mutation lasts one page load — nothing is stored, so
+right now — the default coordinate, what a location box writes back to
+(`setInputPlace()`, also in `places.js`), and what **使用目前位置** overwrites with the
+device's GPS position. Keeping it in the shared list rather than in a page is what lets
+`astro-score_daily.html` take part at all: its rows *are* `PLACES`, so moving entry 0
+moves a row, and one box there edits one row instead of choosing *the* place. The
+mutation lasts one page load — nothing is stored, so
 a reload, and `resetDefaults()`, put it back to what the file says (`DEFAULT_LAT`/
 `DEFAULT_LON` are destructured at load time and therefore keep the file's value
 whatever `setInputPlace()` does). Because a pill bakes its coordinates into
@@ -235,13 +236,14 @@ which blocks are copies before editing any of them:
 | Block | Copies |
 | --- | --- |
 | Request core (`buildUrl`, `fetchForecast`, `FORECAST_URL`) | the 4 Open-Meteo pages + `open_meteo/open-meteo.py`; `bigdatacloud/` has the same `buildUrl` shape against its own endpoint. **No `pure_math/` page has one** — there is no URL to build |
-| `paramsFromForm()` | the 3 pages with a location box **and** a request to make; `astro-score_daily.html` has `paramsFor(lat, lon)` instead — its rows *are* the places, so there is no location to parse. The `pure_math/` pages parse the same box into `placeFromForm()` → `{lat, lon}`: same parse and same error text, but there are no request params to return |
+| `paramsFromForm()` | the 3 pages with a location box **and** a single request to make. `astro-score_daily.html` splits it in two — `paramsFor(lat, lon)` for the fields (called once per row) and `inputPlaceFromForm()` for the box, which names one row rather than one request. The `pure_math/` pages split it the same way into `placeFromForm()` → `{lat, lon}`: same parse and same error text, but there are no request params to return |
 | Page chrome (whole `<style>` block, `show()`, submit handler) | `open_meteo/open-meteo.html` + `bigdatacloud/reverse-geocode.html` + the 3 `pure_math/` pages. `reverse-geocode.html` is `open-meteo.html` with the form cut to one field; the `pure_math/` three are `reverse-geocode.html` with a time field added, `Fetch` renamed `Compute`, the `.url`/`<pre>` panes swapped for `.card`/step-table CSS, and `show()` taking `{cards, rows}` instead of `{url, json}`. The submit handler loses its `async`, its `try/finally` and the button disabling — nothing is in flight — but keeps the policy of *displaying* a bad input rather than throwing |
-| `.locrow`/`.place` CSS, `buildPlaces()` / `markActivePlace()` | 8 pages, verbatim — **not** `astro-score_daily.html`, which has no location box to put buttons beside |
-| `useCurrentPosition()` + the 使用目前位置 button and its `.geonote` | the same 8 pages, verbatim; `astro-score_daily.html` has its **own** shorter variant — no box to fill, so it moves 輸入, prints the coordinates in the note and refetches every row. `setInputPlace()`/`currentPosition()`/`GEO_ERRORS` are **not** duplicated: root `places.js` |
-| `PLACES` | **not duplicated** — root `places.js`, loaded by all 9 pages. `DEFAULT_LAT`/`DEFAULT_LON` from that file are unused by `astro-score_daily.html` |
-| The `countryName/principalSubdivision/city/locality` join | `astro_score/astro-score_readable.html` (`reverseGeocode()`) + `bigdatacloud/reverse-geocode.html` (`placeName()`) |
-| `reverseGeocode()` / `appendPlaceName()` (the *deferred, never-awaited* lookup) | `astro_score/astro-score_readable.html` only; **never** either `open_meteo/` page |
+| `.locrow` CSS | all 9 pages, verbatim (2 lines). Both `astro-score_*.html` add a third for `.locname` — the `輸入:` label in front of the box, a second `<label for="location">` naming what the box writes to (`PLACES[0]`: the first pill on one page, the top grid row on the other). The other 7 pages do not have it |
+| `.place`/`.places` CSS, `buildPlaces()` / `markActivePlace()` | 8 pages, verbatim — **not** `astro-score_daily.html`: its rows *are* the saved spots, so pills repeating them would say it twice. Its location box therefore stands alone beside 使用目前位置, and nothing there is ever "pressed" |
+| `useCurrentPosition()` + the 使用目前位置 button and its `.geonote` | all 9 pages: fill the box, note the accuracy, resubmit. The 8 pill pages also `setInputPlace()` + `buildPlaces()` so the 輸入 pill follows; `astro-score_daily.html` has no pills and lets its submit handler do the `setInputPlace()`, so its copy is four lines shorter. `setInputPlace()`/`currentPosition()`/`GEO_ERRORS` are **not** duplicated: root `places.js` |
+| `PLACES` | **not duplicated** — root `places.js`, loaded by all 9 pages. `DEFAULT_LAT`/`DEFAULT_LON` are every page's empty-box fallback, `astro-score_daily.html` included |
+| The `countryName/principalSubdivision/city/locality` join | both `astro_score/astro-score_*.html` pages (`reverseGeocode()`) + `bigdatacloud/reverse-geocode.html` (`placeName()`) |
+| `reverseGeocode()` (the *deferred, never-awaited* lookup) | both `astro_score/astro-score_*.html` pages, **byte-identical**; **never** either `open_meteo/` page. What differs is how the name reaches the screen: `astro-score_readable.html` appends it to the meta element (`appendPlaceName()`, guarded on the line not having changed), `astro-score_daily.html` stores it in `inputPlaceName` and lets `setMeta()` redraw it (`loadInputPlaceName()`, guarded on `PLACES[0]` still being that coordinate) — because a tab click there rewrites the meta line, which would wipe an appended node |
 | Light-pollution atlas (`lpRatio`, `lpSqm`, `lpBortle`, `lpZone`, `LP_ZONES`, `LP_BORTLE`, tile geometry, the `DecompressionStream` read) | `astro_score/astro-score_readable.html` + `light_pollution/binary-tile.html` — the only third-party binary format in the repo. The *deferred, never-awaited* wrapper (`lightPollution()`, `loadLightPollution()`) is `astro_score`'s alone; `binary-tile.html` awaits its fetch, because there the tile **is** the result |
 | Meeus solar/lunar series | both `astro_score/astro-score_*.html` pages + `astro_score/milkyway.py` + the 3 `pure_math/` pages — never in `open_meteo/`. Every copy carries **only what it draws**: `astro-score_daily.html` has no `moonIllumination()` (it has `GC_RA`/`GC_DEC`, which its MilkyScore strip needs); `pure_math/galactic_center.html` has no `obliquity()`/`eclipticToEquatorial()` at all (A* is already equatorial); `pure_math/sun_phase.html` has nothing lunar; `pure_math/moon_phase.html` carries `sunPosition()` too, because the illuminated fraction needs the moon–sun elongation |
 | `DARK_SUN_ALT`, `MOON_KILL_ALT`, `moonPenalty()`, `astroScore()` | both `astro_score/astro-score_*.html` pages, verbatim. Split across `pure_math/`: `sun_phase.html` takes `DARK_SUN_ALT`, `moon_phase.html` takes `MOON_KILL_ALT` + `moonPenalty()`. **`astroScore()` is in neither** — a pure-math page has no cloud figure to score |
@@ -264,6 +266,13 @@ fundamental arguments — every computed term is unchanged — and `moonPhaseNam
 `MOON_PHASE_NAMES` are ported from `milkyway.py`'s `moon_phase_name()`, which no other
 page has, making those two the pair to keep in step.
 
+`astro-score_daily.html` asks the same question about **`輸入` alone** and prints
+`輸入: 中華民國/新北市/烏來區` as a second meta line. Only that row: every other row is
+a saved spot with a name of its own, so a lookup per row would spend all but one call
+relabelling rows that are already labelled. It is fired from the submit handler with the
+**requested** `PLACES[0]` coordinates, never awaited, and `inputPlaceName` is cleared
+first so a moved `輸入` cannot show the old township while the new name is in flight.
+
 `reverseGeocode()` puts `countryName/principalSubdivision/city/locality` (e.g.
 中華民國/宜蘭縣/南澳鄉/蘇澳鎮) on a **second meta line** from BigDataCloud's keyless,
 CORS-enabled `reverse-geocode-client`. The break is a `<br>` node appended to the
@@ -272,9 +281,8 @@ as a space. It is sent the **requested** lat/lon, not the response's grid point 
 can name different townships. The lookup is fired after the result renders and never
 awaited, so it re-checks the meta text before appending and skips it if a newer fetch has
 replaced the line; any failure resolves to an empty string and leaves the line alone. It
-is a label, never data: nothing on screen depends on it. Only
-`astro_score/astro-score_readable.html` has it; both `open_meteo/` pages deliberately do
-not, so their meta line says exactly what `open-meteo.py` prints to stderr and no more.
+is a label, never data: nothing on screen depends on it. Both
+`astro_score/` pages have it; both `open_meteo/` pages deliberately do not, so their meta line says exactly what `open-meteo.py` prints to stderr and no more.
 `bigdatacloud/reverse-geocode.html` demos the same endpoint head-on, and its copy of the
 four-field join is the one thing the two pages share.
 
@@ -315,6 +323,14 @@ the gloss or the sentence around it, since parentheticals inside a monospace for
 unreadable. What is still CJK-only, deliberately: the widget labels themselves
 (從現在開始 / 從今天開始 / 地點), which already carry an English gloss or would widen the
 sticky column, and the JS/CSS source comments.
+
+**Both pages fold their legends and notes into one collapsed `<details class="explain">`**
+above the form — the same idiom as the raw-JSON panel under the grid, and for the same
+reason: the explanation is worth reading once and is in the way every time after that, so
+the form (and on a phone, the grid under it) is what the page opens on. Only the `<summary>`
+differs. Keep new prose inside it; nothing there is needed to operate the page, and the
+`.rule` blocks keep their own spacing when it is open (`details.explain .rule:last-child`
+drops the trailing margin, since the `<details>` carries it).
 
 `astro-score_readable.html`'s notes are **two black-bar (`.rule notes`) blocks, not one**:
 what the page *computes* (太陽/月亮/月相, 銀心, 銀心 (max)) then what it *fetches*
@@ -524,13 +540,15 @@ A future formula averaging them, or reading their spread as confidence the way
 `milkyway.py`'s 信心 column does, has the data already in hand.
 
 Its form is `forecast_days` (default **16**, Open-Meteo's maximum, matching
-`astro-score_readable.html`) and an **extra params** box prefilled
+`astro-score_readable.html`), an **extra params** box prefilled
 `past_days=7`, applied to every request alike — so a typo there costs one call per saved
 place,
 and `paramsFor()` is therefore called for every place *before* the button is disabled, so
-a malformed line reports itself with nothing sent. `past_days` on a day grid means extra
-columns to the **left** of today, hidden until 從今天開始 is unticked. Each past day is
-~770 bytes per place across four models, taking an eleven-row round from ~151 KB to ~209 KB.
+a malformed line reports itself with nothing sent — and, last and directly above Fetch,
+a **location** box. `past_days` on a day grid means extra
+columns to the **left** of today, on screen by default since 從今天開始 starts unticked
+here. Each past day is
+~770 bytes per place across four models, taking a ten-row round from ~135 KB to ~189 KB.
 `timezone` is not a field here either — every row carries its own coordinates — but
 `timezone=auto` is still sent, and the extra-params box overriding it is what moves the
 today column (see `localToday()`).
@@ -541,27 +559,34 @@ exactly one row, which shows the API's own reason in place of its glyphs. **The 
 load-bearing, not tidiness:** Open-Meteo answers a burst with HTTP 429 `Too many concurrent
 requests`, and a dozen places × four models fired at once trips it on a warm limiter (a
 second Fetch click, a few reloads) while passing on a cold one — an intermittent failure
-that looks like flaky rows. Eleven rows take ~1.3s pooled against ~0.4s unbounded. Don't
+that looks like flaky rows. Ten rows take ~1.4s pooled against ~0.4s unbounded. Don't
 "simplify" it back to `Promise.allSettled`.
 
 It asks for `cloud_cover` alone — `astroScore()` reads nothing else and the page displays
 no number a human reads directly, so the 降雨/氣溫 that `astro-score_readable.html` carries
 for exactly that reason would be one response of undrawn data per place. At the 16-day
 default each response is ~9.0 KB / 384 hours for a single model and ~13.3 KB for all four;
-with the prefilled `past_days=7` that is ~18.6 KB a place, so at the eleven rows
-`places.js` currently holds a round is **~209 KB**.
+with the prefilled `past_days=7` that is ~18.9 KB a place, so at the ten rows
+`places.js` currently holds a round is **~189 KB**.
 **The count follows `places.js`** — it was seven when this page was written, so treat any
 figure here as "per place × however many rows the file holds".
 
-Consequences of having no location box: no `paramsFromForm()` (it has `paramsFor(lat,
-lon)`), no `buildPlaces()`/`markActivePlace()`, no `.locrow`/`.place` CSS, and
-`DEFAULT_LAT`/`DEFAULT_LON` go unused. Its **使用目前位置** button therefore sits in
-the actions row beside Fetch rather than next to a box, and is its own shorter copy of
-`useCurrentPosition()`: it moves `PLACES[0]` (`輸入`) with `setInputPlace()`, prints the
-coordinates and the claimed accuracy in the note beside itself since there is no box to
-show them in, and refetches every row. That is how the page gained a "here" row without
-acquiring the location field it deliberately lacks — the row list is `PLACES`, so moving
-entry 0 moves a row. The row label stacks **three** lines — name, then
+**That location box edits exactly one row: `輸入`, `PLACES[0]`, the entry that is not a
+saved spot** — and nothing else on the page. It is not the other pages' box: there it
+chooses *the* place, here the places are the rows and this names one of them. So the
+parse is split — `inputPlaceFromForm()` returns coordinates (same parse, same
+`Bad location "…"` message) and the submit handler runs `setInputPlace(...)` **inside the
+same `try` and before `PLACES.map()`**, since a row cannot be built from a coordinate that
+has not landed in the list yet, and a malformed one must report itself with nothing sent.
+**使用目前位置** sits beside that box and only fills it, leaving the write to `輸入` to
+the submit handler — one path for typed and located alike, and four lines shorter than
+the pill pages' copy, which has pills to rebuild.
+
+The box brings `.locrow` (2 lines) but **not** `.place`/`.places`, `buildPlaces()` or
+`markActivePlace()`: pills would repeat the rows the grid already draws. `DEFAULT_LAT`/
+`DEFAULT_LON` are the box's empty-value fallback, as everywhere else. `paramsFromForm()`
+is still absent — one form makes a request per row, so the fields and the location are
+read by separate functions. The row label stacks **three** lines — name, then
 latitude and longitude one per line, a `.api` span each — because the label column is
 `position: sticky` and its width comes off every scroll position, so one long `lat, lon`
 line was setting it; three short lines buy the grid two more days on a phone. It also has
@@ -592,8 +617,12 @@ worse: the green-to-red sweep turned a short bar brown, which read as a differen
 thing rather than as less of the same one. Don't reintroduce a per-cell colour scale here.
 
 Its checkbox is **從今天開始 (hide past days)**, and it is the sibling page's 從現在開始
-moved up from hours to days, because a column here is a day. It **drops whole past
-columns**; it never shortens a column it shows, so today is always a full 24 hours and a
+moved up from hours to days, because a column here is a day. **It starts unticked** —
+the one place these two pages differ on this — so the `past_days=7` the extra-params box
+prefills is on screen from the first Fetch: a week of forecast beside the week that
+actually happened, with the today rule between them. The readable page keeps 從現在開始
+ticked, because there a past hour is a column of numbers in the way; here it is two
+glyphs that read as history at a glance. It **drops whole past columns**; it never shortens a column it shows, so today is always a full 24 hours and a
 block does not shrink as the afternoon wears on. Hiding rather than zeroing is the point:
 zeroed past days drew as blank glyphs and pushed today off the right of a phone screen.
 `blocksByDate()` therefore takes no "now" argument at all — it scores every hour it is

@@ -172,7 +172,7 @@ retyping anything:
   only field normally touched: everything above it is left at its default, so the
   one control in constant use sits where the hand already is. A `lat,lon` box,
   narrow because that is all it ever holds, with **📍 使用目前位置** beside it and
-  the saved spots wrapped onto a line of their own: 輸入, 瑞光路, 大崙頭山, 大武崙砲台, 內洞停車場, 烏石港, 東澳, 石梯坪, 柚子湖,
+  the saved spots wrapped onto a line of their own: 輸入, 瑞光路, 大武崙砲台, 內洞停車場, 烏石港, 東澳, 石梯坪, 柚子湖,
   龍磐公園, 暗空公園.
   Clicking one fills the coordinates and refetches; the pressed button shows which
   spot is displayed, and a hand-typed coordinate presses none. They come from the

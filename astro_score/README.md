@@ -59,15 +59,15 @@ worth something. Requests go out `FETCH_POOL` (4) at a time rather than all at
 once, because Open-Meteo answers a burst of ten four-model requests with HTTP
 429 `Too many concurrent requests`.
 
-**The first row is 輸入**, the one `places.js` entry that is not a saved spot, and
-**📍 使用目前位置** in the actions row points it at the device's own GPS and
-refetches. That is how this page gets a "here" row while keeping the thing that
-defines it — no location box, because the rows *are* the places: the button moves
-the shared entry and the row follows, coordinates and all. The note beside the
-button repeats what was found, with the accuracy the device claimed, since there is
-no box to show it in. Geolocation needs a secure context (`https://` or
-`localhost`, not `file://`) and nothing is stored, so a reload is back to the
-coordinate in the file.
+**The first row is 輸入**, the one `places.js` entry that is not a saved spot, and it
+is the only row the form can move. A `lat,lon` box sits last, directly above Fetch,
+with **📍 使用目前位置** beside it; either one changes 輸入 and refetches, and every
+other row stays exactly where the file put it. That is a different job from the box on
+the other pages — there it chooses *the* place, here it names one row of ten — so
+the parse is split out as `inputPlaceFromForm()` and applied with `setInputPlace()`
+before the rows are read. There are no place buttons: the saved spots are the rows
+already. Geolocation needs a secure context (`https://` or `localhost`, not `file://`)
+and nothing is stored, so a reload is back to the coordinate in the file.
 
 Every bar is the same green at every height: the height is the value, so
 colouring it by that value as well only restated it — and the green-to-red scale
@@ -80,10 +80,12 @@ out flat as `08/18` the header was wider than the bars and set the column width,
 holding them apart.
 
 Its checkbox is **從今天開始 (hide past days)** — the readable page's 從現在開始
-moved up from hours to days, since a column here is a day. It hides days before
-today outright rather than blanking them, and never shortens a day it does show:
-today's column is always a full 24 hours, so a block does not shrink as the
-afternoon wears on.
+moved up from hours to days, since a column here is a day. **It starts unticked**,
+unlike the readable page's, so the week `past_days=7` asks for is on screen from
+the first Fetch: the forecast beside what the sky actually did, split by the
+heavier today rule. Ticking it hides days before today outright rather than
+blanking them, and it never shortens a day it does show: today's column is always
+a full 24 hours, so a block does not shrink as the afternoon wears on.
 
 A block's value is the **maximum** 觀星 in it — its best single hour, on the
 plain 0–100 scale — and that peak picks one of five heights:
@@ -132,17 +134,23 @@ per line; an empty value drops a parameter). It extends the series backwards, so
 you can put a forecast next to what the sky actually did. On
 `astro-score_readable.html` that is extra hours off the left of the grid,
 invisible until 從現在開始 is unticked; on `astro-score_daily.html` it is extra
-day columns to the left of today, hidden until 從今天開始 is unticked.
+day columns to the left of today, drawn by default since 從今天開始 starts
+unticked.
 `past_days` accepts 0–93, but the models only keep about 61 days of rolling
 archive; past that the hours come back null.
 
 The score, the Meeus astronomy and the request core are copies of
 `astro-score_readable.html`'s — change one, change the other. What the daily page
 drops is everything it has no row for: the galactic core altitude, lunar
-illumination, 降雨/氣溫, the place-name lookup, and the location box (the rows
-*are* the places). It asks for `cloud_cover` alone, but for all four models, so
+illumination, 降雨/氣溫, and the place buttons (the rows *are* the places; only
+輸入, the first row, has a box). The place-name lookup it keeps, but asks only
+about 輸入 — every other row is a saved spot with a name already — and prints the
+answer as a second meta line, `輸入: 中華民國/新北市/烏來區`. Deferred and never
+awaited, like the readable page's; where that page appends the name to the line,
+this one stores it and lets `setMeta()` redraw it, since a tab click here rewrites
+that line. It asks for `cloud_cover` alone, but for all four models, so
 each response is ~5.9 KB / 168 hours — mostly timestamps — and with the prefilled
-`past_days=7`, ~11.3 KB, making a round of the eleven rows **~124 KB** in about
+`past_days=7`, ~11.3 KB, making a round of the ten rows **~113 KB** in about
 1.2 s. The
 readable page fetches ~34 KB for one place, six variables and four models. The
 totals track `places.js`, so they move whenever a spot is added.
@@ -349,7 +357,7 @@ no longer a duplicated block to keep in step; it is this page's own.
 The location box sits **last in the form, directly above Fetch**, out of normal
 parameter order on purpose: it is the only field normally touched, so it belongs
 next to the button. A narrow `lat,lon` box with **📍 使用目前位置** beside it and the
-saved spots wrapped onto a line of their own: 輸入, 瑞光路, 大崙頭山, 大武崙砲台,
+saved spots wrapped onto a line of their own: 輸入, 瑞光路, 大武崙砲台,
 內洞停車場, 烏石港, 東澳, 石梯坪, 柚子湖, 龍磐公園, 暗空公園. Clicking one fills the
 coordinates **and refetches** — leaving a stale grid under a new location would
 misrepresent it. The pressed button shows which spot is displayed, and a

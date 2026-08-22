@@ -98,6 +98,16 @@
             margin-bottom: 22px;
         }
 
+        /* The legends and notes above the form, folded away by default. They are
+           worth reading once and in the way every time after that -- the same
+           bargain as the raw JSON panel under the grid, and the same <details>
+           idiom. Open, the blocks keep their own 6px/22px spacing; closed, the
+           form is the first thing under the intro. */
+        details.explain { margin: 0 0 22px; }
+        details.explain > summary { font-weight: 600; }
+        details.explain[open] > summary { margin-bottom: 10px; }
+        details.explain .rule:last-child { margin-bottom: 0; }
+
         .grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
@@ -118,6 +128,18 @@
             resize: vertical;
         }
         input:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+        /* location: the same narrow box the other pages use, with 使用目前位置
+           beside it -- but no .places/.place row, because the saved spots are the
+           grid's rows already and buttons repeating them would say it twice. */
+        .locrow { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+        .locrow input { width: 200px; flex: 0 0 auto; }
+        /* "輸入:" in front of the box, naming what the box writes to: PLACES[0],
+           which is the top row of this grid, and the first pill on
+           astro-score_readable.html. A second <label for="location"> rather than a
+           span, so it focuses the box like the one above it; the label margin is
+           dropped because .locrow centres its children. */
+        .locrow .locname { margin-bottom: 0; white-space: nowrap; }
 
         .actions { margin-top: 18px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
         button {
@@ -359,96 +381,103 @@
         <h1>AstroScore <span style="color:#777;font-weight:400;">daily</span></h1>
         <p class="sub">
             The next 16 days for every saved spot at once: a row per place, a column per day, and each
-            cell a four-block sparkline of the night. Same
+            cell two block glyphs, one per half-day. Same
             <strong style="color:#1e8449;">AstroScore</strong> (觀星 score) as
             <a href="astro-score_readable.html">astro-score_readable.html</a> &mdash; this page just
-            asks it of every place in the list at once (<span id="placeCount">11</span> rows) and
+            asks it of every place in the list at once (<span id="placeCount">10</span> rows) and
             folds each day's 24 hours into two half-day blocks. The first row, 輸入, is the one that
-            is not a saved spot: 使用目前位置 points it at wherever you are standing. Read it to pick
+            is not a saved spot: it follows the location box below, and 使用目前位置 points it at
+            wherever you are standing. Read it to pick
             <em>where and when</em>, then open the readable grid for the hour-by-hour detail. Four forecast models come back in every request;
             the tabs pick which one the bars are scored from. No API key needed.
         </p>
 
-        <div class="rule">
-            <span class="formula">each cell (每格) = 2 blocks &mdash; 00&ndash;11 &middot; 12&ndash;23
-                <span class="gloss">&nbsp; local time; left = after midnight, right = this evening</span></span>
-            <span class="formula">block = max AstroScore (觀星) over its 12 hours
-                <span class="gloss">&nbsp; the best single hour in it, 0&ndash;100</span></span>
-            <div class="example">
-                <div><b>█</b>  &gt; 90   drop everything and drive</div>
-                <div><b>▆</b>  &gt; 70</div>
-                <div><b>▄</b>  &gt; 50</div>
-                <div><b>▂</b>  &gt; 30</div>
-                <div>   &le; 30   blank &mdash; nothing worth the trip</div>
-                <div><b style="color:#c3ccd5;">&middot;</b>         no forecast &mdash; this model does not reach that far</div>
-            </div>
-        </div>
+        <details class="explain">
+            <summary>how to read the bars (說明)</summary>
 
-        <div class="rule milky">
-            <span class="formula">strip = max (A* alt&deg; &times; AstroScore/100) over the same 12 hours
-                <span class="gloss">&nbsp; MilkyScore &mdash; the sky (觀星) <em>and</em> the subject (銀心)</span></span>
-            <div class="example">
-                <div><b style="color:#3d0f6b;">▀</b>  &gt; 50</div>
-                <div><b style="color:#5b21a3;">▀</b>  &gt; 40</div>
-                <div><b style="color:#8e44ad;">▀</b>  &gt; 30</div>
-                <div><b style="color:#bd8fd6;">▀</b>  &gt; 20</div>
-                <div>   &le; 20   blank &mdash; core too low, or the sky too poor</div>
+            <div class="rule">
+                <span class="formula">each cell (每格) = 2 blocks &mdash; 00&ndash;11 &middot; 12&ndash;23
+                    <span class="gloss">&nbsp; local time; left = after midnight, right = this evening</span></span>
+                <span class="formula">block = max AstroScore (觀星) over its 12 hours
+                    <span class="gloss">&nbsp; the best single hour in it, 0&ndash;100</span></span>
+                <div class="example">
+                    <div><b>█</b>  &gt; 90   drop everything and drive</div>
+                    <div><b>▆</b>  &gt; 70</div>
+                    <div><b>▄</b>  &gt; 50</div>
+                    <div><b>▂</b>  &gt; 30</div>
+                    <div>   &le; 30   blank &mdash; nothing worth the trip</div>
+                    <div><b style="color:#c3ccd5;">&middot;</b>         no forecast &mdash; this model does not reach that far</div>
+                </div>
             </div>
-            <ul>
-                <li>AstroScore (觀星) says the sky is dark, moonless and clear but knows nothing about where
-                    <b>A*</b> is; the core's altitude says the subject is up but knows nothing about
-                    the sky. Only both at once colour the strip, so a green bar with no purple under
-                    it is a fine night with the core down.</li>
-                <li>It is in <b>degrees</b>, so its ceiling is the core's own transit altitude
-                    &mdash; ~35.8&deg; at the northernmost saved spot (大武崙砲台) to ~39.1&deg; at the
-                    southernmost (龍磐公園) over Taiwan. The top two shades
-                    belong to lower latitudes.</li>
-            </ul>
-        </div>
 
-        <div class="rule notes">
-            <ul>
-                <li>Each block is half a day, so each holds exactly one dark stretch: the small hours
-                    fall in 00&ndash;11 and the evening in 12&ndash;23, while their daylight halves
-                    score 0 and cannot touch a maximum.</li>
-                <li><b>A night straddles midnight, so it reads across two cells</b> &mdash; the right
-                    glyph of one day (that evening) and the left glyph of the next (its small hours).
-                    <b>█</b> on the right of 08/18 next to <b>█</b> on the left of 08/19 is
-                    <em>one</em> clear night. A single cell showing <b>██</b> is instead the tail of
-                    the night just gone beside the head of the one coming.</li>
-                <li>The <b>best</b> hour, not a total or an average &mdash; one clear hour is worth
-                    the drive even when the rest of the night clouds over, and a sum would average it
-                    away. It also means a bar says nothing about <em>how long</em> the window lasts:
-                    open the readable grid for that.</li>
-                <li><b>Hide past days (從今天開始)</b> drops whole days before today; it never shortens a day it
-                    shows. Today's column always covers the full 24 hours, hours already gone
-                    included, so a block does not shrink as the afternoon wears on. Untick it to
-                    bring back whatever <code>past_days</code> asked for. Hover any cell for the
-                    exact sums.</li>
-                <li>The score itself is <code>(100 &minus; Cloud) &times; (100 &minus; MoonPenalty) / 100</code>,
-                    zeroed while the sun is above &minus;10&deg;, MoonPenalty (月亮扣分) ramping 0 &rarr; 100 as the
-                    moon climbs 0&deg; &rarr; 10&deg;. Sun and moon are computed in the page. See
-                    <a href="astro-score_readable.html">astro-score_readable.html</a> for the worked
-                    examples.</li>
-                <li><b>The models do not all reach 16 days out</b>, and here that reads as a blank,
-                    not a dash: <code>icon_global</code> stops after about 7.5 days,
-                    <code>jma_seamless</code> after 11 and <code>ecmwf_ifs025</code> after 15, while
-                    <code>gfs_global</code> fills all 16. Beyond its own horizon a model returns
-                    nothing and no hour is scored, which is <em>not</em> the same answer as a
-                    hopeless night &mdash; so those blocks draw a faint <b>&middot;</b> rather than
-                    the blank a washed-out sky gets. Expect a field of them at the right end of the
-                    grid; hover for the <code>(0/12 hr)</code> count behind it.</li>
-                <li><b>Cloud (雲量) comes from one model at a time</b>, picked with the cloud source
-                    (雲量來源) tabs above the
-                    grid. All four are fetched in the same request, so switching is instant and costs
-                    nothing &mdash; and disagreement between them <em>is</em> information: where
-                    <code>jma</code> and <code>icon</code> tell the same story the forecast is worth
-                    trusting, and where they do not, it is not. The default is
-                    <code>icon_global</code>; <code>jma_seamless</code> is the one to switch to for a
-                    spot in the Central Range, being the only one of the four with a ~5 km regional
-                    nest over Taiwan rather than an 11&ndash;25 km global grid.</li>
-            </ul>
-        </div>
+            <div class="rule milky">
+                <span class="formula">strip = max (A* alt&deg; &times; AstroScore/100) over the same 12 hours
+                    <span class="gloss">&nbsp; MilkyScore &mdash; the sky (觀星) <em>and</em> the subject (銀心)</span></span>
+                <div class="example">
+                    <div><b style="color:#3d0f6b;">▀</b>  &gt; 50</div>
+                    <div><b style="color:#5b21a3;">▀</b>  &gt; 40</div>
+                    <div><b style="color:#8e44ad;">▀</b>  &gt; 30</div>
+                    <div><b style="color:#bd8fd6;">▀</b>  &gt; 20</div>
+                    <div>   &le; 20   blank &mdash; core too low, or the sky too poor</div>
+                </div>
+                <ul>
+                    <li>AstroScore (觀星) says the sky is dark, moonless and clear but knows nothing about where
+                        <b>A*</b> is; the core's altitude says the subject is up but knows nothing about
+                        the sky. Only both at once colour the strip, so a green bar with no purple under
+                        it is a fine night with the core down.</li>
+                    <li>It is in <b>degrees</b>, so its ceiling is the core's own transit altitude
+                        &mdash; ~35.8&deg; at the northernmost saved spot (大武崙砲台) to ~39.1&deg; at the
+                        southernmost (龍磐公園) over Taiwan. The top two shades
+                        belong to lower latitudes.</li>
+                </ul>
+            </div>
+
+            <div class="rule notes">
+                <ul>
+                    <li>Each block is half a day, so each holds exactly one dark stretch: the small hours
+                        fall in 00&ndash;11 and the evening in 12&ndash;23, while their daylight halves
+                        score 0 and cannot touch a maximum.</li>
+                    <li><b>A night straddles midnight, so it reads across two cells</b> &mdash; the right
+                        glyph of one day (that evening) and the left glyph of the next (its small hours).
+                        <b>█</b> on the right of 08/18 next to <b>█</b> on the left of 08/19 is
+                        <em>one</em> clear night. A single cell showing <b>██</b> is instead the tail of
+                        the night just gone beside the head of the one coming.</li>
+                    <li>The <b>best</b> hour, not a total or an average &mdash; one clear hour is worth
+                        the drive even when the rest of the night clouds over, and a sum would average it
+                        away. It also means a bar says nothing about <em>how long</em> the window lasts:
+                        open the readable grid for that.</li>
+                    <li><b>Hide past days (從今天開始)</b> is <b>off</b> to start with, so the week
+                        <code>past_days</code> asked for is on screen from the first Fetch: a forecast
+                        beside what the sky actually did, with a heavier rule marking today. Tick it to
+                        drop those days. It drops whole days only, and never shortens a day it
+                        shows &mdash; today's column always covers the full 24 hours, hours already gone
+                        included, so a block does not shrink as the afternoon wears on. Hover any cell for the
+                        exact sums.</li>
+                    <li>The score itself is <code>(100 &minus; Cloud) &times; (100 &minus; MoonPenalty) / 100</code>,
+                        zeroed while the sun is above &minus;10&deg;, MoonPenalty (月亮扣分) ramping 0 &rarr; 100 as the
+                        moon climbs 0&deg; &rarr; 10&deg;. Sun and moon are computed in the page. See
+                        <a href="astro-score_readable.html">astro-score_readable.html</a> for the worked
+                        examples.</li>
+                    <li><b>The models do not all reach 16 days out</b>, and here that reads as a blank,
+                        not a dash: <code>icon_global</code> stops after about 7.5 days,
+                        <code>jma_seamless</code> after 11 and <code>ecmwf_ifs025</code> after 15, while
+                        <code>gfs_global</code> fills all 16. Beyond its own horizon a model returns
+                        nothing and no hour is scored, which is <em>not</em> the same answer as a
+                        hopeless night &mdash; so those blocks draw a faint <b>&middot;</b> rather than
+                        the blank a washed-out sky gets. Expect a field of them at the right end of the
+                        grid; hover for the <code>(0/12 hr)</code> count behind it.</li>
+                    <li><b>Cloud (雲量) comes from one model at a time</b>, picked with the cloud source
+                        (雲量來源) tabs above the
+                        grid. All four are fetched in the same request, so switching is instant and costs
+                        nothing &mdash; and disagreement between them <em>is</em> information: where
+                        <code>jma</code> and <code>icon</code> tell the same story the forecast is worth
+                        trusting, and where they do not, it is not. The default is
+                        <code>icon_global</code>; <code>jma_seamless</code> is the one to switch to for a
+                        spot in the Central Range, being the only one of the four with a ~5 km regional
+                        nest over Taiwan rather than an 11&ndash;25 km global grid.</li>
+                </ul>
+            </div>
+        </details>
 
         <form id="form">
             <div class="grid">
@@ -457,17 +486,24 @@
                     <input id="forecast_days" name="forecast_days" value="16" spellcheck="false">
                 </div>
                 <div class="field wide">
-                    <label for="extra">extra params <span class="hint">one <code>key=value</code> per line; empty value drops a parameter. <code>past_days</code> adds columns to the <em>left</em> of today &mdash; untick 從今天開始 to show them. It takes 0&ndash;93, but the models only keep about 61 days of history</span></label>
+                    <label for="extra">extra params <span class="hint">one <code>key=value</code> per line; empty value drops a parameter. <code>past_days</code> adds columns to the <em>left</em> of today, shown by default &mdash; tick 從今天開始 to hide them. It takes 0&ndash;93, but the models only keep about 61 days of history</span></label>
                     <textarea id="extra" name="extra" rows="2" spellcheck="false" placeholder="forecast_hours=24"></textarea>
+                </div>
+                <div class="field wide">
+                    <label for="location">location <span class="hint">lat,lon &mdash; the <strong>輸入</strong> row only; every other row is a saved spot. 使用目前位置 fills it from the device</span></label>
+                    <div class="locrow">
+                        <label class="locname" for="location">輸入:</label>
+                        <input id="location" name="location" spellcheck="false">
+                        <button type="button" class="secondary" id="geo" title="device GPS → the 輸入 row">📍 使用目前位置</button>
+                        <span class="geonote" id="geonote"></span>
+                    </div>
                 </div>
             </div>
 
             <div class="actions">
                 <button type="submit" id="submit">Fetch</button>
                 <button type="button" class="secondary" id="reset">Reset defaults</button>
-                <button type="button" class="secondary" id="geo" title="device GPS → the 輸入 row">📍 使用目前位置</button>
-                <span class="geonote" id="geonote"></span>
-                <label class="check"><input type="checkbox" id="hidePast" checked> 從今天開始 (hide past days)</label>
+                <label class="check"><input type="checkbox" id="hidePast"> 從今天開始 (hide past days)</label>
             </div>
         </form>
 
@@ -504,10 +540,11 @@ const FORECAST_URL = "https://api.open-meteo.com/v1/forecast";
 
 // PLACES -- the saved spots -- comes from ../places.js, loaded just above. On the
 // other pages it fills buttons beside a location box; here it IS the row list, so
-// adding a spot there adds a row here. That is also how this page gets a "here"
-// row with no location box: PLACES[0] is 輸入, the one entry that is not a saved
-// spot, and 使用目前位置 moves it. DEFAULT_LAT/DEFAULT_LON from that file are
-// unused on this page: nothing picks a single place.
+// adding a spot there adds a row here. PLACES[0] is 輸入, the one entry that is
+// not a saved spot: it is the single row this page's location box edits, and what
+// 使用目前位置 points at the device. DEFAULT_LAT/DEFAULT_LON are what that box
+// falls back to when it is empty -- there are no place buttons here, because the
+// rows are the places already.
 // 16 days: Open-Meteo's maximum, matching astro-score_readable.html. It is a
 // column per day here, so 16 is the width of the grid rather than a scroll depth.
 //
@@ -525,7 +562,7 @@ const DEFAULT_DAYS = 16;
 // carries for exactly that reason, would be one response per place of data nothing
 // on screen draws. One variable puts a response at ~9.0 KB / 384 hours for a single
 // model and ~13.3 KB for all four; with the prefilled past_days=7 that is ~18.6 KB
-// a place, so a round of the eleven rows is ~209 KB.
+// a place, so a round of the ten rows places.js holds is ~189 KB.
 const HOURLY_VARS = ["cloud_cover"];
 
 // All four models, as milkyway.py and the open_meteo/ pages ask for -- keep the
@@ -557,10 +594,10 @@ const DEFAULT_MODEL = "icon_global";
 //
 // past_days= extends the series backwards, which on this grid means extra columns
 // to the LEFT of today -- the week just gone, for checking a forecast against what
-// the sky actually did. They are hidden until 從今天開始 is unticked, so the
-// default view is unchanged by this line and only the response size shows it:
-// each past day is another ~770 bytes per place across four models, taking a
-// eleven-row round from ~151 KB to ~209 KB.
+// the sky actually did. 從今天開始 starts UNTICKED here, so those columns are on
+// screen from the first Fetch and this line is visible in the grid rather than only
+// in the response size: each past day is another ~770 bytes per place across four
+// models, taking a ten-row round from ~135 KB to ~189 KB.
 const DEFAULT_EXTRA = [
     "past_days=7",
 ].join("\n");
@@ -636,13 +673,74 @@ async function fetchForecast(params, timeoutMs = 30000) {
     };
 }
 
+/** BigDataCloud's reverse geocoder: keyless, CORS-enabled, free client-side. */
+const GEOCODE_URL = "https://api.bigdatacloud.net/data/reverse-geocode-client";
+const geocodeCache = new Map();
+
+/**
+ * Turn a lat,lon into a readable place name for the meta line, e.g.
+ * 中華民國/宜蘭縣/南澳鄉/蘇澳鎮 -- countryName, principalSubdivision, city and
+ * locality, in that order. Byte-for-byte the same function as
+ * astro-score_readable.html's; change one and change the other.
+ *
+ * The coordinates are the requested ones, not the response's: Open-Meteo answers
+ * with the nearest grid point (24.625, 121.75 for a spot at 24.5145, 121.8277),
+ * which is up to ~6 km away and can sit in a different township. Sparse areas
+ * and open water leave some of the four fields empty, and the last two can
+ * repeat each other, so blanks and duplicates are dropped rather than shown.
+ *
+ * This is a label, never data: any failure resolves to "" and the meta line is
+ * left exactly as the forecast wrote it.
+ */
+async function reverseGeocode(lat, lon, timeoutMs = 10000) {
+    const key = `${lat},${lon}`;
+    if (geocodeCache.has(key)) return geocodeCache.get(key);
+
+    const url = `${GEOCODE_URL}?latitude=${encodeURIComponent(lat)}` +
+        `&longitude=${encodeURIComponent(lon)}&localityLanguage=zh`;
+    let name = "";
+    try {
+        const resp = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+        if (resp.ok) {
+            const body = await resp.json();
+            name = [body.countryName, body.principalSubdivision, body.city, body.locality]
+                .filter((part, i, all) => part && all.indexOf(part) === i)
+                .join("/");
+        }
+    } catch {
+        // Timed out or offline. The forecast itself is unaffected, so stay quiet.
+    }
+    geocodeCache.set(key, name);
+    return name;
+}
+
+/**
+ * Name the 輸入 row, and only that row: the saved spots carry names already, and
+ * a lookup per row would spend all but one of them relabelling rows that carry a
+ * third-party service.
+ *
+ * Deferred and never awaited, like astro-score_readable.html's appendPlaceName()
+ * and like loadLightPollution() there -- a grid of forecasts must not wait on a label.
+ * Where that page appends to the meta line, this one stores the name and re-renders
+ * it: setMeta() runs again on every tab click, which would wipe an appended node.
+ * The guard is the same idea as the light-pollution one: a lookup for a coordinate
+ * that is no longer 輸入 is dropped rather than shown under a newer one.
+ */
+function loadInputPlaceName(lat, lon) {
+    reverseGeocode(lat, lon).then((name) => {
+        if (!name || PLACES[0][1] !== lat || PLACES[0][2] !== lon) return;
+        inputPlaceName = name;
+        setMeta();
+    });
+}
+
 // How many of the per-place requests may be in flight at once.
 //
 // Open-Meteo answers a burst with HTTP 429 and the body {"reason": "Too many
 // concurrent requests"}. Firing every place at once survives a cold limiter but
 // not a warm one -- a dozen places x four models, a second Fetch click, or a page
 // already refreshed a few times, and rows start coming back 429 instead of
-// forecast. A pool of four costs nothing measurable (eleven rows in ~1.3s against
+// forecast. A pool of four costs nothing measurable (ten rows in ~1.4s against
 // ~0.4s unbounded) and takes the failure mode off the table.
 const FETCH_POOL = 4;
 
@@ -672,11 +770,31 @@ async function settledPool(items, limit, fn) {
 }
 
 /**
- * The one remaining form field, applied to one spot's parameters.
+ * The location box, which on this page edits exactly one row: 輸入, PLACES[0],
+ * the one entry that is not a saved spot. Same parse and same message as the
+ * other pages' paramsFromForm(), but it returns coordinates rather than request
+ * parameters -- there is a request per row here, and this names one of them.
  *
- * The other pages read a location out of a box here too; this one takes it from
- * PLACES instead, so lat/lon are arguments rather than parsed input. An empty
- * field drops the key entirely and lets the API default it, as elsewhere.
+ * Empty falls back to what places.js says, like everywhere else.
+ */
+function inputPlaceFromForm() {
+    const loc = document.getElementById("location").value.trim();
+    if (!loc) return [DEFAULT_LAT, DEFAULT_LON];
+    const [latS, lonS] = loc.split(",");
+    const lat = Number(latS), lon = Number(lonS);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+        throw new Error(`Bad location "${loc}": expected "lat,lon"`);
+    }
+    return [lat, lon];
+}
+
+/**
+ * The form fields other than the location, applied to one spot's parameters.
+ *
+ * The other pages parse a location in here as well and return one request; this
+ * page draws a row per PLACES entry, so lat/lon are arguments and the box is read
+ * once, separately, by inputPlaceFromForm(). An empty field drops the key entirely
+ * and lets the API default it, as elsewhere.
  */
 function paramsFor(lat, lon) {
     const overrides = {};
@@ -1271,6 +1389,7 @@ function buildTable(results, hidePast) {
 let lastResults = null;   // the array buildTable() takes, from the most recent fetch
 let lastStats = null;    // {seconds, bytes} of that fetch, for the meta line
 let activeModel = DEFAULT_MODEL;   // which model the bars are scored from
+let inputPlaceName = "";   // 輸入's reverse-geocoded name, "" until it lands (or fails)
 
 /**
  * One tab per model in the response, switching which model the grid scores.
@@ -1317,8 +1436,13 @@ function renderGrid() {
 }
 
 /**
- * The request summary. Split out of the submit handler because a tab click
- * changes which model is scored without refetching, and the line names it.
+ * The request summary, plus 輸入's place name under it once the lookup lands.
+ *
+ * Split out of the submit handler because a tab click changes which model is
+ * scored without refetching, and the line names it -- which is also why the name
+ * is re-rendered from inputPlaceName here rather than appended to the element the
+ * way astro-score_readable.html does it: an appended node would not survive the
+ * next tab click.
  */
 function setMeta() {
     if (!lastResults || !lastStats) return;
@@ -1333,6 +1457,12 @@ function setMeta() {
         `— ${ok[0].body.timezone} (${ok[0].body.timezone_abbreviation}), ` +
         `scoring ${activeModel} of ${modelsFromParams(ok[0].params).length || 1}` +
         (failed ? `  — ${failed} failed, see the rows` : "");
+    if (inputPlaceName) {
+        // A <br>, not a "\n": .meta wraps normally, so a newline character in the
+        // text would come out as an ordinary space.
+        meta.appendChild(document.createElement("br"));
+        meta.appendChild(document.createTextNode(`${PLACES[0][0]}: ${inputPlaceName}`));
+    }
 }
 
 function showError(message) {
@@ -1367,21 +1497,20 @@ function setUrls(results) {
 function resetDefaults() {
     document.getElementById("forecast_days").value = String(DEFAULT_DAYS);
     document.getElementById("extra").value = DEFAULT_EXTRA;
+    document.getElementById("location").value = `${DEFAULT_LAT},${DEFAULT_LON}`;
 }
 
 /**
- * 使用目前位置 (use current position): point 輸入 -- PLACES[0], the one entry that
- * is not a saved spot -- at the device's own coordinates, then refetch every row.
+ * 使用目前位置 (use current position): the device's own coordinates into the
+ * location box, then refetch -- the submit handler is what copies the box into
+ * 輸入 (PLACES[0], the one entry that is not a saved spot), so this writes in one
+ * place and the typed and located routes stay identical.
  *
- * This is why 輸入 lives in places.js rather than in a location box: this page has
- * no box to put one in, and does not want one (its rows ARE the places). Moving
- * the shared entry gives it a "here" row without reopening that question. The new
- * coordinates land in the row's own label; the note beside the button repeats them
- * with the accuracy the device claimed, since there is no box to show them in.
+ * The note keeps the accuracy the device claimed, which the box has no room for.
  *
  * Geolocation is a secure-context API, which makes this the one control here that
  * cannot work over file://. It fails as an ordinary rejection, and the reason is
- * printed beside the button rather than thrown, leaving the grid alone.
+ * printed beside the button rather than thrown, leaving the box and the grid alone.
  */
 async function useCurrentPosition() {
     const button = document.getElementById("geo");
@@ -1391,8 +1520,8 @@ async function useCurrentPosition() {
     note.textContent = "定位中...";
     try {
         const { lat, lon, accuracy } = await currentPosition();
-        setInputPlace(lat, lon);
-        note.textContent = `輸入 = ${lat},${lon}  ±${Math.round(accuracy)} m`;
+        document.getElementById("location").value = `${lat},${lon}`;
+        note.textContent = `±${Math.round(accuracy)} m`;
         document.getElementById("form").requestSubmit();
     } catch (err) {
         note.classList.add("error");
@@ -1413,6 +1542,10 @@ document.getElementById("form").addEventListener("submit", async (event) => {
     // leaves the button usable for the corrected retry.
     let requests;
     try {
+        // 輸入 is a row, so the box has to land in PLACES[0] before the rows are
+        // read -- and inside this try, so a malformed coordinate reports itself
+        // with nothing sent, exactly like a malformed extra param.
+        setInputPlace(...inputPlaceFromForm());
         requests = PLACES.map(([, lat, lon]) => paramsFor(lat, lon));
     } catch (err) {
         showError(err.message);
@@ -1424,6 +1557,13 @@ document.getElementById("form").addEventListener("submit", async (event) => {
     document.getElementById("meta").textContent =
         `fetching ${PLACES.length} places, ${FETCH_POOL} at a time...`;
     document.getElementById("meta").classList.remove("error");
+
+    // The 輸入 label for the line the forecast is about to write. Fired here and
+    // never awaited: it is a third-party lookup for one row's name, and ten
+    // forecasts must not wait on it. Cleared first so a moved 輸入 never shows the
+    // old township while the new name is in flight.
+    inputPlaceName = "";
+    loadInputPlaceName(PLACES[0][1], PLACES[0][2]);
 
     const started = performance.now();
     // One independent GET per place against a keyless endpoint, FETCH_POOL of them

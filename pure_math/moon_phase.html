@@ -59,9 +59,15 @@
         input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 
         /* time: the box beside its "now" button, the same shape the location row
-           below uses for its saved spots. */
+           below uses for its saved spots -- but sized by the control rather than
+           to a number of pixels. <input type="datetime-local"> renders its value
+           in the browser's own locale and adds a picker glyph, so its width is not
+           ours to guess: zh-TW draws "2026/08/22 上午08:30", two of those
+           characters double-width, and the 200px the location box uses clipped it.
+           width:auto lets the UA size the field to whatever it is about to draw,
+           in any locale; min-width keeps it in line with the box below. */
         .timerow { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-        .timerow input { width: 200px; flex: 0 0 auto; }
+        .timerow input { width: auto; min-width: 200px; flex: 0 0 auto; }
 
         /* location: a box just wide enough for "25.070602,121.592399", with
            使用目前位置 beside it and the saved spots wrapped onto a line of their
