@@ -561,8 +561,8 @@ const DEFAULT_DAYS = 16;
 // numbers a human reads directly -- 降雨/氣溫, which astro-score_readable.html
 // carries for exactly that reason, would be one response per place of data nothing
 // on screen draws. One variable puts a response at ~9.0 KB / 384 hours for a single
-// model and ~13.3 KB for all four; with the prefilled past_days=7 that is ~18.6 KB
-// a place, so a round of the ten rows places.js holds is ~189 KB.
+// model and ~12.9 KB for all four; with the prefilled past_days=7 that is ~18.2 KB
+// a place, so a round of the eleven rows places.js holds is ~202 KB.
 const HOURLY_VARS = ["cloud_cover"];
 
 // All four models, as milkyway.py and the open_meteo/ pages ask for -- keep the
@@ -573,7 +573,7 @@ const HOURLY_VARS = ["cloud_cover"];
 // The grid scores ONE of them at a time, picked by the tabs above it; the other
 // three are fetched so the comparison costs no extra round trip, and so a future
 // formula can average them or read their spread as confidence the way
-// milkyway.py's 信心 column does. Four models of one variable is ~13.3 KB a place
+// milkyway.py's 信心 column does. Four models of one variable is ~12.9 KB a place
 // against ~9.0 KB for one -- the timestamps dominate either way -- which is why
 // fetching all four to show one is cheap enough to be the default.
 const MODELS = ["icon_global", "jma_seamless", "gfs_global", "ecmwf_ifs025"];
@@ -597,7 +597,7 @@ const DEFAULT_MODEL = "icon_global";
 // the sky actually did. 從今天開始 starts UNTICKED here, so those columns are on
 // screen from the first Fetch and this line is visible in the grid rather than only
 // in the response size: each past day is another ~770 bytes per place across four
-// models, taking a ten-row round from ~135 KB to ~189 KB.
+// models, taking an eleven-row round from ~142 KB to ~202 KB.
 const DEFAULT_EXTRA = [
     "past_days=7",
 ].join("\n");
@@ -740,7 +740,7 @@ function loadInputPlaceName(lat, lon) {
 // concurrent requests"}. Firing every place at once survives a cold limiter but
 // not a warm one -- a dozen places x four models, a second Fetch click, or a page
 // already refreshed a few times, and rows start coming back 429 instead of
-// forecast. A pool of four costs nothing measurable (ten rows in ~1.4s against
+// forecast. A pool of four costs nothing measurable (eleven rows in ~1.4s against
 // ~0.4s unbounded) and takes the failure mode off the table.
 const FETCH_POOL = 4;
 

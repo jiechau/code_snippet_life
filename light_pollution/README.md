@@ -73,7 +73,7 @@ Taiwan occupy. Read the SQM; Bortle is there because people speak it.
 
 The atlas is published annually and old years stay put, so the same point can be
 read from 2016, 2020, 2022, 2023, 2024 or 2025. That turns a snapshot into a
-trend, and it is the quickest way to see a site being lost. 合歡山 暗空公園,
+trend, and it is the quickest way to see a site being lost. 合歡山,
 Taiwan's certified dark-sky park:
 
 | atlas | SQM | artificial glow | LP Zone | Bortle |

@@ -544,7 +544,7 @@ Three derivations, with very different standing — do not blur them:
   because both ladders descend from the same round ratio steps. That also locates the loss —
   **Bortle 4 swallows zones 3a, 3b, 4a and 4b whole** (21.69 → 20.49), the entire dark-site
   range, which is why most decent sites in Taiwan read "4" while LP Zone still separates them
-  (暗空公園 `3b` vs 柚子湖 `3a`). Keep Bortle *under* SQM, never instead of it.
+  (合歡山 `3b` vs 柚子湖 `3a`). Keep Bortle *under* SQM, never instead of it.
 
 **The tiles are gzip files, not gzip-encoded responses**, so the browser will not unwrap
 them — Lorenz's own viewer pulls in `pako` for this. We use **`DecompressionStream("gzip")`**,
@@ -653,7 +653,7 @@ a malformed line reports itself with nothing sent — and, last and directly abo
 a **location** box. `past_days` on a day grid means extra
 columns to the **left** of today, on screen by default since 從今天開始 starts unticked
 here. Each past day is
-~770 bytes per place across four models, taking a ten-row round from ~135 KB to ~189 KB.
+~770 bytes per place across four models, taking an eleven-row round from ~142 KB to ~202 KB.
 `timezone` is not a field here either — every row carries its own coordinates — but
 `timezone=auto` is still sent, and the extra-params box overriding it is what moves the
 today column (see `localToday()`).
@@ -664,15 +664,15 @@ exactly one row, which shows the API's own reason in place of its glyphs. **The 
 load-bearing, not tidiness:** Open-Meteo answers a burst with HTTP 429 `Too many concurrent
 requests`, and a dozen places × four models fired at once trips it on a warm limiter (a
 second Fetch click, a few reloads) while passing on a cold one — an intermittent failure
-that looks like flaky rows. Ten rows take ~1.4s pooled against ~0.4s unbounded. Don't
+that looks like flaky rows. Eleven rows take ~1.4s pooled against ~0.4s unbounded. Don't
 "simplify" it back to `Promise.allSettled`.
 
 It asks for `cloud_cover` alone — `astroScore()` reads nothing else and the page displays
 no number a human reads directly, so the 降雨/氣溫 that `astro-score_readable.html` carries
 for exactly that reason would be one response of undrawn data per place. At the 16-day
-default each response is ~9.0 KB / 384 hours for a single model and ~13.3 KB for all four;
-with the prefilled `past_days=7` that is ~18.9 KB a place, so at the ten rows
-`places.js` currently holds a round is **~189 KB**.
+default each response is ~9.0 KB / 384 hours for a single model and ~12.9 KB for all four;
+with the prefilled `past_days=7` that is ~18.2 KB a place, so at the eleven rows
+`places.js` currently holds a round is **~202 KB**.
 **The count follows `places.js`** — it was seven when this page was written, so treat any
 figure here as "per place × however many rows the file holds".
 
@@ -791,7 +791,7 @@ Two things this page has that `astro-score_readable.html` does not:
 
 - **Year buttons** (`LP_YEARS`, newest first, default `LP_YEARS[0]`). The atlas is
   published annually and old years stay put, so the same point can be read from 2016
-  through 2025 — a snapshot becomes a trend. 合歡山 暗空公園 goes SQM 21.51 → 21.37 and
+  through 2025 — a snapshot becomes a trend. 合歡山 goes SQM 21.51 → 21.37 and
   artificial glow 0.57× → 0.78× natural over that span, crossing LP Zone 3a → 3b while
   **Bortle reads "4" for every single year** — the clearest demonstration in the repo of
   why the Bortle row is drawn under the SQM one.
