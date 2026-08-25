@@ -56,7 +56,7 @@
         .field.wide { grid-column: 1 / -1; }
         label { font-size: 0.8rem; font-weight: 600; margin-bottom: 5px; }
         label .hint { font-weight: 400; color: var(--muted); }
-        input, select {
+        input {
             font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
             font-size: 0.85rem;
             padding: 8px 10px;
@@ -65,8 +65,26 @@
             background: #fbfcfd;
             color: var(--fg);
         }
-        input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
-        .field.hidden { display: none; }
+        input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+        /* The 記住 row: same .keyrow/.toggle/.geonote block as the cwa_opendata
+           pages, minus their `.keyrow input` rule -- there the row holds the key
+           box itself, here it holds only the checkbox and its status. */
+        .keyrow { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+        .toggle {
+            font-size: 0.8rem;
+            color: var(--muted);
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .toggle input { width: auto; flex: 0 0 auto; }
+        /* The remembered-settings status, beside the checkbox rather than in the
+           result area -- same .geonote the coordinate pages print a GPS accuracy in. */
+        .geonote { font-size: 0.8rem; color: var(--muted); }
+        .geonote.error { color: var(--err); }
 
         .actions { margin-top: 18px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
         button {
@@ -123,11 +141,15 @@
             article URL. Only the URL is resolved &mdash; no article content is read.
         </p>
         <p class="warn">
-            <strong>Needs a CORS proxy.</strong> <code>news.google.com</code> sends no
+            <strong>Needs your own CORS proxy.</strong> <code>news.google.com</code> sends no
             <code>Access-Control-Allow-Origin</code>, so the browser cannot call it directly &mdash; every request
-            below goes through the proxy you pick. Resolving one link means downloading its Google News article
-            page (~570&nbsp;KB) to scrape the signature, so 20 links pull ~12&nbsp;MB through that proxy. Public
-            proxies are flaky and rate-limited; if rows fail, try another one or lower the count.
+            below goes through the proxy you fill in. It must <strong>forward POST</strong> as well as GET: the
+            feed and the article pages are GETs, but the <code>batchexecute</code> resolve is a POST, and Google
+            answers <code>405</code> to a GET there. Resolving one link means downloading its Google News article
+            page (~570&nbsp;KB) to scrape the signature, so 20 links pull ~12&nbsp;MB through that proxy.
+            The three proxy fields are held for the request and nothing else, unless you tick
+            <b>記住 proxy 設定</b> &mdash; then all three, the password included, are kept in this browser's
+            <code>localStorage</code> until you untick it. Nothing is ever sent anywhere but the proxy itself.
         </p>
 
         <form id="form">
@@ -145,12 +167,22 @@
                     <input id="concurrency" name="concurrency" type="number" min="1" max="12" value="6">
                 </div>
                 <div class="field wide">
-                    <label for="proxy">CORS proxy</label>
-                    <select id="proxy" name="proxy"></select>
+                    <label for="proxy">CORS proxy <span class="hint">用 <code>{url}</code> 代表編碼後的網址、<code>{raw}</code> 代表原樣網址；都沒有就直接接在後面</span></label>
+                    <input id="proxy" name="proxy" value="" spellcheck="false" autocomplete="off" placeholder="https://your-proxy.example.com/proxy?url={url}">
                 </div>
-                <div class="field wide hidden" id="customField">
-                    <label for="custom">自訂 proxy <span class="hint">用 <code>{url}</code> 代表編碼後的網址、<code>{raw}</code> 代表原樣網址；都沒有就直接接在後面</span></label>
-                    <input id="custom" name="custom" value="" spellcheck="false" placeholder="https://your-worker.workers.dev/?{raw}">
+                <div class="field">
+                    <label for="user">帳號 <span class="hint">basic auth，沒有就留空</span></label>
+                    <input id="user" name="user" value="" spellcheck="false" autocomplete="off">
+                </div>
+                <div class="field">
+                    <label for="pass">密碼 <span class="hint">basic auth，沒有就留空</span></label>
+                    <input id="pass" name="pass" type="password" value="" autocomplete="off">
+                </div>
+                <div class="field wide">
+                    <div class="keyrow">
+                        <label class="toggle"><input type="checkbox" id="remember"> 記住 proxy 設定 (remember)</label>
+                        <span class="geonote" id="keynote"></span>
+                    </div>
                 </div>
             </div>
             <div class="actions">
@@ -177,21 +209,20 @@
 
 <script>
 // ---------------------------------------------------------------------------
-// CORS proxies. Each takes the upstream URL and returns the URL to fetch instead.
-// The same proxy carries both the GET of the article page and the POST to the
-// batchexecute RPC, so one that drops POST bodies will fail at the resolve step.
+// The CORS proxy is yours: a URL template typed into the form, optionally behind
+// HTTP basic auth. The same proxy carries both the GET of the article page and
+// the POST to the batchexecute RPC — Google's RPC answers 405 to a GET — so a
+// proxy that is GET-only, or that drops POST bodies, gets through step 1 and
+// then fails the whole resolve step.
+//
+// Basic auth is sent as an Authorization header, which makes every request a
+// preflighted one. The proxy therefore has to answer OPTIONS *without* auth
+// (browsers preflight anonymously) and list POST in Access-Control-Allow-Methods
+// and Authorization in Access-Control-Allow-Headers. If POST is missing there
+// the POST never leaves the browser, and fetch() rejects with a bare TypeError
+// rather than a status — which is why a blocked preflight reads as a network
+// error here and not as an HTTP 405.
 // ---------------------------------------------------------------------------
-const PROXIES = [
-    { id: "corslol",     label: "api.cors.lol",          build: u => "https://api.cors.lol/?url=" + encodeURIComponent(u) },
-    { id: "allorigins",  label: "api.allorigins.win",    build: u => "https://api.allorigins.win/raw?url=" + encodeURIComponent(u) },
-    { id: "codetabs",    label: "api.codetabs.com",      build: u => "https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(u) },
-    { id: "corsworkers", label: "test.cors.workers.dev", build: u => "https://test.cors.workers.dev/?" + u },
-    { id: "corseu",      label: "cors.eu.org",           build: u => "https://cors.eu.org/" + u },
-    { id: "custom",      label: "自訂…" },
-    // Only useful if something else already removes the cross-origin problem — your own
-    // reverse proxy on this origin, or a browser started with web security disabled.
-    { id: "none",        label: "不用 proxy（直連，一般會被 CORS 擋掉）", build: u => u },
-];
 
 const FEED_BASE = "https://news.google.com/rss/search?hl=zh-TW&gl=TW&ceid=TW:zh-Hant&q=";
 const RPC_URL   = "https://news.google.com/_/DotsSplashUi/data/batchexecute?rpcids=Fbv4je";
@@ -202,39 +233,101 @@ const RPC_CHUNK = 20;   // articles per batchexecute POST
 const TIMEOUT   = 30000;
 
 const $ = id => document.getElementById(id);
-const proxySel = $("proxy"), customField = $("customField"), customInput = $("custom");
+const proxyInput = $("proxy"), userInput = $("user"), passInput = $("pass");
 const form = $("form"), goBtn = $("go"), stopBtn = $("stop");
 const result = $("result"), meta = $("meta"), table = $("table"), tbody = $("tbody");
 
-for (const p of PROXIES) {
-    const o = document.createElement("option");
-    o.value = p.id;
-    o.textContent = p.label;
-    proxySel.appendChild(o);
-}
-proxySel.addEventListener("change", () => {
-    customField.classList.toggle("hidden", proxySel.value !== "custom");
-});
-
 function proxied(url) {
-    if (proxySel.value === "custom") {
-        const tpl = customInput.value.trim();
-        if (!tpl) throw new Error("自訂 proxy 未填");
-        if (tpl.includes("{url}")) return tpl.replaceAll("{url}", encodeURIComponent(url));
-        if (tpl.includes("{raw}")) return tpl.replaceAll("{raw}", url);
-        return tpl + encodeURIComponent(url);
+    const tpl = proxyInput.value.trim();
+    if (!tpl) throw new Error("CORS proxy 未填 — 沒有 proxy 就連不到 news.google.com");
+    if (tpl.includes("{url}")) return tpl.replaceAll("{url}", encodeURIComponent(url));
+    if (tpl.includes("{raw}")) return tpl.replaceAll("{raw}", url);
+    return tpl + encodeURIComponent(url);
+}
+
+// btoa() throws on anything outside Latin-1, so UTF-8 the credentials first — a
+// non-ASCII password is otherwise an unexplained crash before any fetch.
+function authHeader() {
+    const user = userInput.value, pass = passInput.value;
+    if (!user && !pass) return {};
+    const bytes = new TextEncoder().encode(`${user}:${pass}`);
+    return { Authorization: "Basic " + btoa(String.fromCharCode(...bytes)) };
+}
+
+/*
+ * Remembering the proxy settings.
+ *
+ * The same opt-in 記住金鑰 idiom as the cwa_opendata pages, with one difference:
+ * there it is one API key, here it is the three fields as a unit — a proxy URL
+ * without its credentials is no more use than the credentials without the URL,
+ * so they are stored under one entry and travel together.
+ *
+ * Never automatic: 記住 unticked (the default) stores nothing, and unticking it
+ * deletes what was stored immediately. The password is a credential and should
+ * not be squirrelled away because a page happened to be visited — but retyping a
+ * proxy URL and a password on every reload is exactly the friction that makes a
+ * demo not get used, which is the whole reason this exists.
+ *
+ * localStorage is per-origin, so nothing ever leaves the browser and the
+ * published GitHub and GitLab copies remember separately. Every access is
+ * wrapped: Safari throws outright on file://, which the README offers as a way
+ * to run this page, and a browser set to block site data throws on read as well
+ * as write — so the whole feature degrades to "the boxes just start empty"
+ * rather than taking the page down.
+ */
+const PROXY_STORE = "google_news_url_proxy";
+
+function note(message, isError) {
+    const el = $("keynote");
+    el.textContent = message;
+    el.classList.toggle("error", Boolean(isError));
+}
+
+/** Put remembered settings back in the boxes, and tick the box that put them there. */
+function loadStoredProxy() {
+    let saved = null;
+    try {
+        saved = JSON.parse(localStorage.getItem(PROXY_STORE) || "null");
+    } catch {
+        note("this browser is not allowing the proxy settings to be remembered");
+        return;
     }
-    return PROXIES.find(p => p.id === proxySel.value).build(url);
+    if (saved && typeof saved === "object") {
+        proxyInput.value = saved.proxy ?? "";
+        userInput.value = saved.user ?? "";
+        passInput.value = saved.pass ?? "";
+        $("remember").checked = true;
+        note("proxy settings remembered in this browser");
+    }
+}
+
+/** Write the settings if 記住 is ticked, and remove them the moment it is not. */
+function storeProxy() {
+    const remember = $("remember").checked;
+    const proxy = proxyInput.value.trim();
+    try {
+        if (remember && proxy) {
+            localStorage.setItem(PROXY_STORE, JSON.stringify({
+                proxy, user: userInput.value, pass: passInput.value,
+            }));
+            note("proxy settings remembered in this browser");
+        } else {
+            localStorage.removeItem(PROXY_STORE);
+            note(remember ? "" : "not remembered — the boxes empty on reload");
+        }
+    } catch {
+        note("this browser is not allowing the proxy settings to be remembered", true);
+    }
 }
 
 // --- feed ------------------------------------------------------------------
 
 async function fetchFeed(keyword, signal) {
     const url = FEED_BASE + encodeURIComponent(keyword);
-    const res = await fetch(proxied(url), { signal });
-    if (!res.ok) throw new Error(`HTTP ${res.status} 取 RSS feed 失敗（proxy: ${proxySel.value}）— 換一個 proxy 再試`);
+    const res = await fetch(proxied(url), { headers: authHeader(), signal });
+    if (!res.ok) throw new Error(`HTTP ${res.status} 取 RSS feed 失敗 — 檢查 proxy 網址與帳號密碼`);
     const xml = new DOMParser().parseFromString(await res.text(), "application/xml");
-    if (xml.querySelector("parsererror")) throw new Error("回應不是 XML — proxy 可能回了錯誤頁，換一個 proxy 再試");
+    if (xml.querySelector("parsererror")) throw new Error("回應不是 XML — proxy 可能回了錯誤頁或要求登入");
 
     const items = [...xml.getElementsByTagName("item")].map(it => {
         const t = tag => it.getElementsByTagName(tag)[0]?.textContent?.trim() ?? "";
@@ -264,7 +357,7 @@ function extract(html, attr) {
 
 // Step 1: GET the article page for its signature + timestamp + id.
 async function fetchSignature(link, signal) {
-    const res = await fetch(proxied(link + ARTICLE_LOCALE), { signal });
+    const res = await fetch(proxied(link + ARTICLE_LOCALE), { headers: authHeader(), signal });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const html = await res.text();
     return {
@@ -293,11 +386,13 @@ async function resolveBatch(entries, signal) {
     const body = "f.req=" + encodeURIComponent(JSON.stringify([entries]));
     const res = await fetch(proxied(RPC_URL), {
         method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+        headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8", ...authHeader() },
         body,
         signal,
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status} from batchexecute`);
+    if (!res.ok) throw new Error(res.status === 405
+        ? "HTTP 405 — proxy 不接受 POST；batchexecute 只能用 POST"
+        : `HTTP ${res.status} from batchexecute`);
 
     let text = await res.text();
     if (text.startsWith(")]}'")) text = text.slice(text.indexOf("\n") + 1);
@@ -444,6 +539,18 @@ form.addEventListener("submit", async e => {
 });
 
 stopBtn.addEventListener("click", () => controller?.abort());
+
+// Ticking stores what is in the boxes now; unticking deletes it now. Editing any
+// of the three while it is ticked keeps the stored copy in step, so what comes
+// back on reload is what was last used rather than what was first typed.
+$("remember").addEventListener("change", storeProxy);
+for (const el of [proxyInput, userInput, passInput]) {
+    el.addEventListener("input", () => { if ($("remember").checked) storeProxy(); });
+}
+
+loadStoredProxy();
+// No initial requestSubmit(): a first visit has no proxy yet, so it would only
+// report that.
 </script>
 </body>
 </html>

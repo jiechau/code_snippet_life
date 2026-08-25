@@ -74,7 +74,7 @@ produced (`galactic_center.html`).
 | [light_pollution/binary-tile.html](light_pollution/binary-tile.html) | One tile of [David Lorenz's World Atlas](https://djlorenz.github.io/astronomy/lp/), fetched and decoded in the browser: a `lat,lon` and an atlas year in; **SQM**, **Bortle** and **LP Zone** out, with every intermediate and the raw bytes shown. The file holds neither SQM nor Bortle — just one quantised integer per 30-arcsec grid point, delta-encoded — so the page is mostly the decode. Year buttons re-read the same point from 2016–2025, which turns the atlas into a trend. Same code as the `光害` rows of `astro-score_readable.html`. |
 | [cwa_opendata/cwa_sunrise.html](cwa_opendata/cwa_sunrise.html) | `cwa_opendata/cwa_sunrise.py` — a county and a date in, Taiwan CWA's own sunrise / transit / sunset times and azimuths out, plus the length of the day, formatted exactly as the script prints it. **Needs a free API key**, which is a box on the form: a static page has no `CWA_API_KEY` and no `config.yml` to read, and nothing is stored, so it is typed per visit. |
 | [cwa_opendata/cwa_moonrise.html](cwa_opendata/cwa_moonrise.html) | `cwa_opendata/cwa_moonrise.py` — the same, for the moon, which does not keep to a calendar day: it rises ~50 min later each time, so rise, transit and set are fetched over a **three-day** window and stitched into the one cycle that starts on the day you asked for, with borrowed times tagged 昨 or 明. The three records are laid out under the answer with the cells the stitching took highlighted, and a line names which of the six branches fired. Same API-key box. |
-| [google_news_url/google_new_url.html](google_news_url/google_new_url.html) | `google_news_url/google_new_url.py` — search the Google News RSS feed for a keyword, sort by `<pubDate>`, and resolve the newest N redirect links to real article URLs. **Requires a CORS proxy** (picked in the page). |
+| [google_news_url/google_new_url.html](google_news_url/google_new_url.html) | `google_news_url/google_new_url.py` — search the Google News RSS feed for a keyword, sort by `<pubDate>`, and resolve the newest N redirect links to real article URLs. **Requires a CORS proxy of your own** (URL template + optional basic auth, typed into the page; it must forward POST). |
 
 Pages hosting is **static**, so a demo page cannot run the Python; it re-implements
 the snippet in JavaScript and calls the upstream API directly from the browser.
@@ -91,9 +91,13 @@ send `Access-Control-Allow-Origin: *`; its 401 does not, so a wrong key reaches 
 browser as a blocked request rather than a readable status, and both pages say so.)
 `google_news_url` scrapes `news.google.com`, which sends no
 `Access-Control-Allow-Origin` at all, so its page routes every request through a
-user-selected public CORS proxy — that works, but those proxies are flaky and
-rate-limited, so expect some rows to fail. Where a page and a script are two
-implementations of the same snippet, changing one means mirroring the other.
+CORS proxy **you supply** — its URL template plus optional basic auth are three
+fields on the form, held for the request unless you tick 記住 proxy 設定, which
+keeps all three in this browser's `localStorage` (off by default, deleted the
+moment you untick it). It has to forward `POST` as well as `GET`: the resolve step
+is a POST to `batchexecute`, which answers `405` to a GET. The free public proxies
+the page used to offer are gone; none of them worked. Where a page and a script
+are two implementations of the same snippet, changing one means mirroring the other.
 
 Preview locally with any static server:
 

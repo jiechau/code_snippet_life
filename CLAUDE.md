@@ -67,12 +67,14 @@ API key, which a static page cannot hold — no environment variable, no `config
 and a key in the source would be public the moment it is published — so its two pages
 **ask for one in a form field**: typed per visit, stored nowhere (no `localStorage`,
 no cookie), masked in the displayed URL, and sent only to `opendata.cwa.gov.tw`. That
-is what took it off the todo list in `index.html`. It is the only demo here needing a
-credential, and the pattern does not generalise: it works because the key is the
-*user's own*, and because CWA sends `Access-Control-Allow-Origin: *` on a successful
-response. `google_news_url` is
-cross-origin with no CORS headers at all and gets around it with a **user-selected public
-CORS proxy** — see below; that is the only reason it has a page. `pure_math/` is the
+is what took it off the todo list in `index.html`. It is the only demo whose **upstream
+API** needs a credential (`google_news_url` also has key-shaped fields, but they are basic
+auth for the user's *own proxy*, optional, and never seen by an upstream), and the pattern
+does not generalise: it works because the key is the *user's own*, and because CWA sends
+`Access-Control-Allow-Origin: *` on a successful response. `google_news_url` is
+cross-origin with no CORS headers at all and gets around it with a **CORS proxy the user
+supplies** — a URL template plus optional basic auth, all three typed into the form; see
+below. That is the only reason it has a page. `pure_math/` is the
 one folder none of this constrains: it calls nothing, so a static host was always
 sufficient for it.
 
@@ -103,8 +105,10 @@ both scripts relax `ssl.VERIFY_X509_STRICT` (Python 3.13 default) via a custom
 `HTTPAdapter` while keeping normal certificate verification.
 
 Each script now has a browser port — `cwa_sunrise.html` and `cwa_moonrise.html`,
-named after the scripts under the normal rule — making this the **only demo here
-that needs a credential**. The whole reason it is possible: CWA sends
+named after the scripts under the normal rule — making this the **only demo whose
+upstream API needs a credential** (`google_news_url`'s 帳號/密碼 fields are basic
+auth for the user's own CORS proxy, not for anything upstream). The whole reason it
+is possible: CWA sends
 `Access-Control-Allow-Origin: *` on a **successful** response. It does **not** send
 it on the 401, so a wrong key never reaches the page as a readable status — the
 browser blocks it and `fetch()` rejects with a bare `TypeError`. Both pages'
@@ -354,6 +358,7 @@ two copy the chrome and the request *shape* but are the only pages addressed by
 | `MODELS` (the four ids, in order) | all 4 Open-Meteo pages + `milkyway.py` + `open-meteo.py` — every one of them, in the same order, since it is the order rows and tabs appear in |
 | `seriesKey(hourly, name, model, multi)`, `modelsFromParams()`, `renderTabs()`/`.tab` CSS | all 4 Open-Meteo pages, verbatim apart from what the tab click re-renders. `astro-score_daily.html`'s tabs pick which model is *scored*, not merely shown; `astro-score_readable.html`'s do both, and deliberately leave the meta line alone (`appendPlaceName()` has already appended to it) |
 | `HOURLY_VARS`, `DEFAULT_LAT`/`DEFAULT_LON` | `open-meteo*.html` only — both `astro-score_*.html` pages deliberately override these |
+| 記住 (the opt-in `localStorage` credential box): `note()`, the load/store pair, the `change` + `input` wiring, and the `.keyrow`/`.toggle`/`.geonote` CSS | both `cwa_opendata/` pages (`loadStoredKey`/`storeKey`, one API key as a bare string) + `google_news_url/google_new_url.html` (`loadStoredProxy`/`storeProxy`, three fields as one JSON entry, and no `.keyrow input` rule — its row holds only the checkbox). Same policy in all three: unticked by default, unticking deletes immediately, editing while ticked keeps the store in step, every access wrapped in `try`/`catch`. **No other page stores anything** |
 | `<details class="explain">` (the folded notes above the form) | both `astro_score/` pages + both `cwa_opendata/` pages, same CSS and same reason: worth reading once, in the way every time after. Only the `<summary>` and the `.rule` blocks differ |
 | The extra-params box + its `key=value` parse loop | all 4 Open-Meteo pages, the loop verbatim; no `pure_math/` page has one, having no request to add params to. `DEFAULT_EXTRA` is **not** shared: `open-meteo*.html` prefill `daily=...` **and** `past_days=7`, both `astro-score_*.html` prefill `past_days=7` alone (nothing there reads `daily=`) |
 
@@ -955,13 +960,37 @@ browser:
   and sends them in one `batchexecute` POST (chunked at 20, `RPC_CHUNK`). Response rows come
   back **out of order**, tagged with the request id in `row[6]` — match on that id.
   Positional matching looks fine and silently pairs the wrong URL with the wrong row.
-- **CORS proxy.** `news.google.com` sends no `Access-Control-Allow-Origin`, so *every*
-  request (feed, article pages, RPC POST) is routed through a proxy chosen from a dropdown
-  of public services, plus a custom-template field (`{url}` encoded, `{raw}` verbatim). This
-  is the fragile part: free proxies return 5xx, rate-limit after a handful of calls, and
-  some drop POST bodies (which passes step 1 and fails the whole resolve). Failures are
-  surfaced per row rather than aborting the run. Do not "fix" a failing demo by rewriting
-  the logic — check the proxy first.
+- **CORS proxy, supplied by the user.** `news.google.com` sends no
+  `Access-Control-Allow-Origin`, so *every* request (feed, article pages, RPC POST) is
+  routed through a proxy the user types in: a **URL template** (`{url}` encoded, `{raw}`
+  verbatim, neither = append encoded) plus **帳號/密碼** for HTTP basic auth, sent as an
+  `Authorization` header and left blank for an open proxy. The dropdown of free public
+  services this page shipped with is **gone and should not come back** — every entry was
+  dead, rate-limited or dropped POST bodies. `btoa()` throws outside Latin-1, so
+  `authHeader()` UTF-8-encodes first — a non-ASCII password is otherwise an unexplained
+  crash before any fetch.
+
+  **記住 proxy 設定** is `cwa_opendata`'s 記住金鑰 idiom, second copy in the repo (see the
+  row in the duplication table): opt-in and unticked by default, unticking deletes at once,
+  editing a field while ticked keeps the stored copy in step, and every access is wrapped
+  for Safari-on-`file://` and blocked site data. The one difference is that it stores **the
+  three fields as a unit** under one `google_news_url_proxy` entry, JSON-encoded — a proxy
+  URL without its credentials is no more use than the credentials without it — so
+  `loadStoredProxy()` also tolerates a corrupt entry, which the single-string `cwa` copy
+  cannot hit. It is the only place in the repo that remembers a **password**; the warn
+  paragraph says so, since the `.warn` is this page's equivalent of the cwa pages'
+  `<details class="explain">`.
+
+  **The proxy must forward POST, not just GET**, and that is the single commonest reason
+  this demo fails. `batchexecute` is POST-only — Google itself answers `405` to a GET on
+  that endpoint, verified — so a GET-only proxy passes step 1 and fails every row at step
+  2; `resolveBatch()` special-cases that status to say so rather than printing a bare
+  `HTTP 405`. Because basic auth makes every request preflighted, the proxy must also
+  answer `OPTIONS` **without** auth (browsers preflight anonymously) and list `POST` in
+  `Access-Control-Allow-Methods` with `Authorization` in `Access-Control-Allow-Headers` —
+  miss that and the request never leaves the browser, so it arrives as a bare `TypeError`
+  and not as a status. Failures are surfaced per row rather than aborting the run. Do not
+  "fix" a failing demo by rewriting the logic — check the proxy first.
 
 Two details that are load-bearing: article URLs are requested with
 `&hl=en-US&gl=US&ceid=US:en` appended, because the bare URL answers `302` to exactly that
