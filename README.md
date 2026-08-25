@@ -9,7 +9,7 @@ A collection of small, self-contained code snippets. Each snippet lives in its o
 | Snippet | Description |
 | --- | --- |
 | [google_news_url/](google_news_url/README.md) | Resolve a Google News redirect URL (e.g. from an RSS feed) to its real destination URL. Python and Node implementations. |
-| [cwa_opendata/](cwa_opendata/README.md) | Query Taiwan CWA Open Data for daily sunrise/sunset (`cwa_sunrise.py`) and moonrise/moonset (`cwa_moonrise.py`) times per county. |
+| [cwa_opendata/](cwa_opendata/README.md) | Query Taiwan CWA Open Data for daily sunrise/sunset (`cwa_sunrise.py`) and moonrise/moonset (`cwa_moonrise.py`) times per county. The only snippet needing an **API key** — free, and on the demo pages a box on the form. |
 | [open_meteo/](open_meteo/README.md) | Open-Meteo weather API (no key needed): a raw one-call demo returning the exact JSON plus the request URL (`open-meteo.py`). |
 | [astro_score/](astro_score/README.md) | Score how good each upcoming hour is for stargazing and Milky Way astrophotography at a GPS location (`milkyway.py`) — Open-Meteo cloud forecasts combined with locally computed sun, moon and galactic-core geometry. |
 | [pure_math/](pure_math/README.md) | The astronomy behind `astro_score/`, one formula per page: galactic-core altitude, solar altitude, lunar altitude and phase. Demo pages only — no script and **no API call**, just numbers in and numbers out. |
@@ -36,7 +36,9 @@ holds the saved stargazing spots (瑞光路, 大武崙砲台, 內洞停車場, �
 default coordinates taken from the first entry. Each page loads it as
 `../places.js`, so adding or reordering a spot is a one-line change in one file
 rather than the same edit made nine times. It is the only file shared across
-snippet folders.
+snippet folders. The two `cwa_opendata/` pages are the exception that does not
+load it: that API is addressed by **county**, not by `lat,lon`, so they offer the
+22 county names instead.
 
 That first entry is not a saved spot: **輸入** is wherever you are asking about
 right now — what each page's location box writes back to, and what its
@@ -70,6 +72,8 @@ produced (`galactic_center.html`).
 | [pure_math/moon_phase.html](pure_math/moon_phase.html) | The `月亮` and `月相` rows on their own — the five fundamental arguments, then 14 longitude / 8 latitude / 4 distance terms, then altitude, then the illuminated fraction from the moon–sun elongation, and the Chinese phase name (`moon_phase_name()` ported from `milkyway.py`). Ends with the 月亮扣分 ramp `MOON_KILL_ALT` drives. **No API call.** |
 | [bigdatacloud/reverse-geocode.html](bigdatacloud/reverse-geocode.html) | BigDataCloud's keyless `reverse-geocode-client` endpoint — a `lat,lon` in, the raw JSON of place names out, plus `countryName/principalSubdivision/city/locality` joined into the one line `astro_score` keeps from it. Same page as `open-meteo.html` with the form cut to a single input. |
 | [light_pollution/binary-tile.html](light_pollution/binary-tile.html) | One tile of [David Lorenz's World Atlas](https://djlorenz.github.io/astronomy/lp/), fetched and decoded in the browser: a `lat,lon` and an atlas year in; **SQM**, **Bortle** and **LP Zone** out, with every intermediate and the raw bytes shown. The file holds neither SQM nor Bortle — just one quantised integer per 30-arcsec grid point, delta-encoded — so the page is mostly the decode. Year buttons re-read the same point from 2016–2025, which turns the atlas into a trend. Same code as the `光害` rows of `astro-score_readable.html`. |
+| [cwa_opendata/cwa_sunrise.html](cwa_opendata/cwa_sunrise.html) | `cwa_opendata/cwa_sunrise.py` — a county and a date in, Taiwan CWA's own sunrise / transit / sunset times and azimuths out, plus the length of the day, formatted exactly as the script prints it. **Needs a free API key**, which is a box on the form: a static page has no `CWA_API_KEY` and no `config.yml` to read, and nothing is stored, so it is typed per visit. |
+| [cwa_opendata/cwa_moonrise.html](cwa_opendata/cwa_moonrise.html) | `cwa_opendata/cwa_moonrise.py` — the same, for the moon, which does not keep to a calendar day: it rises ~50 min later each time, so rise, transit and set are fetched over a **three-day** window and stitched into the one cycle that starts on the day you asked for, with borrowed times tagged 昨 or 明. The three records are laid out under the answer with the cells the stitching took highlighted, and a line names which of the six branches fired. Same API-key box. |
 | [google_news_url/google_new_url.html](google_news_url/google_new_url.html) | `google_news_url/google_new_url.py` — search the Google News RSS feed for a keyword, sort by `<pubDate>`, and resolve the newest N redirect links to real article URLs. **Requires a CORS proxy** (picked in the page). |
 
 Pages hosting is **static**, so a demo page cannot run the Python; it re-implements
@@ -77,8 +81,15 @@ the snippet in JavaScript and calls the upstream API directly from the browser.
 `pure_math/` sidesteps that entirely — it calls no API, so a static host is all it
 ever needed.
 That is straightforward for a keyless, CORS-enabled API like Open-Meteo or
-BigDataCloud's `-client` endpoints. A snippet needing a credential (`cwa_opendata`)
-has no demo, because the key would be readable in page source. `google_news_url` scrapes `news.google.com`, which sends no
+BigDataCloud's `-client` endpoints. `cwa_opendata` needs a credential, which a
+static page cannot hold — there is no environment variable to read, and a key in
+the source would be public the moment it is published — so its two pages ask for
+one in a **form field** instead: masked in the displayed URL, sent only to
+`opendata.cwa.gov.tw`, and kept between visits in this browser's `localStorage`
+only if you tick **記住金鑰**, which is off by default. (CWA's successful responses
+send `Access-Control-Allow-Origin: *`; its 401 does not, so a wrong key reaches the
+browser as a blocked request rather than a readable status, and both pages say so.)
+`google_news_url` scrapes `news.google.com`, which sends no
 `Access-Control-Allow-Origin` at all, so its page routes every request through a
 user-selected public CORS proxy — that works, but those proxies are flaky and
 rate-limited, so expect some rows to fail. Where a page and a script are two

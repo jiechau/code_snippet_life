@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex, nocache">
+    <title>cwa_sunrise &mdash; cwa_opendata</title>
+    <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+    <style>
+        :root {
+            --fg: #333;
+            --muted: #777;
+            --line: #e3e6ea;
+            --accent: #2196F3;
+            --err: #c0392b;
+            --ok: #2e7d32;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            color: var(--fg);
+            margin: 0;
+            padding: 24px 12px 60px;
+        }
+        .container {
+            background: white;
+            padding: 28px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        h1 { margin: 0 0 4px; font-size: 1.6rem; }
+        p.sub { margin: 0 0 22px; color: var(--muted); font-size: 0.9rem; }
+        p.sub a { color: var(--accent); }
+        p.sub code { background: #f0f2f5; padding: 1px 5px; border-radius: 4px; }
+        a.back { color: var(--accent); text-decoration: none; font-size: 0.9rem; }
+        a.back:hover { text-decoration: underline; }
+
+        /* The notes fold away: worth reading once, in the way every time after
+           that -- the same <details class="explain"> idiom both astro-score
+           pages use, and for the same reason. The form is what the page opens
+           on. */
+        details.explain {
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            padding: 0 14px;
+            margin-bottom: 22px;
+            background: #fbfcfd;
+        }
+        details.explain summary {
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+            padding: 11px 0;
+            color: var(--accent);
+        }
+        details.explain[open] summary { border-bottom: 1px solid var(--line); }
+        details.explain .rule {
+            font-size: 0.82rem;
+            line-height: 1.6;
+            color: var(--muted);
+            margin: 13px 0;
+        }
+        details.explain .rule:last-child { margin-bottom: 14px; }
+        details.explain code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            background: #f0f2f5;
+            padding: 1px 5px;
+            border-radius: 4px;
+        }
+        details.explain b { color: var(--fg); }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+            gap: 14px;
+        }
+        .field { display: flex; flex-direction: column; }
+        .field.wide { grid-column: 1 / -1; }
+        label { font-size: 0.8rem; font-weight: 600; margin-bottom: 5px; }
+        label .hint { font-weight: 400; color: var(--muted); }
+        input {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.85rem;
+            padding: 8px 10px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: #fbfcfd;
+            color: var(--fg);
+        }
+        input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+        /* The key row: the box, then the reveal toggle beside it. Same shape as
+           the .locrow the coordinate pages use -- a box with one control that
+           belongs next to it. */
+        .keyrow { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+        .keyrow input { flex: 1 1 320px; min-width: 0; }
+        .toggle {
+            font-size: 0.8rem;
+            color: var(--muted);
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .toggle input { width: auto; flex: 0 0 auto; }
+        /* The remembered-key status, beside the box rather than in the result
+           area -- same .geonote the coordinate pages print a GPS accuracy in. */
+        .geonote { font-size: 0.8rem; color: var(--muted); }
+        .geonote.error { color: var(--err); }
+
+        /* county: a box, with the 22 counties wrapped onto a line of their own.
+           Same .place/.places pills the coordinate pages give the saved spots,
+           driven by a local COUNTIES list rather than places.js -- this API is
+           addressed by county, not by lat,lon. */
+        .locrow { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+        .locrow input { width: 200px; flex: 0 0 auto; }
+        .places { display: flex; gap: 6px; flex-wrap: wrap; flex-basis: 100%; }
+        .place {
+            font: inherit;
+            font-size: 0.85rem;
+            font-weight: 600;
+            padding: 6px 12px;
+            border-radius: 999px;
+            border: 1px solid var(--line);
+            background: #f7f9fb;
+            color: var(--accent);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .place:hover { border-color: var(--accent); background: #eaf4fd; }
+        .place[aria-pressed="true"] {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
+
+        .actions { margin-top: 18px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        button {
+            font: inherit;
+            font-weight: 600;
+            padding: 9px 22px;
+            border-radius: 8px;
+            border: 2px solid var(--accent);
+            background: var(--accent);
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        button:hover:not(:disabled) { background: #1976d2; border-color: #1976d2; }
+        button:disabled { opacity: 0.55; cursor: default; }
+        button.secondary { background: white; color: var(--accent); }
+        button.secondary:hover:not(:disabled) { background: var(--accent); color: white; }
+
+        .result { margin-top: 26px; border-top: 1px solid var(--line); padding-top: 20px; }
+        .meta {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.8rem;
+            color: var(--muted);
+            margin-bottom: 10px;
+        }
+        .meta.error { color: var(--err); }
+
+        /* What the script prints, and the reason this page exists: the two lines
+           `uv run cwa_sunrise.py` puts on the terminal, in a terminal face and at
+           a size that reads as the answer rather than as one more field. */
+        .out {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 1rem;
+            line-height: 1.7;
+            background: #f4faf5;
+            border: 1px solid #cfe6d3;
+            border-radius: 8px;
+            padding: 14px 16px;
+            margin-bottom: 12px;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .out .head { color: var(--muted); font-size: 0.85rem; }
+        .out .line { color: var(--ok); font-weight: 600; }
+        .out.empty { background: #fdf6f5; border-color: #eecfcb; }
+        .out.empty .line { color: var(--err); }
+
+        .url {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.78rem;
+            word-break: break-all;
+            background: #f7f9fb;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin-bottom: 12px;
+        }
+        .url a { color: var(--accent); text-decoration: none; }
+        .url a:hover { text-decoration: underline; }
+        pre {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.78rem;
+            line-height: 1.45;
+            background: #f7f9fb;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 14px;
+            margin: 0;
+            max-height: 60vh;
+            overflow: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a class="back" href="index.html">&larr; cwa_opendata</a>
+        <h1>cwa_sunrise</h1>
+        <p class="sub">
+            The browser port of <code>cwa_sunrise.py</code>. One call to Taiwan CWA's
+            <a href="https://opendata.cwa.gov.tw/dataset/astronomy/A-B0062-001" target="_blank" rel="noopener"><code>A-B0062-001</code></a>
+            dataset &mdash; a county and a date in, that day's sunrise / transit / sunset
+            time and azimuth out, plus the length of the day. Unlike every other demo here
+            this endpoint <b>needs an API key</b>, which is why it is a box on the form and
+            not a constant in the source.
+        </p>
+
+        <details class="explain">
+            <summary>How it works, and what goes wrong &mdash; notes</summary>
+
+            <p class="rule">
+                <b>The API key</b> is free from
+                <a href="https://opendata.cwa.gov.tw/" target="_blank" rel="noopener">opendata.cwa.gov.tw</a>
+                (register, then 取得授權碼); it looks like
+                <code>CWA-XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX</code>. It is sent as the
+                <code>Authorization</code> <i>query parameter</i>, not as a header &mdash; CWA's
+                own convention, and the reason a plain <code>&lt;a&gt;</code> to the request URL
+                works. This page stores it only if you ask: tick
+                <b>記住金鑰</b> and it is kept in this browser's
+                <code>localStorage</code>, so the next visit has it already filled in;
+                untick and it is deleted immediately. Left alone, nothing is written
+                anywhere and a reload means typing it again. Either way no cookie is set,
+                it is never sent anywhere but <code>opendata.cwa.gov.tw</code>, and it
+                never reaches a server of ours &mdash; there isn't one, this is a static
+                page. Storage is per-origin, so both pages in this folder share the one
+                entry and the published GitHub and GitLab copies remember separately. It
+                is hidden in the field and masked in the URL below until you tick
+                <b>顯示金鑰</b>.
+            </p>
+
+            <p class="rule">
+                <b>A wrong key looks like a network failure, not a 401.</b> CWA answers a bad
+                key with <code>HTTP 401 Forbidden: Authorization key is not correct.</code>
+                &mdash; and that response carries <b>no</b>
+                <code>Access-Control-Allow-Origin</code> header, though a successful one does.
+                So the browser refuses to hand it to the page at all and
+                <code>fetch()</code> rejects before the status can be read. If this page says
+                the request was blocked, check the key first.
+            </p>
+
+            <p class="rule">
+                <b>An empty answer is still HTTP 200.</b> A county name that does not match
+                comes back as <code>success: "true"</code> with
+                <code>locations.location: []</code>; a date outside the published range comes
+                back with the county present and <code>time: []</code>. Neither is an error, so
+                the page reports the emptiness rather than throwing. The commonest cause is
+                the wrong character: the API spells it <b>臺</b>北市, not 台北市, and does not
+                know the abolished 臺北縣 &mdash; hence the buttons.
+            </p>
+
+            <p class="rule">
+                <b><code>timeTo</code> is exclusive</b>, which is why one day is asked for as
+                <code>timeFrom=D</code>, <code>timeTo=D+1</code>; passing the same date twice
+                returns nothing. Coverage runs about <b>2025-01-01 to 2027-12-31</b>, and a
+                window is capped at <b>180 records</b> however wide it is asked for. This page
+                only ever wants one day, so the cap is a note rather than a limit &mdash; but
+                <a href="cwa_moonrise.html">cwa_moonrise</a> asks for three.
+            </p>
+
+            <p class="rule">
+                <b>The line under the answer is what the script prints.</b>
+                <code>出:</code>rise / azimuth, <code>中:</code>transit / altitude,
+                <code>沒:</code>set / azimuth, then the daylight length in parentheses.
+                Azimuths are degrees clockwise from north; the transit altitude carries an
+                <code>S</code> or <code>N</code> suffix (<code>76S</code>) saying which side of
+                the zenith the sun crosses &mdash; south of it, all year, everywhere in Taiwan
+                except the far south around the solstice. The dataset also returns civil
+                twilight (<code>BeginCivilTwilightTime</code> /
+                <code>EndCivilTwilightTime</code>), which the script does not print; it is
+                there in the JSON below.
+            </p>
+
+            <p class="rule">
+                <b>This is a lookup, not a calculation</b> &mdash; the numbers are CWA's, computed
+                for the county, and this page only formats them. The repo computes the same
+                quantities from scratch in
+                <a href="../pure_math/sun_phase.html">pure_math/sun_phase.html</a>, from a
+                <code>lat,lon</code> and Meeus' series with no API at all; comparing the two is
+                the point of having both.
+            </p>
+        </details>
+
+        <form id="form">
+            <div class="grid">
+                <div class="field wide">
+                    <label for="apikey">Authorization <span class="hint">CWA API key &mdash; free from opendata.cwa.gov.tw</span></label>
+                    <div class="keyrow">
+                        <input id="apikey" name="apikey" type="password" autocomplete="off"
+                               spellcheck="false" placeholder="CWA-XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX">
+                        <label class="toggle"><input type="checkbox" id="showkey"> 顯示金鑰 (show key)</label>
+                        <label class="toggle"><input type="checkbox" id="remember"> 記住金鑰 (remember)</label>
+                        <span class="geonote" id="keynote"></span>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label for="date">timeFrom <span class="hint">date (2025-01-01 &ndash; 2027-12-31)</span></label>
+                    <input id="date" name="date" type="date" min="2025-01-01" max="2027-12-31">
+                </div>
+
+                <div class="field wide">
+                    <label for="county">CountyName <span class="hint">臺, not 台 &mdash; or pick one</span></label>
+                    <div class="locrow">
+                        <input id="county" name="county" spellcheck="false">
+                        <div class="places" id="places"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="actions">
+                <button type="submit" id="submit">Fetch</button>
+                <button type="button" class="secondary" id="reset">Reset defaults</button>
+            </div>
+        </form>
+
+        <div class="result" id="result" hidden>
+            <div class="meta" id="meta"></div>
+            <div class="out" id="out" hidden></div>
+            <div class="url" id="url"></div>
+            <pre id="json"></pre>
+        </div>
+    </div>
+
+<script>
+"use strict";
+
+/*
+ * cwa_sunrise.py in the browser.
+ *
+ * Same request, same one-line summary. This is a parallel implementation under
+ * the repo's rule -- change the formatting or the window here and mirror it in
+ * cwa_opendata/cwa_sunrise.py, and vice versa. Its sibling page,
+ * cwa_moonrise.html, is this page with the 3-day window and pickMoonEvents()
+ * added; the request machinery below is shared with it verbatim.
+ *
+ * The one thing the script has that a static page cannot: _load_api_key(),
+ * reading CWA_API_KEY or config.yml. A page has no environment and no file to
+ * read, and a key baked into the source would be public the moment it is
+ * published -- so the key is a field, typed per session and stored nowhere.
+ */
+
+// A-B0062-001: daily sunrise / sun transit / sunset times per county.
+const DATASET_URL = "https://opendata.cwa.gov.tw/api/v1/rest/datastore/A-B0062-001";
+
+// The 22 counties the dataset covers, north to south and then the islands --
+// the API returns them in no useful order, so this is our ordering, not its.
+// Written with 臺, which is the only spelling it answers to.
+const COUNTIES = [
+    "基隆市", "臺北市", "新北市", "桃園市", "新竹市", "新竹縣", "苗栗縣",
+    "臺中市", "彰化縣", "南投縣", "雲林縣", "嘉義市", "嘉義縣", "臺南市",
+    "高雄市", "屏東縣", "宜蘭縣", "花蓮縣", "臺東縣",
+    "澎湖縣", "金門縣", "連江縣",
+];
+
+const DEFAULT_COUNTY = "臺北市";   // the script's argv[1] fallback
+
+/**
+ * Today in Asia/Taipei, as YYYY-MM-DD.
+ *
+ * The script asks ZoneInfo("Asia/Taipei") rather than the machine clock, so this
+ * does the same through Intl and never consults the browser's own zone: the
+ * dataset is Taiwan's, and "today" in it means today there. en-CA is the locale
+ * that formats a date as YYYY-MM-DD.
+ */
+function todayInTaipei() {
+    return new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Taipei", year: "numeric", month: "2-digit", day: "2-digit",
+    }).format(new Date());
+}
+
+/** The day after an ISO date, as YYYY-MM-DD. timeTo is exclusive, so one day needs two dates. */
+function nextDay(iso, days = 1) {
+    const d = new Date(`${iso}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + days);
+    return d.toISOString().slice(0, 10);
+}
+
+/**
+ * The request parameters, in the order the script builds them.
+ *
+ * timeTo is timeFrom + 1 day and the API treats it as exclusive, so this is a
+ * one-day window: get_sun_times() then takes times[0].
+ */
+function defaultParams(key, county, day) {
+    return {
+        Authorization: key,
+        format: "JSON",
+        CountyName: county,
+        timeFrom: day,
+        timeTo: nextDay(day),
+        sort: "Date",
+    };
+}
+
+/**
+ * The full GET URL for a parameter object.
+ *
+ * Same construction as the other demo pages -- commas left literal, spaces as
+ * "+" -- so the URL shown is the string actually requested rather than a
+ * reconstruction of it.
+ */
+function buildUrl(params) {
+    const query = Object.entries(params)
+        .map(([key, value]) => {
+            const enc = (s) => encodeURIComponent(String(s))
+                .replace(/%2C/g, ",")
+                .replace(/%20/g, "+");
+            return `${enc(key)}=${enc(value)}`;
+        })
+        .join("&");
+    return `${DATASET_URL}?${query}`;
+}
+
+/**
+ * The same URL with the key blanked out, for the times it is put on screen.
+ *
+ * The key travels in the query string, so the request URL *is* the credential.
+ * That is fine on your own machine and not fine in a screenshot, so the URL box
+ * shows this version until 顯示金鑰 is ticked -- and when it is masked it is
+ * plain text rather than a link, because the masked string is not a URL that
+ * would work.
+ */
+function maskUrl(url, key) {
+    if (!key) return url;
+    return url.replace(encodeURIComponent(key).replace(/%2C/g, ","), "●".repeat(12));
+}
+
+/**
+ * Call the API and return {body, url, status, ok, bytes, seconds}.
+ *
+ * Errors that arrive *as a response* are returned rather than thrown, as on the
+ * other demo pages. The one that cannot be is a bad key: CWA's 401 has no
+ * Access-Control-Allow-Origin header (its 200 does), so the browser rejects the
+ * fetch before this function sees a status at all. That failure surfaces in the
+ * submit handler's catch, not here.
+ */
+async function fetchSun(params, timeoutMs = 15000) {
+    const url = buildUrl(params);
+    const started = performance.now();
+    const resp = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+    const text = await resp.text();
+    const seconds = (performance.now() - started) / 1000;
+
+    let body;
+    try {
+        body = JSON.parse(text);
+    } catch {
+        // Not JSON at all -- hand back the raw text so the caller can see it.
+        body = { error: true, reason: "response was not JSON", text: text };
+    }
+
+    return {
+        body,
+        url,
+        status: resp.status,
+        ok: resp.ok,
+        contentType: resp.headers.get("Content-Type"),
+        bytes: new TextEncoder().encode(text).length,
+        seconds,
+    };
+}
+
+/**
+ * The day's record out of the response, or null if there is none.
+ *
+ * get_sun_times() in the script indexes straight into
+ * records.locations.location[0].time[0], which is right for a request that
+ * worked and an IndexError for one that did not. Both empties are ordinary
+ * HTTP 200s here -- an unmatched county leaves location empty, a date outside
+ * the published range leaves time empty -- so this returns null and lets the
+ * caller say which it was.
+ */
+function sunRecord(body) {
+    const locations = body?.records?.locations?.location;
+    if (!Array.isArray(locations) || locations.length === 0) return null;
+    const times = locations[0].time;
+    if (!Array.isArray(times) || times.length === 0) return null;
+    return times[0];
+}
+
+/** Daylight length between two HH:MM times, as H:MM. Port of _daylight(). */
+function daylight(rise, set_) {
+    const [riseH, riseM] = rise.split(":").map(Number);
+    const [setH, setM] = set_.split(":").map(Number);
+    const total = (setH * 60 + setM) - (riseH * 60 + riseM);
+    return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+}
+
+/**
+ * One-line summary: rise/azimuth, transit/altitude, set/azimuth, daylight length.
+ * Port of format_sun_text() -- byte for byte the line the script prints.
+ */
+function formatSunText(t) {
+    return (
+        `出:${t.SunRiseTime}/${t.SunRiseAZ},` +
+        `中:${t.SunTransitTime}/${t.SunTransitAlt},` +
+        `沒:${t.SunSetTime}/${t.SunSetAZ}` +
+        ` (${daylight(t.SunRiseTime, t.SunSetTime)})`
+    );
+}
+
+/*
+ * Remembering the key.
+ *
+ * Opt-in, never automatic: 記住金鑰 unticked (the default) stores nothing, and
+ * unticking it deletes what was stored immediately. It is a credential, so it
+ * should not be squirrelled away because a page happened to be visited -- but
+ * retyping a 40-character key on every reload is exactly the friction that makes
+ * a demo not get used, which is the whole reason this exists.
+ *
+ * localStorage is per-origin, so the two pages in this folder share one entry --
+ * enter the key on either and the other has it -- while the published GitHub and
+ * GitLab copies remember separately, and nothing ever leaves the browser. Every
+ * access is wrapped: Safari throws outright on file://, and a browser set to
+ * block site data throws on read as well as write, so the whole feature has to
+ * degrade to "the box just starts empty" rather than taking the page down.
+ */
+const KEY_STORE = "cwa_opendata_api_key";
+
+function note(message, isError) {
+    const el = document.getElementById("keynote");
+    el.textContent = message;
+    el.classList.toggle("error", Boolean(isError));
+}
+
+/** Put a remembered key back in the box, and tick the checkbox that put it there. */
+function loadStoredKey() {
+    let saved = null;
+    try {
+        saved = localStorage.getItem(KEY_STORE);
+    } catch {
+        note("this browser is not allowing the key to be remembered");
+        return;
+    }
+    if (saved) {
+        document.getElementById("apikey").value = saved;
+        document.getElementById("remember").checked = true;
+        note("key remembered in this browser");
+    }
+}
+
+/** Write the key if 記住金鑰 is ticked, and remove it the moment it is not. */
+function storeKey() {
+    const remember = document.getElementById("remember").checked;
+    const key = document.getElementById("apikey").value.trim();
+    try {
+        if (remember && key) {
+            localStorage.setItem(KEY_STORE, key);
+            note("key remembered in this browser");
+        } else {
+            localStorage.removeItem(KEY_STORE);
+            note(remember ? "" : "not remembered — the box empties on reload");
+        }
+    } catch {
+        note("this browser is not allowing the key to be remembered", true);
+    }
+}
+
+/** Read the form. Throws on anything the API would silently answer with nothing. */
+function paramsFromForm() {
+    const key = document.getElementById("apikey").value.trim();
+    const county = document.getElementById("county").value.trim() || DEFAULT_COUNTY;
+    const day = document.getElementById("date").value || todayInTaipei();
+
+    if (!key) {
+        throw new Error("No API key: get one free at opendata.cwa.gov.tw and paste it above.");
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+        throw new Error(`Bad date "${day}": expected YYYY-MM-DD`);
+    }
+    return defaultParams(key, county, day);
+}
+
+function resetDefaults() {
+    // Deliberately not the key: it is the one field that is tedious to retype and
+    // the only one Reset would be actively unhelpful about.
+    document.getElementById("county").value = DEFAULT_COUNTY;
+    document.getElementById("date").value = todayInTaipei();
+    markActiveCounty();
+}
+
+/** Highlight whichever county button matches the box -- and after a manual edit, none. */
+function markActiveCounty() {
+    const current = document.getElementById("county").value.trim();
+    for (const button of document.querySelectorAll(".place")) {
+        button.setAttribute("aria-pressed", String(button.dataset.county === current));
+    }
+}
+
+/**
+ * One button per county. Clicking fills the box and refetches -- leaving the
+ * previous county's answer on screen under a new name would misrepresent it.
+ *
+ * A click while a fetch is in flight is a silent no-op: requestSubmit() does
+ * nothing while the submit button is disabled.
+ */
+function buildCounties() {
+    const box = document.getElementById("places");
+    box.replaceChildren();
+    for (const name of COUNTIES) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "place";
+        button.textContent = name;
+        button.dataset.county = name;
+        button.addEventListener("click", () => {
+            document.getElementById("county").value = name;
+            markActiveCounty();
+            document.getElementById("form").requestSubmit();
+        });
+        box.appendChild(button);
+    }
+}
+
+function show({ meta, isError, head, line, isEmpty, url, linkUrl, json }) {
+    const result = document.getElementById("result");
+    const metaEl = document.getElementById("meta");
+    const outEl = document.getElementById("out");
+    const urlEl = document.getElementById("url");
+
+    result.hidden = false;
+    metaEl.textContent = meta;
+    metaEl.classList.toggle("error", Boolean(isError));
+
+    // The script's own two lines of stdout: "臺北市 2026-08-25", then the summary.
+    outEl.hidden = !line;
+    outEl.classList.toggle("empty", Boolean(isEmpty));
+    if (line) {
+        outEl.replaceChildren();
+        const h = document.createElement("div");
+        h.className = "head";
+        h.textContent = head;
+        const l = document.createElement("div");
+        l.className = "line";
+        l.textContent = line;
+        outEl.append(h, l);
+    }
+
+    urlEl.hidden = !url;
+    if (url) {
+        urlEl.replaceChildren();
+        if (linkUrl) {
+            const a = document.createElement("a");
+            a.href = linkUrl;
+            a.target = "_blank";
+            a.rel = "noopener";
+            a.textContent = url;
+            urlEl.appendChild(a);
+        } else {
+            // Masked: the string on screen is not the string that would work, so
+            // it is deliberately not offered as a link.
+            urlEl.textContent = url;
+        }
+    }
+
+    document.getElementById("json").textContent = json || "";
+}
+
+/**
+ * The URL as it should appear on screen, and whether it is safe to link.
+ *
+ * Remembers what it was last asked, so toggling 顯示金鑰 can redraw the URL box
+ * without refetching -- the checkbox changes what is on screen, and a box that
+ * kept showing ●●●●●●●●●●●● after it was ticked would read as a bug.
+ */
+let lastRequest = null;   // {url, key}, or null before the first Fetch
+
+function displayUrl(url, key) {
+    lastRequest = { url, key };
+    const reveal = document.getElementById("showkey").checked;
+    return reveal ? { url, linkUrl: url } : { url: maskUrl(url, key), linkUrl: "" };
+}
+
+/** Redraw just the URL box against the current 顯示金鑰 state. */
+function refreshUrlBox() {
+    if (!lastRequest) return;
+    const { url, linkUrl } = displayUrl(lastRequest.url, lastRequest.key);
+    const urlEl = document.getElementById("url");
+    urlEl.replaceChildren();
+    if (linkUrl) {
+        const a = document.createElement("a");
+        a.href = linkUrl;
+        a.target = "_blank";
+        a.rel = "noopener";
+        a.textContent = url;
+        urlEl.appendChild(a);
+    } else {
+        urlEl.textContent = url;
+    }
+}
+
+document.getElementById("form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const button = document.getElementById("submit");
+
+    let params;
+    try {
+        params = paramsFromForm();
+    } catch (err) {
+        show({ meta: err.message, isError: true, url: "", json: "" });
+        return;
+    }
+
+    const shown = displayUrl(buildUrl(params), params.Authorization);
+    button.disabled = true;
+    show({ meta: "fetching...", ...shown, json: "" });
+
+    try {
+        const r = await fetchSun(params);
+        const record = r.ok ? sunRecord(r.body) : null;
+        const meta = `HTTP ${r.status}  ${r.contentType}  ${r.bytes} bytes  ${r.seconds.toFixed(2)}s`;
+
+        if (record) {
+            show({
+                meta,
+                head: `${params.CountyName} ${record.Date}`,
+                line: formatSunText(record),
+                ...shown,
+                json: JSON.stringify(r.body, null, 2),
+            });
+        } else if (r.ok) {
+            // HTTP 200 and nothing in it: the county did not match, or the date is
+            // outside what CWA publishes. Which one is visible in the JSON below --
+            // an unmatched county empties `location`, an unpublished date empties
+            // `time` -- so say which rather than just "no data".
+            const named = Boolean(r.body?.records?.locations?.location?.length);
+            show({
+                meta,
+                isEmpty: true,
+                head: `${params.CountyName} ${params.timeFrom}`,
+                line: named
+                    ? `no record for ${params.timeFrom} — the dataset runs about 2025-01-01 to 2027-12-31`
+                    : `no county named "${params.CountyName}" — note the API spells it 臺, not 台`,
+                ...shown,
+                json: JSON.stringify(r.body, null, 2),
+            });
+        } else {
+            show({
+                meta,
+                isError: true,
+                ...shown,
+                json: typeof r.body === "string" ? r.body : JSON.stringify(r.body, null, 2),
+            });
+        }
+    } catch (err) {
+        // No response reached the page at all. A timeout is a timeout; anything
+        // else here is almost always the CORS-invisible 401 described in the
+        // notes, so the message points at the key rather than at the network.
+        const why = err.name === "TimeoutError"
+            ? "timed out"
+            : `blocked before a response could be read (${err.message}). ` +
+              "The usual cause is a wrong API key: CWA answers 401 without an " +
+              "Access-Control-Allow-Origin header, so the browser will not show it to this page.";
+        show({ meta: `request failed: ${why}`, isError: true, ...shown, json: "" });
+    } finally {
+        button.disabled = false;
+    }
+});
+
+document.getElementById("reset").addEventListener("click", resetDefaults);
+document.getElementById("county").addEventListener("input", markActiveCounty);
+// One checkbox for both halves of hiding the key: the field, and the URL box --
+// the latter redrawn in place, since refetching to change how a string is
+// displayed would spend a call on nothing.
+document.getElementById("showkey").addEventListener("change", (event) => {
+    document.getElementById("apikey").type = event.target.checked ? "text" : "password";
+    refreshUrlBox();
+});
+// Ticking stores what is in the box now; unticking deletes it now. Editing the
+// key while it is ticked keeps the stored copy in step, so what comes back on
+// reload is the key that was last used rather than the first one that was typed.
+document.getElementById("remember").addEventListener("change", storeKey);
+document.getElementById("apikey").addEventListener("input", () => {
+    if (document.getElementById("remember").checked) storeKey();
+});
+
+buildCounties();
+resetDefaults();
+loadStoredKey();
+// No initial requestSubmit(): there is no key yet, so it would only report that.
+</script>
+</body>
+</html>

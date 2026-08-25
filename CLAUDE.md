@@ -15,7 +15,8 @@ what it does and how to run it.
 - **One folder per snippet.** Keep everything a snippet needs inside its folder. Do not
   introduce cross-snippet imports or a shared root package. **There is exactly one
   sanctioned exception:** root `places.js`, the saved stargazing spots shared by all
-  nine demo pages (see below). Do not widen it — nothing else moves to the root.
+  nine of the eleven demo pages (see below). Do not widen it — nothing else moves to
+  the root.
 - **Each snippet folder gets its own `README.md`**, and the new snippet must be added as a
   row to the table in the root `README.md`.
 - **Parallel implementations stay equivalent.** Some snippets ship the same logic in
@@ -62,8 +63,14 @@ JavaScript re-implementation that calls the upstream API directly from the brows
 makes it a parallel implementation under the rule above: change one, mirror the other.
 This is effortless for keyless, CORS-enabled APIs (Open-Meteo, BigDataCloud's
 `-client` endpoints). `cwa_opendata` needs an
-API key, which would be readable in page source, so it has no demo and is deliberately
-listed as todo in `index.html` rather than half-implemented. `google_news_url` is
+API key, which a static page cannot hold — no environment variable, no `config.yml`,
+and a key in the source would be public the moment it is published — so its two pages
+**ask for one in a form field**: typed per visit, stored nowhere (no `localStorage`,
+no cookie), masked in the displayed URL, and sent only to `opendata.cwa.gov.tw`. That
+is what took it off the todo list in `index.html`. It is the only demo here needing a
+credential, and the pattern does not generalise: it works because the key is the
+*user's own*, and because CWA sends `Access-Control-Allow-Origin: *` on a successful
+response. `google_news_url` is
 cross-origin with no CORS headers at all and gets around it with a **user-selected public
 CORS proxy** — see below; that is the only reason it has a page. `pure_math/` is the
 one folder none of this constrains: it calls nothing, so a static host was always
@@ -94,6 +101,98 @@ adjacent day — `pick_moon_events()` stitches the cycle together, labeling borr
 times with 昨/明. Note: the site's TLS certificate lacks a Subject Key Identifier, so
 both scripts relax `ssl.VERIFY_X509_STRICT` (Python 3.13 default) via a custom
 `HTTPAdapter` while keeping normal certificate verification.
+
+Each script now has a browser port — `cwa_sunrise.html` and `cwa_moonrise.html`,
+named after the scripts under the normal rule — making this the **only demo here
+that needs a credential**. The whole reason it is possible: CWA sends
+`Access-Control-Allow-Origin: *` on a **successful** response. It does **not** send
+it on the 401, so a wrong key never reaches the page as a readable status — the
+browser blocks it and `fetch()` rejects with a bare `TypeError`. Both pages'
+`catch` therefore names the key rather than the network, and that message is the
+single most load-bearing piece of text on either page. Don't "improve" it into a
+generic network error.
+
+The key is a **form field**, `type="password"`, with two checkboxes beside it.
+**顯示金鑰** flips the field type *and* the URL display in one handler, redrawing the
+URL box in place via `refreshUrlBox()` rather than refetching — `displayUrl()` keeps
+the last `{url, key}` in `lastRequest` for exactly that. `maskUrl()` exists because
+the key travels as the `Authorization` **query parameter** (CWA's own convention,
+not a header), so the request URL *is* the credential: masked, the `.url` box is
+plain text rather than a link, since the string on screen is not one that would
+work.
+
+**記住金鑰** puts the key in `localStorage` under `cwa_opendata_api_key`. It is
+**opt-in and unticked by default** — a credential should not be squirrelled away
+because a page was visited — and unticking deletes it immediately; editing the key
+while ticked keeps the stored copy in step, so a reload restores the key last *used*
+rather than the first one typed. The store is per-origin, so the two pages share one
+entry while the published GitHub and GitLab copies remember separately. **Every
+access is wrapped in `try`/`catch`**: Safari throws outright on `file://`, which the
+READMEs offer as a way to run these pages, and a browser set to block site data
+throws on read as well as write — so it degrades to "the box starts empty" and says
+so in the `.geonote` beside the button. `resetDefaults()` deliberately leaves the
+key alone while resetting county and date.
+
+Three API behaviours the pages have to handle, all of them ordinary `HTTP 200`s:
+**`timeTo` is exclusive** (one day is `D`→`D+1`, three days `D−1`→`D+2`; the same
+date twice returns nothing), a window is **capped at 180 records**, coverage runs
+about **2025-01-01 to 2027-12-31**, and an **unmatched county** empties
+`locations.location` while an **out-of-range date** empties `time`. The pages
+distinguish those two emptinesses and say which, because the commonest cause is 臺
+vs 台 — hence the 22 county buttons. `todayInTaipei()` asks `Intl` for
+`Asia/Taipei` rather than the browser's zone, mirroring the scripts'
+`ZoneInfo("Asia/Taipei")`: the dataset is Taiwan's, so "today" means today there.
+
+`cwa_moonrise.html` is the interesting one, and it adds two things the script has no
+use for, both display: the **3-day window as a table** with the cells
+`pickMoonEvents()` took highlighted and empty strings shown as `(empty)`, and a line
+naming **which of the six branches fired**. Neither changes the summary line, which
+stays byte-for-byte the script's.
+
+`pick_moon_events()` used to fail on **27 of 3,738 target days**, and the two
+causes needed opposite treatment — keep them apart when touching this:
+
+- **An ordering bug, fixed in both.** A transit or set stamped exactly `"00:00"` is
+  the rounding of 23:59:xx — the *end* of that date — but as a string it sorts
+  before every other `"HH:MM"`, sending a branch off to borrow from a neighbour
+  that had none. `_order_key()` / `orderKey()` reads it as `"24:00"` for the two
+  order-sensitive comparisons only; the values stored in the returned triples stay
+  as CWA sent them, so a `00:00` still *prints* as `00:00`. **Never apply it to the
+  rise** — a rise at `00:00` really is just after midnight (six in three years),
+  and normalising it misorders the cycle the other way.
+- **Not a bug: CWA has no data.** It publishes an occasional **wholly blank
+  record** — all three times empty, the angles still filled in — about once a
+  synodic month at 澎湖縣 (12 in three years, each spoiling *two* target days, since
+  the day before one borrows its set), and very rarely two consecutive days with no
+  rise (連江縣, 2026-07-09). Nothing in a 3-day window recovers those, so they travel
+  as `""` and print as `–` via `_format_event()` / `formatEvent()` and a `_moon_up()`
+  / `moonUp()` that returns `–` instead of raising. 25 of 3,738 days.
+
+Regression-checked: **3,711 of 3,738 windows are byte-identical to the old output**,
+26 no longer raise, and exactly one changed — the mangled `中:明/`, now
+`中:00:00/39S`. `incompleteCycle()` is **display-only**: the summary line already
+says `–`, and it just names the missing events in the note so a dash reads as CWA's
+gap rather than a fault here. `showTime()` is display-only too, spelling out the
+`00:00 (read as 24:00, end of day)` reading so a branch note does not look
+self-contradictory.
+
+Both ports are **verified against the Python across 7,518 comparisons** (7 counties ×
+three 180-day windows × both datasets): every sunrise line, and every moon branch
+pick and summary, identical. There is no test command, so the way to re-run it is
+the mechanical one `pure_math/` uses: `awk` the page's `<script>` from
+`"use strict";` down to the `/** Read the form.` banner (everything above it is
+DOM-free), append an `export {...}`, and `node` it against a `uv run` harness that
+`sys.path`-inserts `cwa_opendata/` and imports the two modules. Re-run it when
+touching either side.
+
+Below that banner the script is DOM-bound, and it is checked a second way: a
+**~60-line DOM stub** (`getElementById`/`createElement`/`classList`/
+`addEventListener`, plus a `localStorage` that can be told to throw) is enough to
+`new Function(...)` the whole inline script and drive it against the live API — 54
+assertions per page covering the defaults, the 22 pills, the masked-then-revealed
+URL, the 記住金鑰 round-trip including the blocked-storage path, both HTTP-200
+emptinesses and a bad key. That is what catches a renamed element id, which slicing
+the DOM-free prefix cannot.
 
 ## open_meteo specifics
 
@@ -220,28 +319,32 @@ rather than into the result area, leaving whatever is on screen alone.
 
 ## What is duplicated across the demo pages
 
-There are **nine demo pages** (ignoring `google_news_url`, which shares nothing),
+There are **eleven demo pages** (ignoring `google_news_url`, which shares nothing),
 four of them built on one Open-Meteo request core, one that fetches a binary tile
-from somewhere else, three that issue no request at all, and no shared file except
+from somewhere else, two that call a keyed API, three that issue no request at all,
+and no shared file except
 `places.js` — by the one-folder-per-snippet rule, keeping them in step is a manual
 discipline. They are `open_meteo/open-meteo.html`,
 `open_meteo/open-meteo_readable.html`, `astro_score/astro-score_readable.html`,
 `astro_score/astro-score_daily.html`, `bigdatacloud/reverse-geocode.html`,
-`light_pollution/binary-tile.html` and the three
-`pure_math/{galactic_center,sun_phase,moon_phase}.html`. The `pure_math/` three copy
+`light_pollution/binary-tile.html`, the three
+`pure_math/{galactic_center,sun_phase,moon_phase}.html` and the two
+`cwa_opendata/cwa_{sunrise,moonrise}.html`. The `pure_math/` three copy
 the *page chrome* and the *astronomy* but none of the request machinery, so they
-appear in some rows below and are pointedly absent from others. Know
-which blocks are copies before editing any of them:
+appear in some rows below and are pointedly absent from others; the `cwa_opendata/`
+two copy the chrome and the request *shape* but are the only pages addressed by
+**county rather than `lat,lon`**, so they are the only two that never load
+`places.js`. Know which blocks are copies before editing any of them:
 
 | Block | Copies |
 | --- | --- |
-| Request core (`buildUrl`, `fetchForecast`, `FORECAST_URL`) | the 4 Open-Meteo pages + `open_meteo/open-meteo.py`; `bigdatacloud/` has the same `buildUrl` shape against its own endpoint. **No `pure_math/` page has one** — there is no URL to build |
-| `paramsFromForm()` | the 3 pages with a location box **and** a single request to make. `astro-score_daily.html` splits it in two — `paramsFor(lat, lon)` for the fields (called once per row) and `inputPlaceFromForm()` for the box, which names one row rather than one request. The `pure_math/` pages split it the same way into `placeFromForm()` → `{lat, lon}`: same parse and same error text, but there are no request params to return |
-| Page chrome (whole `<style>` block, `show()`, submit handler) | `open_meteo/open-meteo.html` + `bigdatacloud/reverse-geocode.html` + the 3 `pure_math/` pages. `reverse-geocode.html` is `open-meteo.html` with the form cut to one field; the `pure_math/` three are `reverse-geocode.html` with a time field added, `Fetch` renamed `Compute`, the `.url`/`<pre>` panes swapped for `.card`/step-table CSS, and `show()` taking `{cards, rows}` instead of `{url, json}`. The submit handler loses its `async`, its `try/finally` and the button disabling — nothing is in flight — but keeps the policy of *displaying* a bad input rather than throwing |
-| `.locrow` CSS | all 9 pages, verbatim (2 lines). Both `astro-score_*.html` add a third for `.locname` — the `輸入:` label in front of the box, a second `<label for="location">` naming what the box writes to (`PLACES[0]`: the first pill on one page, the top grid row on the other). The other 7 pages do not have it |
-| `.place`/`.places` CSS, `buildPlaces()` / `markActivePlace()` | 8 pages, verbatim — **not** `astro-score_daily.html`: its rows *are* the saved spots, so pills repeating them would say it twice. Its location box therefore stands alone beside 使用目前位置, and nothing there is ever "pressed" |
-| `useCurrentPosition()` + the 使用目前位置 button and its `.geonote` | all 9 pages: fill the box, note the accuracy, resubmit. The 8 pill pages also `setInputPlace()` + `buildPlaces()` so the 輸入 pill follows; `astro-score_daily.html` has no pills and lets its submit handler do the `setInputPlace()`, so its copy is four lines shorter. `setInputPlace()`/`currentPosition()`/`GEO_ERRORS` are **not** duplicated: root `places.js` |
-| `PLACES` | **not duplicated** — root `places.js`, loaded by all 9 pages. `DEFAULT_LAT`/`DEFAULT_LON` are every page's empty-box fallback, `astro-score_daily.html` included |
+| Request core (`buildUrl`, `fetchForecast`, `FORECAST_URL`) | the 4 Open-Meteo pages + `open_meteo/open-meteo.py`; `bigdatacloud/` and both `cwa_opendata/` pages have the same `buildUrl` shape against their own endpoint (the `cwa` copies add `maskUrl()`, which blanks the key out of the URL before it goes on screen — the credential travels in the query string, so the request URL *is* the credential). **No `pure_math/` page has one** — there is no URL to build |
+| `paramsFromForm()` | the 3 pages with a location box **and** a single request to make, plus both `cwa_opendata/` pages — same name, same "throw on anything the API would silently answer with nothing" policy, but reading key/county/date instead of a coordinate. `astro-score_daily.html` splits it in two — `paramsFor(lat, lon)` for the fields (called once per row) and `inputPlaceFromForm()` for the box, which names one row rather than one request. The `pure_math/` pages split it the same way into `placeFromForm()` → `{lat, lon}`: same parse and same error text, but there are no request params to return |
+| Page chrome (whole `<style>` block, `show()`, submit handler) | `open_meteo/open-meteo.html` + `bigdatacloud/reverse-geocode.html` + the 3 `pure_math/` pages + the 2 `cwa_opendata/` pages. The `cwa` two are `reverse-geocode.html` with the location field swapped for key/date/county, a `.keyrow` + 顯示金鑰 toggle added, and an `.out` block above the `.url` pane holding the two lines the script prints; `cwa_moonrise.html` adds a `.window` table under it. `reverse-geocode.html` is `open-meteo.html` with the form cut to one field; the `pure_math/` three are `reverse-geocode.html` with a time field added, `Fetch` renamed `Compute`, the `.url`/`<pre>` panes swapped for `.card`/step-table CSS, and `show()` taking `{cards, rows}` instead of `{url, json}`. The submit handler loses its `async`, its `try/finally` and the button disabling — nothing is in flight — but keeps the policy of *displaying* a bad input rather than throwing |
+| `.locrow` CSS | all 11 pages, verbatim (2 lines) — on the `cwa_opendata/` two it wraps the **county** box, not a coordinate one. Both `astro-score_*.html` add a third for `.locname` — the `輸入:` label in front of the box, a second `<label for="location">` naming what the box writes to (`PLACES[0]`: the first pill on one page, the top grid row on the other). The other 7 pages do not have it |
+| `.place`/`.places` CSS, `buildPlaces()` / `markActivePlace()` | 8 pages, verbatim, plus the 2 `cwa_opendata/` pages, which take the **CSS verbatim** but rename the functions `buildCounties()` / `markActiveCounty()` and drive them from a local `COUNTIES` list rather than `PLACES` — 22 county names, ours in that order, not the API's. That is the point of the pills there: the API spells it 臺北市 and answers a typed 台北市 with an empty HTTP 200. Not on `astro-score_daily.html`: its rows *are* the saved spots, so pills repeating them would say it twice. Its location box therefore stands alone beside 使用目前位置, and nothing there is ever "pressed" |
+| `useCurrentPosition()` + the 使用目前位置 button and its `.geonote` | 9 of the 11 — **not** the `cwa_opendata/` two, which have no coordinate to fill: fill the box, note the accuracy, resubmit. The 8 pill pages also `setInputPlace()` + `buildPlaces()` so the 輸入 pill follows; `astro-score_daily.html` has no pills and lets its submit handler do the `setInputPlace()`, so its copy is four lines shorter. `setInputPlace()`/`currentPosition()`/`GEO_ERRORS` are **not** duplicated: root `places.js` |
+| `PLACES` | **not duplicated** — root `places.js`, loaded by 9 of the 11 pages (not the `cwa_opendata/` two, which are addressed by county). `DEFAULT_LAT`/`DEFAULT_LON` are every page's empty-box fallback, `astro-score_daily.html` included |
 | The `countryName/principalSubdivision/city/locality` join | both `astro_score/astro-score_*.html` pages (`reverseGeocode()`) + `bigdatacloud/reverse-geocode.html` (`placeName()`) |
 | `reverseGeocode()` (the *deferred, never-awaited* lookup) | both `astro_score/astro-score_*.html` pages, **byte-identical**; **never** either `open_meteo/` page. What differs is how the name reaches the screen: `astro-score_readable.html` appends it to the meta element (`appendPlaceName()`, guarded on the line not having changed), `astro-score_daily.html` stores it in `inputPlaceName` and lets `setMeta()` redraw it (`loadInputPlaceName()`, guarded on `PLACES[0]` still being that coordinate) — because a tab click there rewrites the meta line, which would wipe an appended node |
 | Light-pollution atlas (`lpRatio`, `lpSqm`, `lpBortle`, `lpZone`, `LP_ZONES`, `LP_BORTLE`, tile geometry, the `DecompressionStream` read) | `astro_score/astro-score_readable.html` + `light_pollution/binary-tile.html` — the only third-party binary format in the repo. The *deferred, never-awaited* wrapper (`lightPollution()`, `loadLightPollution()`) is `astro_score`'s alone; `binary-tile.html` awaits its fetch, because there the tile **is** the result |
@@ -251,6 +354,7 @@ which blocks are copies before editing any of them:
 | `MODELS` (the four ids, in order) | all 4 Open-Meteo pages + `milkyway.py` + `open-meteo.py` — every one of them, in the same order, since it is the order rows and tabs appear in |
 | `seriesKey(hourly, name, model, multi)`, `modelsFromParams()`, `renderTabs()`/`.tab` CSS | all 4 Open-Meteo pages, verbatim apart from what the tab click re-renders. `astro-score_daily.html`'s tabs pick which model is *scored*, not merely shown; `astro-score_readable.html`'s do both, and deliberately leave the meta line alone (`appendPlaceName()` has already appended to it) |
 | `HOURLY_VARS`, `DEFAULT_LAT`/`DEFAULT_LON` | `open-meteo*.html` only — both `astro-score_*.html` pages deliberately override these |
+| `<details class="explain">` (the folded notes above the form) | both `astro_score/` pages + both `cwa_opendata/` pages, same CSS and same reason: worth reading once, in the way every time after. Only the `<summary>` and the `.rule` blocks differ |
 | The extra-params box + its `key=value` parse loop | all 4 Open-Meteo pages, the loop verbatim; no `pure_math/` page has one, having no request to add params to. `DEFAULT_EXTRA` is **not** shared: `open-meteo*.html` prefill `daily=...` **and** `past_days=7`, both `astro-score_*.html` prefill `past_days=7` alone (nothing there reads `daily=`) |
 
 **Edit one and you must edit the others in its row.**
@@ -413,7 +517,8 @@ The source is **David Lorenz's World Atlas of Artificial Night Sky Brightness**
 (`djlorenz.github.io/astronomy/lp`), a recomputation of Cinzano's atlas from NOAA/VIIRS
 data. It is the **only** light-pollution source that works here: `lightpollutionmap.info`
 sends CORS `*` but answers `"Invalid or missing authentication. Please request a key"`, and
-a key in page source is exactly why `cwa_opendata` has no demo. Lorenz's tiles are on
+a key in page source is exactly why the `cwa_opendata` pages ask for the user's own
+key in a form field rather than shipping one. Lorenz's tiles are on
 GitHub Pages, which serves `access-control-allow-origin: *`. Credit is owed and is on the
 page; it is a **courtesy dependency on one person's static host**, so every failure path
 resolves to null.

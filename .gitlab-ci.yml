@@ -12,6 +12,7 @@ pages:
     - cp -r light_pollution public/
     - cp -r google_news_url public/
     - cp -r bigdatacloud public/
+    - cp -r cwa_opendata public/
   artifacts:
     paths:
       - public
