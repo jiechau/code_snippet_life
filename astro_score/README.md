@@ -150,8 +150,8 @@ awaited, like the readable page's; where that page appends the name to the line,
 this one stores it and lets `setMeta()` redraw it, since a tab click here rewrites
 that line. It asks for `cloud_cover` alone, but for all four models, so
 each response is ~12.9 KB / 384 hours at the 16-day default — mostly timestamps —
-and with the prefilled `past_days=7`, ~18.2 KB, making a round of the eleven rows
-**~202 KB** in about 1.4 s. The
+and with the prefilled `past_days=7`, ~18.4 KB, making a round of the twelve rows
+**~220 KB** in about 1.4 s. The
 readable page fetches ~34 KB for one place, six variables and four models. The
 totals track `places.js`, so they move whenever a spot is added.
 
@@ -298,8 +298,8 @@ does not feed it removed.
     [declines to publish](https://djlorenz.github.io/astronomy/lp/bortle.html),
     because Bortle judges the whole sky — horizon light domes included — which a
     zenith number cannot see. It is also coarse exactly where it matters: Bortle 4
-    spans 21.69 down to 20.49, so 東澳, 石梯坪, 加路蘭, 龍磐公園, 合歡山 and 柚子湖
-    all read "4" while LP Zone still separates 合歡山 (`3b`) from 柚子湖 (`3a`).
+    spans 21.69 down to 20.49, so 東澳, 石梯坪, 加路蘭, 龍磐公園, 拉拉山, 合歡山 and
+    柚子湖 all read "4" while LP Zone still separates 合歡山 (`3b`) from 柚子湖 (`3a`).
     Read the SQM; the labels are there because people speak them.
 - **The 銀心 (max) row** sits directly under 銀心: the ceiling that altitude is measured
   against. A fixed point is highest crossing the meridian, so the peak is simply
@@ -358,8 +358,8 @@ The location box sits **last in the form, directly above Fetch**, out of normal
 parameter order on purpose: it is the only field normally touched, so it belongs
 next to the button. A narrow `lat,lon` box with **📍 使用目前位置** beside it and the
 saved spots wrapped onto a line of their own: 輸入, 瑞光路, 大武崙砲台,
-內洞停車場, 烏石港, 東澳, 石梯坪, 加路蘭, 龍磐公園, 合歡山, 柚子湖. Clicking one fills the
-coordinates **and refetches** — leaving a stale grid under a new location would
+內洞停車場, 烏石港, 東澳, 石梯坪, 加路蘭, 龍磐公園, 拉拉山, 合歡山, 柚子湖. Clicking one
+fills the coordinates **and refetches** — leaving a stale grid under a new location would
 misrepresent it. The pressed button shows which spot is displayed, and a
 hand-typed coordinate presses none. They come from the `PLACES` array in
 [`../places.js`](../places.js), shared by every demo page in the repo, whose first

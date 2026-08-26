@@ -32,8 +32,8 @@ no Pages hosting — it is a mirror only.
 
 One file is shared by every demo page: [`places.js`](places.js) at the repo root
 holds the saved stargazing spots (瑞光路, 大武崙砲台, 內洞停車場, 烏石港,
-東澳, 石梯坪, 加路蘭, 龍磐公園, 合歡山, 柚子湖) that fill the location buttons, plus the
-default coordinates taken from the first entry. Each page loads it as
+東澳, 石梯坪, 加路蘭, 龍磐公園, 拉拉山, 合歡山, 柚子湖) that fill the location buttons,
+plus the default coordinates taken from the first entry. Each page loads it as
 `../places.js`, so adding or reordering a spot is a one-line change in one file
 rather than the same edit made nine times. It is the only file shared across
 snippet folders. The two `cwa_opendata/` pages are the exception that does not
