@@ -78,8 +78,8 @@ page as [`open_meteo/open-meteo.html`](../open_meteo/README.md) — same layout,
 behaviour, same request core — with the form cut down to the one input this endpoint
 needs:
 
-- **location** — a `lat,lon` box with **📍 使用目前位置** beside it and the saved
-  spots wrapped onto a line of their own: 輸入, 瑞光路, 大武崙砲台, 內洞停車場, 烏石港, 東澳, 石梯坪, 加路蘭,
+- **location** — a `lat,lon` box with **📍 使用目前位置** and **🗺️ 在地圖上點選**
+  beside it and the saved spots wrapped onto a line of their own: 輸入, 瑞光路, 大武崙砲台, 內洞停車場, 烏石港, 東澳, 石梯坪, 加路蘭,
   龍磐公園, 拉拉山, 合歡山, 柚子湖.
   Clicking one fills the coordinates and refetches; the pressed button shows which
   spot is displayed, and a hand-typed coordinate presses none. They come from the
@@ -90,6 +90,14 @@ needs:
   secure-context API, so it needs the published `https://` page or `localhost`, not
   `file://`; a refusal is printed beside the button rather than thrown, and nothing
   is stored.
+- **在地圖上點選 (pick on the map)** — the coordinate nobody knows by heart. It
+  opens an [OpenStreetMap](https://www.openstreetmap.org/copyright) map over the
+  page; drag it, or tap, until the crosshair is on the spot, and 確定 writes what
+  is under the crosshair into the box and into 輸入 exactly as the GPS button
+  does. 取消, Escape or a click outside change nothing. It is `pickOnMap()` in
+  [`../places.js`](../places.js), keyless like every other service here and with
+  **no map library** behind it, and unlike geolocation it needs no permission and
+  no secure context — so it is the one of the two that also works over `file://`.
 
 `localityLanguage` is fixed at `zh` in the page rather than exposed as a field, so
 location really is the only input. Change the constant to see other languages.

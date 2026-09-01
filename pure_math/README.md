@@ -19,8 +19,9 @@ can see the eight lines of arithmetic that produced the number.
 | [moon_phase.html](moon_phase.html) | Is the moon up, and how bright? | the `月亮` and `月相` rows, plus 月亮扣分 |
 
 Each takes a time and a `lat,lon` (the saved spots from
-[`places.js`](../places.js) are offered as buttons, and **📍 使用目前位置** fills
-the box from the device's own GPS) and prints three things: the
+[`places.js`](../places.js) are offered as buttons, **📍 使用目前位置** fills
+the box from the device's own GPS, and **🗺️ 在地圖上點選** from a point on an
+OpenStreetMap map) and prints three things: the
 answer as a few cards, then a table of every intermediate — Julian Day, sidereal
 time, the series terms, the spherical-triangle conversion — with the formula that
 produced each one. Committing either input recomputes; there is no request in
@@ -114,5 +115,6 @@ open pure_math/galactic_center.html
 
 `../places.js` is a classic script, so `file://` works — except for
 **使用目前位置**, since geolocation is a secure-context API and needs `https://` or
-`localhost`. Or serve the repo root
+`localhost`. **在地圖上點選** beside it has no such limit: it is the same
+`places.js`, an OpenStreetMap map over the page, and no permission to ask for. Or serve the repo root
 with `python3 -m http.server` and browse to `/pure_math/`.

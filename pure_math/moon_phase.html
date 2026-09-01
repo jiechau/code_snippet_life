@@ -203,10 +203,11 @@
                     </div>
                 </div>
                 <div class="field wide">
-                    <label for="location">location <span class="hint">lat,lon &mdash; or pick a spot</span></label>
+                    <label for="location">location <span class="hint">lat,lon &mdash; or pick a spot, the device, or a point on the map</span></label>
                     <div class="locrow">
                         <input id="location" name="location" spellcheck="false">
                         <button type="button" class="place geo" id="geo" title="device GPS → the 輸入 spot">📍 使用目前位置</button>
+                        <button type="button" class="place geo" id="mappick" title="OpenStreetMap → the 輸入 spot">🗺️ 在地圖上點選</button>
                         <span class="geonote" id="geonote"></span>
                         <div class="places" id="places"></div>
                     </div>
@@ -736,6 +737,46 @@ async function useCurrentPosition() {
 }
 
 /**
+ * 在地圖上點選 (pick on the map): the same write as 使用目前位置 -- box, 輸入,
+ * pills, refetch -- from a real map rather than from the device. It is the
+ * answer to "that ridge over there", which has a coordinate nobody knows by
+ * heart and which no saved spot names.
+ *
+ * pickOnMap() (places.js) opens on whatever the box already holds, so the map
+ * starts at the place on screen; anything unparseable there falls back to
+ * places.js's default rather than reporting itself, since a half-typed
+ * coordinate is about to be replaced by the one you point at. It never
+ * rejects, and 取消 resolves null -- on which this leaves the box, the pills
+ * and the grid exactly as they were.
+ *
+ * Unlike the GPS route there is no accuracy to report, so the .geonote is
+ * cleared: a "±12 m" left over from an earlier fix would describe a coordinate
+ * the box no longer holds.
+ */
+async function pickFromMap() {
+    const button = document.getElementById("mappick");
+    const note = document.getElementById("geonote");
+    button.disabled = true;
+    try {
+        const [latS, lonS] = document.getElementById("location").value.trim().split(",");
+        const lat = Number(latS), lon = Number(lonS);
+        const picked = await pickOnMap(
+            Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon } : {},
+        );
+        if (!picked) return;   // 取消
+        setInputPlace(picked.lat, picked.lon);
+        buildPlaces();   // the 輸入 pill carries coordinates in a dataset, so redraw it
+        document.getElementById("location").value = `${picked.lat},${picked.lon}`;
+        note.classList.remove("error");
+        note.textContent = "";
+        markActivePlace();
+        document.getElementById("form").requestSubmit();
+    } finally {
+        button.disabled = false;
+    }
+}
+
+/**
  * One button per saved spot. Clicking fills the box and recomputes: leaving the
  * previous answer on screen under a new location would just be misleading.
  */
@@ -836,6 +877,7 @@ document.getElementById("now").addEventListener("click", () => {
 });
 document.getElementById("location").addEventListener("input", markActivePlace);
 document.getElementById("geo").addEventListener("click", useCurrentPosition);
+document.getElementById("mappick").addEventListener("click", pickFromMap);
 // Committing a value (blur, or the picker closing) recomputes: it is pure
 // arithmetic, so there is no reason to make anyone press the button twice.
 document.getElementById("when").addEventListener("change", () => document.getElementById("form").requestSubmit());

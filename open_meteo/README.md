@@ -171,8 +171,8 @@ retyping anything:
 - **location** — deliberately **last, immediately above Fetch**, because it is the
   only field normally touched: everything above it is left at its default, so the
   one control in constant use sits where the hand already is. A `lat,lon` box,
-  narrow because that is all it ever holds, with **📍 使用目前位置** beside it and
-  the saved spots wrapped onto a line of their own: 輸入, 瑞光路, 大武崙砲台, 內洞停車場, 烏石港, 東澳, 石梯坪, 加路蘭,
+  narrow because that is all it ever holds, with **📍 使用目前位置** and
+  **🗺️ 在地圖上點選** beside it and the saved spots wrapped onto a line of their own: 輸入, 瑞光路, 大武崙砲台, 內洞停車場, 烏石港, 東澳, 石梯坪, 加路蘭,
   龍磐公園, 拉拉山, 合歡山, 柚子湖.
   Clicking one fills the coordinates and refetches; the pressed button shows which
   spot is displayed, and a hand-typed coordinate presses none. They come from the
@@ -187,6 +187,14 @@ retyping anything:
   (no permission, no fix, timed out) is printed beside the button rather than
   thrown. Nothing is stored: a reload, or Reset defaults, puts 輸入 back to the
   coordinate `places.js` was written with.
+- **在地圖上點選 (pick on the map)** — the coordinate nobody knows by heart. It
+  opens an [OpenStreetMap](https://www.openstreetmap.org/copyright) map over the
+  page; drag it, or tap, until the crosshair is on the spot, and 確定 writes what
+  is under the crosshair into the box and into 輸入 exactly as the GPS button
+  does. 取消, Escape or a click outside change nothing. It is `pickOnMap()` in
+  [`../places.js`](../places.js), keyless like every other service here and with
+  **no map library** behind it, and unlike geolocation it needs no permission and
+  no secure context — so it is the one of the two that also works over `file://`.
 
 Four defaults deliberately differ from `open-meteo.py`: the location (三總 rather
 than Taipei), the cloud decks listed high → low, the `daily=` line, and the extra

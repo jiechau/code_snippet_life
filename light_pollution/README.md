@@ -110,7 +110,12 @@ It works straight off `file://` because the tiles are served with
 `access-control-allow-origin: *`. The one control that does not is
 **📍 使用目前位置**, which fills the location box from the device's own GPS:
 geolocation is a secure-context API, so it needs `https://` or `localhost`, and
-says so beside the button when it is refused.
+says so beside the button when it is refused. **🗺️ 在地圖上點選** beside it fills
+the same box from an [OpenStreetMap](https://www.openstreetmap.org/copyright) map
+— drag or tap until the crosshair is on the spot, 確定 to take it — and needs
+neither a permission nor a secure context, so that one does work off `file://`.
+It is `pickOnMap()` in [`../places.js`](../places.js): keyless, and with no map
+library behind it.
 
 ## Credit
 
