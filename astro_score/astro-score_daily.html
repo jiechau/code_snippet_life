@@ -386,8 +386,8 @@
             <a href="astro-score_readable.html">astro-score_readable.html</a> &mdash; this page just
             asks it of every place in the list at once (<span id="placeCount">10</span> rows) and
             folds each day's 24 hours into two half-day blocks. The first row, 輸入, is the one that
-            is not a saved spot: it follows the location box below, and 使用目前位置 points it at
-            wherever you are standing. Read it to pick
+            is not a saved spot: it follows the location box below, which 使用目前位置 fills from
+            the device and 在地圖上點選 from a map. Read it to pick
             <em>where and when</em>, then open the readable grid for the hour-by-hour detail. Four forecast models come back in every request;
             the tabs pick which one the bars are scored from. No API key needed.
         </p>
@@ -490,11 +490,12 @@
                     <textarea id="extra" name="extra" rows="2" spellcheck="false" placeholder="forecast_hours=24"></textarea>
                 </div>
                 <div class="field wide">
-                    <label for="location">location <span class="hint">lat,lon &mdash; the <strong>輸入</strong> row only; every other row is a saved spot. 使用目前位置 fills it from the device</span></label>
+                    <label for="location">location <span class="hint">lat,lon &mdash; the <strong>輸入</strong> row only; every other row is a saved spot. 使用目前位置 fills it from the device, 在地圖上點選 from a map</span></label>
                     <div class="locrow">
                         <label class="locname" for="location">輸入:</label>
                         <input id="location" name="location" spellcheck="false">
                         <button type="button" class="secondary" id="geo" title="device GPS → the 輸入 row">📍 使用目前位置</button>
+                        <button type="button" class="secondary" id="mappick" title="OpenStreetMap → the 輸入 row">🗺️ 在地圖上點選</button>
                         <span class="geonote" id="geonote"></span>
                     </div>
                 </div>
@@ -1531,6 +1532,42 @@ async function useCurrentPosition() {
     }
 }
 
+/**
+ * 在地圖上點選 (pick on the map): the same write as 使用目前位置 -- the box, then
+ * a refetch -- from a real map rather than from the device. Like that button it
+ * only fills the box, leaving the submit handler to copy it into 輸入
+ * (PLACES[0]), so the typed, located and pointed-at routes stay one path.
+ *
+ * pickOnMap() (places.js) opens on whatever the box already holds, so the map
+ * starts at the row you are about to move; anything unparseable there falls
+ * back to places.js's default rather than reporting itself, since a half-typed
+ * coordinate is about to be replaced by the one you point at. It never rejects,
+ * and 取消 resolves null -- on which this leaves the box and the grid alone.
+ *
+ * Unlike the GPS route there is no accuracy to report, so the .geonote is
+ * cleared: a "±12 m" left over from an earlier fix would describe a coordinate
+ * the box no longer holds.
+ */
+async function pickFromMap() {
+    const button = document.getElementById("mappick");
+    const note = document.getElementById("geonote");
+    button.disabled = true;
+    try {
+        const [latS, lonS] = document.getElementById("location").value.trim().split(",");
+        const lat = Number(latS), lon = Number(lonS);
+        const picked = await pickOnMap(
+            Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon } : {},
+        );
+        if (!picked) return;   // 取消
+        document.getElementById("location").value = `${picked.lat},${picked.lon}`;
+        note.classList.remove("error");
+        note.textContent = "";
+        document.getElementById("form").requestSubmit();
+    } finally {
+        button.disabled = false;
+    }
+}
+
 document.getElementById("form").addEventListener("submit", async (event) => {
     event.preventDefault();
     const button = document.getElementById("submit");
@@ -1612,6 +1649,7 @@ document.getElementById("form").addEventListener("submit", async (event) => {
 
 document.getElementById("reset").addEventListener("click", resetDefaults);
 document.getElementById("geo").addEventListener("click", useCurrentPosition);
+document.getElementById("mappick").addEventListener("click", pickFromMap);
 document.getElementById("hidePast").addEventListener("change", renderGrid);
 
 document.getElementById("placeCount").textContent = String(PLACES.length);

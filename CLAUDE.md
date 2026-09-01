@@ -301,8 +301,9 @@ silent no-op: `requestSubmit()` does nothing while the submit button is disabled
 
 **`PLACES[0]` is `輸入`, not a saved spot.** It is wherever the user is asking about
 right now — the default coordinate, what a location box writes back to
-(`setInputPlace()`, also in `places.js`), and what **使用目前位置** overwrites with the
-device's GPS position. Keeping it in the shared list rather than in a page is what lets
+(`setInputPlace()`, also in `places.js`), what **使用目前位置** overwrites with the
+device's GPS position, and — on the two `astro_score/` pages — what
+**在地圖上點選** overwrites with a point taken off a map (`pickOnMap()`, same file). Keeping it in the shared list rather than in a page is what lets
 `astro-score_daily.html` take part at all: its rows *are* `PLACES`, so moving entry 0
 moves a row, and one box there edits one row instead of choosing *the* place. The
 mutation lasts one page load — nothing is stored, so
@@ -312,6 +313,33 @@ whatever `setInputPlace()` does). Because a pill bakes its coordinates into
 `dataset.coords`, every caller of `setInputPlace()` rebuilds the pills — which is why
 `buildPlaces()` now starts with `box.replaceChildren()` and `resetDefaults()` calls
 it, replacing the standalone load-time `buildPlaces()` those pages used to end with.
+
+`pickOnMap()` (also `places.js`, ~230 lines with its injected stylesheet) is the
+third way that box gets filled, and only the two `astro_score/` pages offer it. It
+opens a **dialog over the page** — not another tab: a second window would need
+either a map page of its own at the repo root, which the one-folder rule forbids,
+or a document written into `about:blank`, and would then have to hand a coordinate
+back across a popup blocker and a `file://` origin. It resolves `{lat, lon}`
+(6 decimals, like `currentPosition()`) on 確定 and **`null`** on 取消, Escape or a
+backdrop click; it never rejects, and the caller's job on `null` is to change
+nothing. Three things not to undo: **OpenStreetMap raster tiles**, because Google's
+map APIs want a billing-enabled key and a key in a published static page is public
+(the `cwa_opendata` wall, without cwa's escape — the key would be *ours*), and OSM
+serves them keyless and CORS-clean; **no map library**, since a slippy map is the
+Mercator pair, a grid of `<img>` tiles and a drag handler, and a CDN Leaflet would
+be the repo's first third-party script (the same call `light_pollution/` makes with
+`DecompressionStream` over pako); and **the crosshair is fixed at the centre**
+rather than a marker dropped where you tapped — at these zooms a fingertip covers
+about a kilometre, so it would hide what you are aiming at. A tap still works: it
+brings that point *to* the crosshair. Attribution is required by the tile licence
+and is in the dialog. One trap, guarded in `pointerdown` and `dblclick`: the zoom
+buttons and the attribution are *inside* the map element, so their pointer events
+bubble to the pan handler — unguarded, pressing **+** is a press-and-release that
+never moved, i.e. a tap, and the tap rule drags the top-right corner to the
+crosshair before the click zooms, so +/− walk the coordinate away instead of
+holding it (six out and six back in landed ~800 km off). `el.click()` in a test
+will not catch it, since it sends the click alone. Costs about a dozen tiles a screen; the pinch steps whole
+zoom levels because fractional zoom would mean scaling the tile layer.
 
 `currentPosition()` (also `places.js`) wraps `navigator.geolocation` as a promise of
 `{lat, lon, accuracy}`, rounded to 6 decimals. It is the **only thing in the repo that
@@ -348,6 +376,7 @@ two copy the chrome and the request *shape* but are the only pages addressed by
 | `.locrow` CSS | all 11 pages, verbatim (2 lines) — on the `cwa_opendata/` two it wraps the **county** box, not a coordinate one. Both `astro-score_*.html` add a third for `.locname` — the `輸入:` label in front of the box, a second `<label for="location">` naming what the box writes to (`PLACES[0]`: the first pill on one page, the top grid row on the other). The other 7 pages do not have it |
 | `.place`/`.places` CSS, `buildPlaces()` / `markActivePlace()` | 8 pages, verbatim, plus the 2 `cwa_opendata/` pages, which take the **CSS verbatim** but rename the functions `buildCounties()` / `markActiveCounty()` and drive them from a local `COUNTIES` list rather than `PLACES` — 22 county names, ours in that order, not the API's. That is the point of the pills there: the API spells it 臺北市 and answers a typed 台北市 with an empty HTTP 200. Not on `astro-score_daily.html`: its rows *are* the saved spots, so pills repeating them would say it twice. Its location box therefore stands alone beside 使用目前位置, and nothing there is ever "pressed" |
 | `useCurrentPosition()` + the 使用目前位置 button and its `.geonote` | 9 of the 11 — **not** the `cwa_opendata/` two, which have no coordinate to fill: fill the box, note the accuracy, resubmit. The 8 pill pages also `setInputPlace()` + `buildPlaces()` so the 輸入 pill follows; `astro-score_daily.html` has no pills and lets its submit handler do the `setInputPlace()`, so its copy is four lines shorter. `setInputPlace()`/`currentPosition()`/`GEO_ERRORS` are **not** duplicated: root `places.js` |
+| `pickFromMap()` + the 在地圖上點選 button | the 2 `astro_score/` pages only, and it is the **same write as its 使用目前位置 neighbour** minus the accuracy — the readable copy does box + `setInputPlace()` + `buildPlaces()` + `markActivePlace()`, the daily copy just the box, exactly as their geo copies split. Both clear the `.geonote`, since a leftover `±12 m` would describe a coordinate the box no longer holds, and both return silently on `null` (取消). The map itself — `pickOnMap()`, `mapStyle()`, the Mercator four — is **not** duplicated: root `places.js`. The other 7 pages have a location box and no map button; adding one there is a two-line change (the button, the listener) plus a copy of `pickFromMap()` |
 | `PLACES` | **not duplicated** — root `places.js`, loaded by 9 of the 11 pages (not the `cwa_opendata/` two, which are addressed by county). `DEFAULT_LAT`/`DEFAULT_LON` are every page's empty-box fallback, `astro-score_daily.html` included |
 | The `countryName/principalSubdivision/city/locality` join | both `astro_score/astro-score_*.html` pages (`reverseGeocode()`) + `bigdatacloud/reverse-geocode.html` (`placeName()`) |
 | `reverseGeocode()` (the *deferred, never-awaited* lookup) | both `astro_score/astro-score_*.html` pages, **byte-identical**; **never** either `open_meteo/` page. What differs is how the name reaches the screen: `astro-score_readable.html` appends it to the meta element (`appendPlaceName()`, guarded on the line not having changed), `astro-score_daily.html` stores it in `inputPlaceName` and lets `setMeta()` redraw it (`loadInputPlaceName()`, guarded on `PLACES[0]` still being that coordinate) — because a tab click there rewrites the meta line, which would wipe an appended node |
@@ -453,8 +482,9 @@ fixes `hourly` (the four cloud decks, plus `precipitation_probability` and
 `temperature_2m` — 降雨 and 氣溫, which `astroScore()` does not read but a human picking a
 night does) and `models` (**all four**, `MODELS` in the shared order), removing those two
 textareas from the form; `forecast_days`, **extra params** and the location
-(now with **使用目前位置** beside it, writing the device's GPS into `輸入`)
-remain — `timezone` was dropped as a field too, since the API resolves it from the
+(now with **使用目前位置** beside it, writing the device's GPS into `輸入`, and
+**在地圖上點選** beside that, writing a point off an OpenStreetMap map into the same
+place) remain — `timezone` was dropped as a field too, since the API resolves it from the
 coordinates, but `timezone=auto` is still **sent** as a constant in `defaultParams()`:
 without it `hourly.time` comes back in GMT and every hour label, date break and
 從現在開始 trim on the page reads local wall time. It fetched `icon_global` alone until the 雲量來源 tabs were added: the grid is
@@ -690,7 +720,9 @@ same `try` and before `PLACES.map()`**, since a row cannot be built from a coord
 has not landed in the list yet, and a malformed one must report itself with nothing sent.
 **使用目前位置** sits beside that box and only fills it, leaving the write to `輸入` to
 the submit handler — one path for typed and located alike, and four lines shorter than
-the pill pages' copy, which has pills to rebuild.
+the pill pages' copy, which has pills to rebuild. **在地圖上點選** sits beside *that*
+and does the same thing from `pickOnMap()`, so the three routes into that one row
+stay one write.
 
 The box brings `.locrow` (2 lines) but **not** `.place`/`.places`, `buildPlaces()` or
 `markActivePlace()`: pills would repeat the rows the grid already draws. `DEFAULT_LAT`/

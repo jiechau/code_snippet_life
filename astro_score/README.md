@@ -32,7 +32,8 @@ here mainly when changing those constants; the adjustable form is
 - [AstroScore daily](https://jiechau.github.io/code_snippet_life/astro_score/astro-score_daily.html)
   — the same score folded into a week-at-a-glance grid: a row per place, a
   column per day, two block glyphs per cell, each over a purple MilkyScore strip.
-  The first row is 輸入, which 使用目前位置 points at wherever you are standing.
+  The first row is 輸入, which 使用目前位置 points at wherever you are standing
+  and 在地圖上點選 at wherever you can find on a map.
 
 ## The two pages
 
@@ -61,8 +62,8 @@ once, because Open-Meteo answers a burst of ten four-model requests with HTTP
 
 **The first row is 輸入**, the one `places.js` entry that is not a saved spot, and it
 is the only row the form can move. A `lat,lon` box sits last, directly above Fetch,
-with **📍 使用目前位置** beside it; either one changes 輸入 and refetches, and every
-other row stays exactly where the file put it. That is a different job from the box on
+with **📍 使用目前位置** and **🗺️ 在地圖上點選** beside it; any of the three changes
+輸入 and refetches, and every other row stays exactly where the file put it. That is a different job from the box on
 the other pages — there it chooses *the* place, here it names one row of ten — so
 the parse is split out as `inputPlaceFromForm()` and applied with `setInputPlace()`
 before the rows are read. There are no place buttons: the saved spots are the rows
@@ -356,8 +357,8 @@ no longer a duplicated block to keep in step; it is this page's own.
 
 The location box sits **last in the form, directly above Fetch**, out of normal
 parameter order on purpose: it is the only field normally touched, so it belongs
-next to the button. A narrow `lat,lon` box with **📍 使用目前位置** beside it and the
-saved spots wrapped onto a line of their own: 輸入, 瑞光路, 大武崙砲台,
+next to the button. A narrow `lat,lon` box with **📍 使用目前位置** and
+**🗺️ 在地圖上點選** beside it and the saved spots wrapped onto a line of their own: 輸入, 瑞光路, 大武崙砲台,
 內洞停車場, 烏石港, 東澳, 石梯坪, 加路蘭, 龍磐公園, 拉拉山, 合歡山, 柚子湖. Clicking one
 fills the coordinates **and refetches** — leaving a stale grid under a new location would
 misrepresent it. The pressed button shows which spot is displayed, and a
@@ -373,6 +374,26 @@ a secure-context API: it works on the published `https://` page and on `localhos
 never on `file://`, and any refusal (no permission, no fix, timed out) is printed
 beside the button instead of thrown. Nothing is stored, so a reload — or Reset
 defaults — puts 輸入 back to the coordinate `places.js` was written with.
+
+**在地圖上點選 (pick on the map)** answers the question the other two cannot: the
+ridge two valleys over has a coordinate, but nobody knows it by heart and no saved
+spot names it. It opens a real map over the page — drag it, or tap, until the
+crosshair is on the spot — and 確定 writes what is under the crosshair into the box,
+into 輸入, and refetches, exactly as the GPS button does. 取消, Escape or a click
+outside leave the page untouched. Unlike geolocation it needs no permission and no
+secure context, so it is the one of the two that also works over `file://`.
+
+The map is [OpenStreetMap](https://www.openstreetmap.org/copyright)'s standard
+tiles, for the same reason every other service these pages call was chosen: no key.
+Google's maps want a billing-enabled API key, and a key baked into a published
+static page is public the moment it ships. The picker lives in
+[`../places.js`](../places.js) as `pickOnMap()` beside `currentPosition()` — about
+120 lines of Mercator arithmetic, `<img>` tiles and a drag handler, with **no map
+library**: pulling Leaflet off a CDN would be the first third-party script in the
+repo, the same call `light_pollution/` makes when it unpacks gzip with
+`DecompressionStream` rather than shipping pako. What you give up is rotation,
+smooth (fractional) zoom — a pinch steps whole levels — and a search box, none of
+which help you point at a hilltop.
 
 `index.html` is just the list page for this folder, reached from the root hub.
 
