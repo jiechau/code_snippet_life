@@ -205,13 +205,17 @@ request *machinery* is still a byte-for-byte port.
 
 ### Nothing but the API
 
-Neither page here shows anything Open-Meteo did not return. There is no reverse
-geocoding of the coordinates into a place name and no locally computed sun/moon
-row: what is on screen is the response, and the meta line says exactly what
-`open-meteo.py` prints to stderr. Both of those features exist — they are on
-[`astro_score/astro-score_readable.html`](../astro_score/README.md), which is the
-page that wants them. Keeping them out of this folder is the point of the split,
-so please do not add a second service's data back in here.
+Neither page here shows **data** Open-Meteo did not return. There is no locally
+computed sun/moon row: what the grid draws is the response, the JSON pane is
+byte-for-byte the response, and the meta line is what `open-meteo.py` prints to
+stderr. That other feature lives on
+[`astro_score/astro-score_readable.html`](../astro_score/README.md), which is the page
+that wants it, and keeping it out of this folder is the point of the split — so
+please do not add a second service's data back in here.
+
+The place name under the meta line is not that, any more than the map behind
+🗺️ 在地圖上點選 is: both are helpers for the location box. The name is one appended
+line, no row and no cell, nothing on the page reads it, and it fails to nothing.
 
 The one consequence worth knowing: with no solar altitude computed in the page,
 the 天氣 glyphs get day-vs-night from the API's own `is_day` series instead, which

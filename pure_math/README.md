@@ -4,6 +4,13 @@ The astronomy behind [`astro_score/`](../astro_score/README.md), one formula per
 page. **No script, and no API call at all** — every page is numbers in, numbers
 out, so there is nothing to install and nothing to go down.
 
+The meta line names the coordinate — 中華民國/臺北市/內湖區, from BigDataCloud's
+keyless `reverse-geocode-client` — as it does on every page with a location box.
+Like the map behind 🗺️ 在地圖上點選, it is a **helper for the box, not one of the
+numbers**: fired after the answer is drawn, never waited for, feeding nothing, and
+failing to nothing. Every angle above it is computed right here, and with no
+network the pages print all of them and simply leave the name off.
+
 These are extractions, not new work: each page lifts one block out of
 [`astro_score/astro-score_readable.html`](../astro_score/astro-score_readable.html)
 and shows it on its own, with every intermediate value printed instead of folded

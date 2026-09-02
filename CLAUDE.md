@@ -78,6 +78,17 @@ below. That is the only reason it has a page. `pure_math/` is the
 one folder none of this constrains: it calls nothing, so a static host was always
 sufficient for it.
 
+**A UI helper is not the page's API.** Two calls appear on nearly every page here
+and count towards none of the rules above: the OpenStreetMap tiles behind
+**在地圖上點選**, and the BigDataCloud place-name label on the second meta line.
+Neither puts a number, a row or a cell on screen; nothing computed reads them;
+both are keyless, fired after the result is already up, never awaited, and fail to
+nothing. They are chrome for the location box, in the same class as the
+**使用目前位置** button beside them. So `pure_math/` is still **no API call** — the
+arithmetic is what that folder is about — and `open_meteo/` still shows **nothing
+but the API**. Judge those rules against the data a page is demonstrating, not
+against every socket it opens.
+
 ## Running
 
 ```bash
@@ -206,16 +217,17 @@ Plain Open-Meteo API demo: `open-meteo.py` and its two browser ports,
 live here is now `astro_score/` — see below; the two folders are deliberately
 independent copies, not a shared library, per the one-folder-per-snippet rule.
 
-**`open-meteo.html` shows the API response and nothing else.** It has no
-`reverseGeocode()` / `appendPlaceName()` — that was deliberately stripped so the
-page reflects only what Open-Meteo returned.
+**Neither `open_meteo/` page shows any *data* Open-Meteo did not return.** The
+`太陽`/`月亮`/`月相` rows are gone from `open-meteo_readable.html` and the Meeus
+astronomy went with them; what the grid draws is API series and nothing else, and
+the JSON pane is byte-for-byte the response. Do not reintroduce a second service's
+data or a locally computed row here — `astro_score/astro-score_readable.html` is
+where those belong, and it still has them.
 
-**Neither `open_meteo/` page shows anything Open-Meteo did not return.** The same
-rule was then applied to `open-meteo_readable.html`: its place name and its
-`太陽`/`月亮`/`月相` rows are gone too, and the Meeus astronomy went with them. What
-the grid draws is API series and nothing else. Do not reintroduce a second service
-or a locally computed row here — `astro_score/astro-score_readable.html` is where
-both belong, and it still has them.
+The place name on the meta line is not that. It is the location box's own label,
+the UI helper described above, shared with every page that has such a box: one
+appended line, no row, no cell, nothing reading it, and the rest of that line is
+still exactly what `open-meteo.py` prints to stderr.
 
 That is why `is_day` is in `HOURLY_VARS`: the 天氣 glyphs need day from night, and
 with no local solar altitude left, the API's own series is the only source. It is
@@ -379,8 +391,8 @@ two copy the chrome and the request *shape* but are the only pages addressed by
 | `useCurrentPosition()` + the 使用目前位置 button and its `.geonote` | 9 of the 11 — **not** the `cwa_opendata/` two, which have no coordinate to fill: fill the box, note the accuracy, resubmit. The 8 pill pages also `setInputPlace()` + `buildPlaces()` so the 輸入 pill follows; `astro-score_daily.html` has no pills and lets its submit handler do the `setInputPlace()`, so its copy is four lines shorter. `setInputPlace()`/`currentPosition()`/`GEO_ERRORS` are **not** duplicated: root `places.js` |
 | `pickFromMap()` + the 在地圖上點選 button | the same 9 of the 11 as the row above, and always **beside** that button — the two travel together, since it is the **same write minus the accuracy**. **Byte-identical across the 8 pill pages** (box + `setInputPlace()` + `buildPlaces()` + `markActivePlace()` + resubmit), with `astro-score_daily.html` the one shorter copy, just the box, exactly as its geo copy is shorter. All 9 clear the `.geonote`, since a leftover `±12 m` would describe a coordinate the box no longer holds, and all 9 return silently on `null` (取消). The map itself — `pickOnMap()`, `mapStyle()`, the Mercator four — is **not** duplicated: root `places.js`. Adding it to a tenth page is four edits: the button, the hint, the function, the listener |
 | `PLACES` | **not duplicated** — root `places.js`, loaded by 9 of the 11 pages (not the `cwa_opendata/` two, which are addressed by county). `DEFAULT_LAT`/`DEFAULT_LON` are every page's empty-box fallback, `astro-score_daily.html` included |
-| The `countryName/principalSubdivision/city/locality` join | both `astro_score/astro-score_*.html` pages (`reverseGeocode()`) + `bigdatacloud/reverse-geocode.html` (`placeName()`) |
-| `reverseGeocode()` (the *deferred, never-awaited* lookup) | both `astro_score/astro-score_*.html` pages, **byte-identical**; **never** either `open_meteo/` page. What differs is how the name reaches the screen: `astro-score_readable.html` appends it to the meta element (`appendPlaceName()`, guarded on the line not having changed), `astro-score_daily.html` stores it in `inputPlaceName` and lets `setMeta()` redraw it (`loadInputPlaceName()`, guarded on `PLACES[0]` still being that coordinate) — because a tab click there rewrites the meta line, which would wipe an appended node |
+| The `countryName/principalSubdivision/city/locality` join | all 9 pages with a location box: `reverseGeocode()` on 8 of them, `placeName()` on `bigdatacloud/reverse-geocode.html`, which demos the endpoint head-on |
+| `reverseGeocode()` (the *deferred, never-awaited* lookup) | 8 pages — both `astro_score/`, both `open_meteo/`, the 3 `pure_math/` and `light_pollution/binary-tile.html` — **byte-identical in code**, with only three doc comments reworded where a page has no forecast and no grid point to disclaim. `bigdatacloud/reverse-geocode.html` is the ninth and the odd one: it awaits its own `placeName()` inline, because there the name *is* the result. Only the `cwa_opendata/` two have none, having no coordinate. Every copy is fired after the page's own result is on screen, given the **requested** coordinates, and guarded on the meta line not having changed. What differs is how the name reaches the screen: `astro-score_readable.html` appends it to the meta element (`appendPlaceName()`, guarded on the line not having changed), `astro-score_daily.html` stores it in `inputPlaceName` and lets `setMeta()` redraw it (`loadInputPlaceName()`, guarded on `PLACES[0]` still being that coordinate) — because a tab click there rewrites the meta line, which would wipe an appended node |
 | Light-pollution atlas (`lpRatio`, `lpSqm`, `lpBortle`, `lpZone`, `LP_ZONES`, `LP_BORTLE`, tile geometry, the `DecompressionStream` read) | `astro_score/astro-score_readable.html` + `light_pollution/binary-tile.html` — the only third-party binary format in the repo. The *deferred, never-awaited* wrapper (`lightPollution()`, `loadLightPollution()`) is `astro_score`'s alone; `binary-tile.html` awaits its fetch, because there the tile **is** the result |
 | Meeus solar/lunar series | both `astro_score/astro-score_*.html` pages + `astro_score/milkyway.py` + the 3 `pure_math/` pages — never in `open_meteo/`. Every copy carries **only what it draws**: `astro-score_daily.html` has no `moonIllumination()` (it has `GC_RA`/`GC_DEC`, which its MilkyScore strip needs); `pure_math/galactic_center.html` has no `obliquity()`/`eclipticToEquatorial()` at all (A* is already equatorial); `pure_math/sun_phase.html` has nothing lunar; `pure_math/moon_phase.html` carries `sunPosition()` too, because the illuminated fraction needs the moon–sun elongation |
 | `DARK_SUN_ALT`, `MOON_KILL_ALT`, `moonPenalty()`, `astroScore()` | both `astro_score/astro-score_*.html` pages, verbatim. Split across `pure_math/`: `sun_phase.html` takes `DARK_SUN_ALT`, `moon_phase.html` takes `MOON_KILL_ALT` + `moonPenalty()`. **`astroScore()` is in neither** — a pure-math page has no cloud figure to score |
@@ -414,14 +426,16 @@ first so a moved `輸入` cannot show the old township while the new name is in 
 
 `reverseGeocode()` puts `countryName/principalSubdivision/city/locality` (e.g.
 中華民國/宜蘭縣/南澳鄉/蘇澳鎮) on a **second meta line** from BigDataCloud's keyless,
-CORS-enabled `reverse-geocode-client`. The break is a `<br>` node appended to the
+CORS-enabled `reverse-geocode-client`. Every page with a location box has it now:
+picking a point off the map gives you a coordinate nobody typed, and a page that
+will not name it is answering a question you did not ask. The break is a `<br>` node appended to the
 element, not a `\n` in the text — `.meta` wraps normally, so a newline would render
 as a space. It is sent the **requested** lat/lon, not the response's grid point — the two
 can name different townships. The lookup is fired after the result renders and never
 awaited, so it re-checks the meta text before appending and skips it if a newer fetch has
 replaced the line; any failure resolves to an empty string and leaves the line alone. It
-is a label, never data: nothing on screen depends on it. Both
-`astro_score/` pages have it; both `open_meteo/` pages deliberately do not, so their meta line says exactly what `open-meteo.py` prints to stderr and no more.
+is a label, never data: nothing on screen depends on it. The `open_meteo/` pair's meta line is otherwise still exactly what `open-meteo.py`
+prints to stderr, and the name is appended to it rather than folded into it.
 `bigdatacloud/reverse-geocode.html` demos the same endpoint head-on, and its copy of the
 four-field join is the one thing the two pages share.
 
@@ -851,6 +865,11 @@ rows, the 太陽 row, the 月亮/月相 rows respectively — shown with **every
 intermediate printed** instead of folded into a grid cell. They exist so the
 readable page's computed rows can be checked: when it draws 太陽 −6.6° for an hour,
 this is where the eight lines that produced the number are visible.
+
+The place-name line and the map picker's tiles are not a counter-example to that:
+they are UI helpers for the location box, not the page's subject — see the rule in
+the demo-pages section. With no network at all these pages print every number
+exactly as before and simply omit the name.
 
 Pages are named after the **quantity computed**, not a script (there is none) and
 not the folder (there are three of them) — the third naming case in this repo,

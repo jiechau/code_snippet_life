@@ -842,6 +842,66 @@ function show({ meta, isError, cards, rows }) {
     }
 }
 
+/* BigDataCloud's keyless, CORS-enabled reverse geocoder: the place name under the
+   meta line. A helper for the location box, in the same class as the map behind
+   在地圖上點選 -- it labels the coordinate and feeds nothing on the page. */
+const GEOCODE_URL = "https://api.bigdatacloud.net/data/reverse-geocode-client";
+const geocodeCache = new Map();
+
+/**
+ * Turn a lat,lon into a readable place name for the meta line, e.g.
+ * 中華民國/宜蘭縣/南澳鄉/蘇澳鎮 -- countryName, principalSubdivision, city and
+ * locality, in that order.
+ *
+ * Sparse areas and open water leave some of the four fields empty, and the last
+ * two can repeat each other, so blanks and duplicates are dropped rather than
+ * shown.
+ *
+ * This is a label, never data -- the one thing on these pages that is looked up
+ * rather than computed, and nothing in the table below depends on it. Any
+ * failure resolves to "" and the meta line is left exactly as the arithmetic
+ * wrote it, which is also what happens with no network at all.
+ */
+async function reverseGeocode(lat, lon, timeoutMs = 10000) {
+    const key = `${lat},${lon}`;
+    if (geocodeCache.has(key)) return geocodeCache.get(key);
+
+    const url = `${GEOCODE_URL}?latitude=${encodeURIComponent(lat)}` +
+        `&longitude=${encodeURIComponent(lon)}&localityLanguage=zh`;
+    let name = "";
+    try {
+        const resp = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+        if (resp.ok) {
+            const body = await resp.json();
+            name = [body.countryName, body.principalSubdivision, body.city, body.locality]
+                .filter((part, i, all) => part && all.indexOf(part) === i)
+                .join("/");
+        }
+    } catch {
+        // Timed out or offline. The arithmetic itself is unaffected, so stay quiet.
+    }
+    geocodeCache.set(key, name);
+    return name;
+}
+
+/**
+ * Add the place name under a meta line once the lookup returns, as a second
+ * line of its own -- the two readings of the instant are already long, and the
+ * name reads better without them. Deliberately not awaited by the caller (the
+ * answer is on screen by then, computed with no network at all), so it
+ * re-checks the line first and gives up if a newer Compute has replaced it.
+ */
+function appendPlaceName(metaEl, lat, lon) {
+    const line = metaEl.textContent;
+    reverseGeocode(lat, lon).then((name) => {
+        if (!name || metaEl.textContent !== line) return;
+        // A <br>, not a "\n": .meta wraps normally, so a newline character in
+        // the text would come out as an ordinary space.
+        metaEl.appendChild(document.createElement("br"));
+        metaEl.appendChild(document.createTextNode(name));
+    });
+}
+
 document.getElementById("form").addEventListener("submit", (event) => {
     event.preventDefault();
     let utcMs, lat, lon, offsetHours;
@@ -868,6 +928,10 @@ document.getElementById("form").addEventListener("submit", (event) => {
         cards,
         rows,
     });
+    // The one lookup on this page, fired after the answer is drawn and never
+    // awaited: a name for the coordinate, which the map picker in particular
+    // hands you without one.
+    appendPlaceName(document.getElementById("meta"), lat, lon);
 });
 
 document.getElementById("reset").addEventListener("click", resetDefaults);

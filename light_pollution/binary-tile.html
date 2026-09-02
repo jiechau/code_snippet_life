@@ -344,6 +344,11 @@
  */
 
 const LP_TILE_URL = "https://djlorenz.github.io/astronomy/binary_tiles";
+/* BigDataCloud's keyless, CORS-enabled reverse geocoder: the place name under the
+   meta line. A helper for the location box, in the same class as the map behind
+   在地圖上點選 -- it labels the coordinate and feeds nothing on the page. */
+const GEOCODE_URL = "https://api.bigdatacloud.net/data/reverse-geocode-client";
+const geocodeCache = new Map();
 
 // Annual atlases published as binary tiles. Newest first so the default is the
 // current one and the list reads as "now, then back in time".
@@ -758,6 +763,61 @@ function buildYears() {
     }
 }
 
+/**
+ * Turn a lat,lon into a readable place name for the meta line, e.g.
+ * 中華民國/宜蘭縣/南澳鄉/蘇澳鎮 -- countryName, principalSubdivision, city and
+ * locality, in that order.
+ *
+ * The coordinates are the requested ones, not the atlas grid point the page
+ * decodes: that point is the centre of a 30-arcsec cell, up to ~600 m away, and
+ * naming it rather than the place asked about would be a different answer to a
+ * different question. Sparse areas and open water leave some of the four fields
+ * empty, and the last two can repeat each other, so blanks and duplicates are
+ * dropped rather than shown.
+ *
+ * This is a label, never data: any failure resolves to "" and the meta line is
+ * left exactly as the decode wrote it.
+ */
+async function reverseGeocode(lat, lon, timeoutMs = 10000) {
+    const key = `${lat},${lon}`;
+    if (geocodeCache.has(key)) return geocodeCache.get(key);
+
+    const url = `${GEOCODE_URL}?latitude=${encodeURIComponent(lat)}` +
+        `&longitude=${encodeURIComponent(lon)}&localityLanguage=zh`;
+    let name = "";
+    try {
+        const resp = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+        if (resp.ok) {
+            const body = await resp.json();
+            name = [body.countryName, body.principalSubdivision, body.city, body.locality]
+                .filter((part, i, all) => part && all.indexOf(part) === i)
+                .join("/");
+        }
+    } catch {
+        // Timed out or offline. The decode itself is unaffected, so stay quiet.
+    }
+    geocodeCache.set(key, name);
+    return name;
+}
+
+/**
+ * Add the place name under a meta line once the lookup returns, as a second
+ * line of its own -- the tile summary is already long, and the name reads
+ * better without it. Deliberately not awaited by the caller (the decode is on
+ * screen by then), so it re-checks the line first and gives up if a newer read
+ * has replaced it -- a year button, or another location.
+ */
+function appendPlaceName(metaEl, lat, lon) {
+    const line = metaEl.textContent;
+    reverseGeocode(lat, lon).then((name) => {
+        if (!name || metaEl.textContent !== line) return;
+        // A <br>, not a "\n": .meta wraps normally, so a newline character in
+        // the text would come out as an ordinary space.
+        metaEl.appendChild(document.createElement("br"));
+        metaEl.appendChild(document.createTextNode(name));
+    });
+}
+
 document.getElementById("form").addEventListener("submit", async (event) => {
     event.preventDefault();
     const button = document.getElementById("submit");
@@ -795,6 +855,9 @@ document.getElementById("form").addEventListener("submit", async (event) => {
             cards,
             rows,
         });
+        // Not awaited: the decode is the result, and a name is a courtesy on
+        // top of it. Given the requested coordinates, like the tile lookup.
+        appendPlaceName(document.getElementById("meta"), lat, lon);
     } catch (err) {
         document.getElementById("bytes").hidden = true;
         show({

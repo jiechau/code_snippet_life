@@ -117,6 +117,12 @@ neither a permission nor a secure context, so that one does work off `file://`.
 It is `pickOnMap()` in [`../places.js`](../places.js): keyless, and with no map
 library behind it.
 
+The meta line names the coordinate on a second line — 中華民國/南投縣/仁愛鄉, from
+BigDataCloud's keyless `reverse-geocode-client` — as on every page with a location
+box. Like the map behind 🗺️ 在地圖上點選 it is a helper for that box, not part of the
+decode: fetched after the tile is on screen, never waited for, and failing to
+nothing. The atlas is still the only thing this page reads a number out of.
+
 ## Credit
 
 Data: **David J. Lorenz**, [World Atlas of Artificial Night Sky Brightness](https://djlorenz.github.io/astronomy/lp/),
