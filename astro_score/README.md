@@ -47,6 +47,12 @@ and folds each day's 24 hourly scores into 2 half-day blocks:
 | 1st glyph | 00–11 | the small hours of that date |
 | 2nd glyph | 12–23 | that evening |
 
+**It fetches once on load**, so the page opens on the grid instead of on an empty
+panel: every field already holds a usable default and there is no per-visit input
+to collect first, unlike the readable page, where the location box *is* the
+question. That first round is one request per saved place, pooled — the same
+round the Fetch button sends.
+
 **Cloud comes from one model at a time**, picked with the 雲量來源 tabs above the
 grid. All four models are fetched in the same request, so switching is instant
 and costs nothing extra — the same idiom as `astro-score_readable.html`'s tabs;
@@ -81,12 +87,13 @@ out flat as `08/18` the header was wider than the bars and set the column width,
 holding them apart.
 
 Its checkbox is **從今天開始 (hide past days)** — the readable page's 從現在開始
-moved up from hours to days, since a column here is a day. **It starts unticked**,
-unlike the readable page's, so the week `past_days=7` asks for is on screen from
-the first Fetch: the forecast beside what the sky actually did, split by the
-heavier today rule. Ticking it hides days before today outright rather than
-blanking them, and it never shortens a day it does show: today's column is always
-a full 24 hours, so a block does not shrink as the afternoon wears on.
+moved up from hours to days, since a column here is a day. **It starts ticked**,
+like the readable page's, so the page opens on today and the days ahead;
+unticking it brings back the week `past_days=7` asks for — the forecast beside
+what the sky actually did, split by the heavier today rule. It hides days before
+today outright rather than blanking them, and it never shortens a day it does
+show: today's column is always a full 24 hours, so a block does not shrink as the
+afternoon wears on.
 
 A block's value is the **maximum** 觀星 in it — its best single hour, on the
 plain 0–100 scale — and that peak picks one of five heights:
@@ -135,8 +142,9 @@ per line; an empty value drops a parameter). It extends the series backwards, so
 you can put a forecast next to what the sky actually did. On
 `astro-score_readable.html` that is extra hours off the left of the grid,
 invisible until 從現在開始 is unticked; on `astro-score_daily.html` it is extra
-day columns to the left of today, drawn by default since 從今天開始 starts
-unticked.
+day columns to the left of today, likewise hidden until 從今天開始 is unticked —
+fetched either way, so the line shows up in the response size before it shows up
+in the grid.
 `past_days` accepts 0–93, but the models only keep about 61 days of rolling
 archive; past that the hours come back null.
 

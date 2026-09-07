@@ -446,10 +446,10 @@
                         the drive even when the rest of the night clouds over, and a sum would average it
                         away. It also means a bar says nothing about <em>how long</em> the window lasts:
                         open the readable grid for that.</li>
-                    <li><b>Hide past days (從今天開始)</b> is <b>off</b> to start with, so the week
-                        <code>past_days</code> asked for is on screen from the first Fetch: a forecast
-                        beside what the sky actually did, with a heavier rule marking today. Tick it to
-                        drop those days. It drops whole days only, and never shortens a day it
+                    <li><b>Hide past days (從今天開始)</b> is <b>on</b> to start with, so the page opens on
+                        today and the days ahead. Untick it to bring back the week
+                        <code>past_days</code> asked for: a forecast beside what the sky actually did,
+                        with a heavier rule marking today. It drops whole days only, and never shortens a day it
                         shows &mdash; today's column always covers the full 24 hours, hours already gone
                         included, so a block does not shrink as the afternoon wears on. Hover any cell for the
                         exact sums.</li>
@@ -486,7 +486,7 @@
                     <input id="forecast_days" name="forecast_days" value="16" spellcheck="false">
                 </div>
                 <div class="field wide">
-                    <label for="extra">extra params <span class="hint">one <code>key=value</code> per line; empty value drops a parameter. <code>past_days</code> adds columns to the <em>left</em> of today, shown by default &mdash; tick 從今天開始 to hide them. It takes 0&ndash;93, but the models only keep about 61 days of history</span></label>
+                    <label for="extra">extra params <span class="hint">one <code>key=value</code> per line; empty value drops a parameter. <code>past_days</code> adds columns to the <em>left</em> of today &mdash; untick 從今天開始 to see them. It takes 0&ndash;93, but the models only keep about 61 days of history</span></label>
                     <textarea id="extra" name="extra" rows="2" spellcheck="false" placeholder="forecast_hours=24"></textarea>
                 </div>
                 <div class="field wide">
@@ -504,7 +504,7 @@
             <div class="actions">
                 <button type="submit" id="submit">Fetch</button>
                 <button type="button" class="secondary" id="reset">Reset defaults</button>
-                <label class="check"><input type="checkbox" id="hidePast"> 從今天開始 (hide past days)</label>
+                <label class="check"><input type="checkbox" id="hidePast" checked> 從今天開始 (hide past days)</label>
             </div>
         </form>
 
@@ -595,10 +595,10 @@ const DEFAULT_MODEL = "icon_global";
 //
 // past_days= extends the series backwards, which on this grid means extra columns
 // to the LEFT of today -- the week just gone, for checking a forecast against what
-// the sky actually did. 從今天開始 starts UNTICKED here, so those columns are on
-// screen from the first Fetch and this line is visible in the grid rather than only
-// in the response size: each past day is another ~770 bytes per place across four
-// models, taking a twelve-row round from ~155 KB to ~220 KB.
+// the sky actually did. 從今天開始 starts TICKED, so they are fetched but not drawn
+// until it is unticked, and this line shows up in the response size before it shows
+// up in the grid: each past day is another ~770 bytes per place across four models,
+// taking a twelve-row round from ~155 KB to ~220 KB.
 const DEFAULT_EXTRA = [
     "past_days=7",
 ].join("\n");
@@ -1654,6 +1654,14 @@ document.getElementById("hidePast").addEventListener("change", renderGrid);
 
 document.getElementById("placeCount").textContent = String(PLACES.length);
 resetDefaults();
+
+// Fetch once on load, so the page opens on the grid rather than on an empty
+// panel waiting for a click: every field already holds a usable default, and the
+// question this page answers ("which place, which night") has no per-visit input
+// to collect first. It costs one round -- one request per PLACES entry, pooled --
+// on every page load; the readable page does not do this, because there the
+// location box is the question and a default coordinate is only a guess at it.
+document.getElementById("form").requestSubmit();
 </script>
 </body>
 </html>

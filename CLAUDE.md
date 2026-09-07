@@ -701,12 +701,18 @@ place,
 and `paramsFor()` is therefore called for every place *before* the button is disabled, so
 a malformed line reports itself with nothing sent — and, last and directly above Fetch,
 a **location** box. `past_days` on a day grid means extra
-columns to the **left** of today, on screen by default since 從今天開始 starts unticked
-here. Each past day is
+columns to the **left** of today, fetched but not drawn until 從今天開始 is unticked,
+since it starts ticked here. Each past day is
 ~770 bytes per place across four models, taking a twelve-row round from ~155 KB to ~220 KB.
 `timezone` is not a field here either — every row carries its own coordinates — but
 `timezone=auto` is still sent, and the extra-params box overriding it is what moves the
 today column (see `localToday()`).
+
+It **fetches once on load** — the script ends with a `requestSubmit()` after
+`resetDefaults()` — so the page opens on the grid rather than on an empty panel: every
+field holds a usable default and, unlike the readable page (where the location box *is*
+the question), there is no per-visit input to collect first. The cost is one full round,
+one request per `PLACES` entry, on every page load.
 
 It issues **one request per spot**, `FETCH_POOL` (4) in flight at a time via
 `settledPool()` — allSettled's shape with a concurrency cap, so one failure still costs
@@ -774,12 +780,12 @@ worse: the green-to-red sweep turned a short bar brown, which read as a differen
 thing rather than as less of the same one. Don't reintroduce a per-cell colour scale here.
 
 Its checkbox is **從今天開始 (hide past days)**, and it is the sibling page's 從現在開始
-moved up from hours to days, because a column here is a day. **It starts unticked** —
-the one place these two pages differ on this — so the `past_days=7` the extra-params box
-prefills is on screen from the first Fetch: a week of forecast beside the week that
-actually happened, with the today rule between them. The readable page keeps 從現在開始
-ticked, because there a past hour is a column of numbers in the way; here it is two
-glyphs that read as history at a glance. It **drops whole past columns**; it never shortens a column it shows, so today is always a full 24 hours and a
+moved up from hours to days, because a column here is a day. **It starts ticked**, like
+the readable page's, so the page opens on today and the days ahead; untick it and the
+`past_days=7` the extra-params box prefills appears as a week of forecast beside the week
+that actually happened, with the today rule between them — the line is fetched either way,
+so it shows up in the response size before it shows up in the grid. It **drops whole past
+columns**; it never shortens a column it shows, so today is always a full 24 hours and a
 block does not shrink as the afternoon wears on. Hiding rather than zeroing is the point:
 zeroed past days drew as blank glyphs and pushed today off the right of a phone screen.
 `blocksByDate()` therefore takes no "now" argument at all — it scores every hour it is
