@@ -167,7 +167,7 @@ function mapLatAt(y, zoom) {
 
 /*
  * The dialog's stylesheet, injected once per page rather than copied into the
- * eleven pages' <style> blocks -- this is the one thing in the repo that draws
+ * twelve pages' <style> blocks -- this is the one thing in the repo that draws
  * its own chrome, so its CSS travels with its code. Every colour falls back to
  * a literal, because the pages' custom properties are defined in the pages and
  * this file has to work when it is loaded by one that lacks them.

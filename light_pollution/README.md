@@ -1,21 +1,69 @@
 # light_pollution
 
-How dark is the sky at a `lat,lon`? **No script and no API key** — just
-[binary-tile.html](binary-tile.html), which fetches one tile of
-[David Lorenz's World Atlas of Artificial Night Sky Brightness](https://djlorenz.github.io/astronomy/lp/)
-and decodes it in the browser.
+How dark is the sky at a `lat,lon`? **No script and no API key** — two pages over
+[David Lorenz's World Atlas of Artificial Night Sky Brightness](https://djlorenz.github.io/astronomy/lp/):
+[binary-tile.html](binary-tile.html) fetches one tile and decodes it in the browser,
+showing every step, and [light_pollution_map.html](light_pollution_map.html) draws the
+same atlas as a map you can pan, reading any point you click.
 
 Like [`bigdatacloud/`](../bigdatacloud/README.md), this folder holds no script:
 the whole thing is one `GET` for a static file plus about twenty lines of
-arithmetic, so a Python version would demonstrate nothing the page does not. The
-page is named after the file it reads (`binary_tile_<x>_<y>.dat.gz`) for the same
-reason `reverse-geocode.html` is named after its endpoint.
+arithmetic, so a Python version would demonstrate nothing the pages do not.
+Neither page is named after a script, because there is none — `binary-tile.html`
+takes the name of the file it reads (`binary_tile_<x>_<y>.dat.gz`), for the same
+reason `reverse-geocode.html` is named after its endpoint, and
+`light_pollution_map.html` is named after what it draws.
 
 **Live demo:** https://jiechau.github.io/code_snippet_life/light_pollution/
 
 - [binary tile](https://jiechau.github.io/code_snippet_life/light_pollution/binary-tile.html)
   — a `lat,lon` and an atlas year in; SQM, Bortle and LP Zone out, with every
   intermediate step and the raw bytes shown.
+- [light pollution map](https://jiechau.github.io/code_snippet_life/light_pollution/light_pollution_map.html)
+  — the same atlas as a **map**: one layer per atlas year plus the 2013–2025 trend, over
+  a choice of basemap, with an opacity slider and the 15-step colour key.
+  **Click anywhere and it reads that point** — and the number comes from the *binary*
+  tile, not from the colour, so the picture and the figure cannot disagree. Past zoom 8
+  the overlay is painted from those binary tiles too, at the atlas's true 30-arcsec
+  resolution.
+
+## One point, or the whole view
+
+The two pages are the same atlas asked two ways, and each is bad at the other's job:
+
+| | [binary tile](binary-tile.html) | [light pollution map](light_pollution_map.html) |
+| --- | --- | --- |
+| Question | how dark is it **here** | **where** is it dark |
+| Reads | one binary tile, ~65 KB | rendered PNG tiles, ~30 KB each |
+| Shows | every intermediate, raw bytes included | colour, and a reading per click |
+| Years | one at a time, six buttons | one at a time, a dropdown, **plus the trend layer** |
+| Deep zoom | n/a | past zoom 8 it paints the grid itself, so it stays sharp |
+
+The map page also carries **VIIRS night-lights layers** from
+[NASA GIBS](https://worldview.earthdata.nasa.gov/), keyless and CORS-clean like everything
+else here. That is the *radiance* the atlas is modelled from — where light is emitted, not
+how bright the sky is above you — so it is worth a look beside the atlas and is never what
+the marker reads. What GIBS publishes is the **Black Marble annual composite for 2012 and
+2016** and a **nightly** NOAA-20 product from 2018 to a few nights ago (its own date box),
+and it caps this projection at zoom 8. A year dropdown running to 2025, as
+lightpollutionmap.info has, is that site rendering NASA's annual composites itself.
+
+**Basemaps are Esri's** — dark canvas (the default), topo and satellite — plus
+OpenStreetMap and none. OSM is not the default on purpose: its tiles are run by
+volunteers for map users, and a map you pan, opened off `file://` with no Referer, gets
+served *"Access blocked — app is not following the tile usage policy"* soon enough.
+[`../places.js`](../places.js)'s 🗺️ 在地圖上點選 stays on OSM because it asks for one
+screen once. CARTO's basemaps were tried first and are not usable keyless any more: the
+tiles return `HTTP 200` but arrive stamped "API KEY REQUIRED".
+
+**Why not [lightpollutionmap.info](https://www.lightpollutionmap.info/)**, the obvious
+map to copy: its overlays are GeoServer WMS tiles on its own server, and its help
+FAQ #20, headed *"We want to use your WMS/WMTS service"*, answers with "download the
+GeoTIFFs, or contact me" — not with a URL. The science underneath is public (NASA Black
+Marble, Falchi/Cinzano), but the rendering is his, so this page goes to the public
+sources directly. There is no map library either: a slippy map is the Mercator pair, a
+grid of `<img>` tiles and a drag handler, all of which
+[`../places.js`](../places.js) already carries for 🗺️ 在地圖上點選.
 
 ## Why this is the only light-pollution source here
 
@@ -91,19 +139,21 @@ demonstration of why the page shows the SQM above it.
 
 ## Where else this appears
 
-The same decode runs inside
+The same decode runs in three places: both pages here, and
 [`astro_score/astro-score_readable.html`](../astro_score/astro-score_readable.html),
-where it fills the `光害 (SQM)` / `Bortle` / `LP Zone` rows. The two are parallel
-implementations — change one, mirror the other. The difference is what they show:
-that page needs three numbers and hides the working, this one is nothing but the
-working.
+where it fills the `光害 (SQM)` / `Bortle` / `LP Zone` rows. They are parallel
+implementations — change one, mirror the others. The difference is only what each
+shows: `astro-score_readable` needs three numbers and hides the working,
+`binary-tile` is nothing but the working, and the map reads one point per click and
+puts the working behind a link.
 
 ## Running
 
 No install, no server, no key:
 
 ```bash
-open light_pollution/binary-tile.html      # or any static server
+open light_pollution/binary-tile.html          # or any static server
+open light_pollution/light_pollution_map.html
 ```
 
 It works straight off `file://` because the tiles are served with

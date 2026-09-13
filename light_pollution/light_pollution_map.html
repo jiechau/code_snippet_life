@@ -1,0 +1,1729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex, nocache">
+    <title>light pollution map &mdash; light_pollution</title>
+    <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+    <style>
+
+        :root {
+            --fg: #333;
+            --muted: #777;
+            --line: #e3e6ea;
+            --grid: #eef1f4;
+            --accent: #2196F3;
+            --err: #c0392b;
+            --ok: #2e7d32;
+            --menu: 330px;
+            --dark: #0b0d10;
+        }
+        * { box-sizing: border-box; }
+        html, body { height: 100%; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: var(--fg);
+            background: var(--dark);
+            margin: 0;
+            overflow: hidden;   /* the map is the page; nothing behind it scrolls */
+        }
+
+        /* ------------------------------------------------------------------ *
+         * The map: everything the menu does not occupy. Tiles are absolutely
+         * positioned <img> elements inside one .maplayer per layer, so the two
+         * layers stack in DOM order (basemap, then overlay) and the overlay's
+         * transparency is one opacity on its box rather than per tile.
+         * ------------------------------------------------------------------ */
+        .map {
+            position: absolute;
+            inset: 0 var(--menu) 0 0;
+            overflow: hidden;
+            background: var(--dark);
+            cursor: grab;
+            touch-action: none;   /* the browser must not pan/zoom the page under us */
+        }
+        .map.dragging { cursor: grabbing; }
+        body.menuclosed .map { inset: 0; }
+        .maplayer { position: absolute; inset: 0; }
+        .maptile {
+            position: absolute;
+            user-select: none;
+            -webkit-user-drag: none;
+        }
+        /* The atlas drawn from the binary tiles rather than from Lorenz's
+           rendered PNGs -- see AtlasLayer. Same box as a .maplayer. */
+        .mapcanvas { position: absolute; left: 0; top: 0; }
+
+        /* The read point. A ring rather than a filled pin: the colour under it
+           is the answer, so the marker must not cover it. */
+        .pin {
+            position: absolute;
+            z-index: 4;           /* the tile layers are appended after the markup */
+            width: 22px;
+            height: 22px;
+            margin: -11px 0 0 -11px;
+            border: 2px solid #fff;
+            border-radius: 50%;
+            box-shadow: 0 0 0 2px rgba(0,0,0,0.55), 0 0 8px rgba(0,0,0,0.5);
+            pointer-events: none;
+        }
+        .pin::after {
+            content: "";
+            position: absolute;
+            inset: 8px;
+            border-radius: 50%;
+            background: #fff;
+            box-shadow: 0 0 0 1px rgba(0,0,0,0.5);
+        }
+
+        /* Controls inside the map. Every one of them sits *in* the map element,
+           so their pointer events bubble to the pan handler -- which is guarded
+           there, not here. See the pointerdown comment in the script. */
+        .mapctl {
+            position: absolute;
+            z-index: 5;           /* above the pin, which is above the tiles */
+            top: 12px;
+            left: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .mapctl button {
+            width: 34px;
+            height: 34px;
+            font: 600 20px/1 'Segoe UI', Tahoma, sans-serif;
+            color: var(--fg);
+            background: rgba(255,255,255,0.94);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+        }
+        .mapctl button:hover:not(:disabled) { background: #fff; color: var(--accent); }
+        .mapctl button:disabled { opacity: 0.45; cursor: default; }
+
+        .menubtn {
+            position: absolute;
+            z-index: 5;
+            top: 12px;
+            right: 12px;
+            padding: 7px 12px;
+            font: 600 0.85rem 'Segoe UI', Tahoma, sans-serif;
+            color: var(--fg);
+            background: rgba(255,255,255,0.94);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+        }
+        .menubtn:hover { color: var(--accent); }
+
+        .mapinfo, .mapattr {
+            position: absolute;
+            z-index: 5;
+            bottom: 0;
+            font-size: 0.72rem;
+            background: rgba(255,255,255,0.88);
+            padding: 3px 8px;
+            color: var(--fg);
+        }
+        .mapinfo {
+            left: 0;
+            border-radius: 0 6px 0 0;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            /* The two bottom corners share one line on a narrow screen, and the
+               attribution is the one that may not be cut. */
+            max-width: 55%;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        /* Required by both tile licences, and it has to stay on screen. */
+        .mapattr { right: 0; border-radius: 6px 0 0 0; max-width: 70%; text-align: right; }
+        .mapattr a { color: var(--accent); }
+
+        /* ------------------------------------------------------------------ *
+         * The right menu: the only other thing on the page.
+         * ------------------------------------------------------------------ */
+        .menu {
+            position: absolute;
+            /* Above the map: on a phone the menu is a sheet *over* it, and the
+               marker and the attribution line are positioned children of the
+               map with stacks of their own. */
+            z-index: 10;
+            inset: 0 0 0 auto;
+            width: var(--menu);
+            background: #fff;
+            box-shadow: -2px 0 12px rgba(0,0,0,0.25);
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            padding: 14px 16px 24px;
+        }
+        body.menuclosed .menu { display: none; }
+        .menu h1 { margin: 0 0 2px; font-size: 1.15rem; }
+        .menu a.back { color: var(--accent); text-decoration: none; font-size: 0.8rem; }
+        .menu a.back:hover { text-decoration: underline; }
+        .menu p.sub { margin: 6px 0 16px; color: var(--muted); font-size: 0.78rem; line-height: 1.45; }
+        .menu p.sub a { color: var(--accent); }
+        .menu h3 {
+            margin: 18px 0 8px;
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--muted);
+            border-top: 1px solid var(--line);
+            padding-top: 12px;
+        }
+        .menu h3:first-of-type { border-top: none; padding-top: 0; }
+        label { font-size: 0.78rem; font-weight: 600; display: block; margin-bottom: 5px; }
+        label .hint { font-weight: 400; color: var(--muted); }
+        select, input[type="text"], input[type="date"] {
+            font: inherit;
+            font-size: 0.85rem;
+            width: 100%;
+            padding: 7px 9px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: #fbfcfd;
+            color: var(--fg);
+        }
+        input[type="text"], input[type="date"] { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+        select:focus, input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+        input[type="range"] { width: 100%; accent-color: var(--accent); }
+        .rangerow { display: flex; align-items: center; gap: 10px; }
+        .rangerow .val {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.78rem;
+            color: var(--muted);
+            width: 42px;
+            text-align: right;
+        }
+
+        /* The location row, the same shape every page with a location box uses:
+           the box, 使用目前位置 beside it, the saved spots on a line of their own.
+           There is no 在地圖上點選 here -- the page *is* the map, and clicking it
+           is that button. */
+        .locrow { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+        .locrow input { width: 200px; flex: 0 0 auto; }
+        .places { display: flex; gap: 6px; flex-wrap: wrap; flex-basis: 100%; }
+        .place {
+            font: inherit;
+            font-size: 0.78rem;
+            font-weight: 600;
+            padding: 5px 10px;
+            border-radius: 999px;
+            border: 1px solid var(--line);
+            background: #f7f9fb;
+            color: var(--accent);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .place:hover { border-color: var(--accent); background: #eaf4fd; }
+        .place[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+        .place.geo { color: var(--fg); }
+        .place.geo:disabled { opacity: 0.55; cursor: default; }
+        .geonote { font-size: 0.75rem; color: var(--muted); flex-basis: 100%; }
+        .geonote.error { color: var(--err); }
+
+        .actions { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
+        button.act {
+            font: inherit;
+            font-size: 0.8rem;
+            font-weight: 600;
+            padding: 7px 14px;
+            border-radius: 8px;
+            border: 1px solid var(--accent);
+            background: var(--accent);
+            color: #fff;
+            cursor: pointer;
+        }
+        button.act:hover { background: #1976d2; border-color: #1976d2; }
+        button.act.secondary { background: #fff; color: var(--accent); }
+        button.act.secondary:hover { background: var(--accent); color: #fff; }
+
+        /* The reading: the same four cards binary-tile.html puts above its
+           working, at menu width. */
+        .out { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .card {
+            background: #f7f9fb;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 8px 10px;
+        }
+        .card .k { font-size: 0.7rem; font-weight: 600; color: var(--muted); }
+        .card .v {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 1.15rem;
+            margin-top: 3px;
+        }
+        .card .n { font-size: 0.68rem; color: var(--muted); margin-top: 3px; }
+        .card.good .v { color: var(--ok); }
+        .card.bad .v { color: var(--err); }
+        .readnote {
+            font-size: 0.75rem;
+            color: var(--muted);
+            margin-top: 8px;
+            line-height: 1.45;
+            word-break: break-word;
+        }
+        .readnote.error { color: var(--err); }
+        .readnote a { color: var(--accent); }
+
+        /* The legend: the atlas's own 15 steps, its colours sampled from the
+           colour bar Lorenz publishes, so a swatch here is the colour on the
+           tile rather than an approximation of it. */
+        .legend { display: flex; flex-direction: column; gap: 1px; }
+        .legend .row { display: flex; align-items: center; gap: 8px; font-size: 0.72rem; }
+        .legend .sw {
+            width: 26px;
+            height: 14px;
+            border: 1px solid rgba(0,0,0,0.25);
+            border-radius: 2px;
+            flex: 0 0 auto;
+        }
+        .legend .zone { font-weight: 700; width: 22px; }
+        .legend .range {
+            color: var(--muted);
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.68rem;
+        }
+        .legend .row.hit { background: #eaf4fd; outline: 1px solid var(--accent); border-radius: 3px; }
+
+        .credit { font-size: 0.72rem; color: var(--muted); line-height: 1.5; margin-top: 6px; }
+        .credit a { color: var(--accent); }
+
+        @media (max-width: 760px) {
+            /* Phone: the menu becomes a sheet along the bottom, because a 330px
+               column beside a 400px screen is no map. The map box stops where
+               the sheet starts rather than running underneath it -- the centre
+               of the map element is where the view is centred and where the
+               marker sits, so a map that ran the full height would centre on a
+               point hidden behind the sheet. That is also why the sheet is a
+               fixed 62vh and not a max-height: the two numbers have to agree.
+               手機：選單改成底部面板，地圖到面板為止。 */
+            .map { inset: 0 0 62vh 0; }
+            .menu {
+                inset: auto 0 0 0;
+                width: auto;
+                height: 62vh;
+                border-radius: 14px 14px 0 0;
+                box-shadow: 0 -2px 12px rgba(0,0,0,0.3);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="map" id="map">
+        <div class="mapctl">
+            <button type="button" id="zin" title="放大">+</button>
+            <button type="button" id="zout" title="縮小">&minus;</button>
+        </div>
+        <button type="button" class="menubtn" id="menubtn" title="顯示/隱藏選單">&#9776; 選單</button>
+        <div class="mapinfo" id="mapinfo"></div>
+        <div class="mapattr" id="attr"></div>
+    </div>
+
+    <aside class="menu" id="menu">
+        <a class="back" href="index.html">&larr; light_pollution</a>
+        <h1>light pollution map</h1>
+        <p class="sub">
+            Pan and zoom; <strong>click the map to read that point</strong>. The overlay is
+            <a href="https://djlorenz.github.io/astronomy/lp/" target="_blank" rel="noopener">David Lorenz's
+            World Atlas</a>, the same atlas
+            <a href="binary-tile.html">binary tile</a> decodes &mdash; the picture comes from his rendered
+            tiles, the number under the marker from the binary one, so the two agree.
+            <strong>No API key anywhere.</strong>
+        </p>
+
+        <h3>圖層 layers</h3>
+        <label for="overlay">疊圖 overlay <span class="hint">what is painted over the map</span></label>
+        <select id="overlay"></select>
+        <label for="opacity" style="margin-top:10px">透明度 opacity</label>
+        <div class="rangerow">
+            <input type="range" id="opacity" min="0" max="100" step="1" value="60">
+            <span class="val" id="opacityval">60%</span>
+        </div>
+        <div id="daterow" hidden>
+            <label for="viirsdate" style="margin-top:10px">日期 date <span class="hint">GIBS publishes a night or two behind</span></label>
+            <input type="date" id="viirsdate">
+        </div>
+        <label for="basemap" style="margin-top:10px">底圖 basemap</label>
+        <select id="basemap"></select>
+
+        <h3>讀取點 point</h3>
+        <form id="form">
+            <label for="location">location <span class="hint">lat,lon &mdash; or a saved spot, the device, or a click on the map</span></label>
+            <div class="locrow">
+                <input type="text" id="location" name="location" spellcheck="false">
+                <button type="button" class="place geo" id="geo" title="device GPS → the 輸入 spot">📍 使用目前位置</button>
+                <span class="geonote" id="geonote"></span>
+                <div class="places" id="places"></div>
+            </div>
+            <div class="actions">
+                <button type="submit" class="act" id="submit">Fetch</button>
+                <button type="button" class="act secondary" id="reset">Reset defaults</button>
+            </div>
+        </form>
+        <div class="out" id="out"></div>
+        <div class="readnote" id="readnote"></div>
+
+        <h3>圖例 legend</h3>
+        <div class="legend" id="legend"></div>
+        <div class="credit" id="legendnote"></div>
+
+        <h3>資料來源 credit</h3>
+        <p class="credit">
+            光害 / sky brightness: <strong>David J. Lorenz</strong>,
+            <a href="https://djlorenz.github.io/astronomy/lp/" target="_blank" rel="noopener">World Atlas of
+            Artificial Night Sky Brightness</a> &mdash; rendered tiles and binary tiles alike, served keyless
+            and CORS-clean from GitHub Pages. Modelled from NOAA/VIIRS night lights processed by the
+            <a href="https://payneinstitute.mines.edu/eog/" target="_blank" rel="noopener">Earth Observation
+            Group</a>, Colorado School of Mines.
+        </p>
+        <p class="credit">
+            VIIRS 夜間燈光: <strong>NASA EOSDIS GIBS</strong> Black Marble (VIIRS/SNPP), the keyless public
+            imagery service. Basemap: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>
+            contributors &mdash; a volunteer-funded courtesy, so this asks for the tiles one screen needs and
+            nothing more.
+        </p>
+    </aside>
+
+<script src="../places.js"></script>
+<script>
+"use strict";
+
+/* A map of the light-pollution atlas, and the only page here that draws one.
+ *
+ * Two halves, from two different files on the same host:
+ *
+ *   the picture   Lorenz's *rendered* tiles, image_tiles/tiles<year>/tile_z_x_y.png
+ *                 -- an ordinary slippy-map layer, so panning is just <img> tags
+ *   the number    the *binary* tile this folder already decodes, read for the one
+ *                 point under the marker (see binary-tile.html, which is that
+ *                 decode with every step shown)
+ *
+ * Both come out of the same atlas, so the colour under the marker and the SQM
+ * beside it cannot disagree -- which is the whole reason not to eyeball a legend.
+ *
+ * Why not lightpollutionmap.info, which is the obvious map to copy: its overlays
+ * are GeoServer WMS tiles on its own server, and its help FAQ #20 ("We want to
+ * use your WMS/WMTS service") answers with "download the GeoTIFFs, or contact
+ * me" rather than with a URL. The underlying science is public -- NASA Black
+ * Marble, Falchi/Cinzano -- but his rendering is his, so this page goes to the
+ * public sources directly: Lorenz for sky brightness (already this folder's
+ * source) and NASA GIBS for raw VIIRS radiance.
+ *
+ * No map library. A slippy map is the Mercator pair, a grid of <img> tiles and a
+ * drag handler; places.js already carries all of it for 在地圖上點選, so this
+ * page imports mapWorldX/mapWorldY/mapLatAt/mapLonAt from there and adds only
+ * what a two-layer map needs. A CDN Leaflet would be the repo's first
+ * third-party script -- the same call light_pollution/ makes when it gunzips
+ * with DecompressionStream instead of shipping pako.
+ */
+
+/* ------------------------------------------------------------------ *
+ * The atlas: tile geometry and the derivations on top of it.
+ *
+ * Everything from here to the end of decodePoint() is a verbatim copy of
+ * binary-tile.html, which copies astro_score/astro-score_readable.html --
+ * change one, change all three.
+ * ------------------------------------------------------------------ */
+
+const LP_TILE_URL = "https://djlorenz.github.io/astronomy/binary_tiles";
+/* BigDataCloud's keyless, CORS-enabled reverse geocoder: the place name under
+   the reading. A helper for the location box, in the same class as the basemap
+   behind the overlay -- it labels the point and feeds nothing on the page. */
+const GEOCODE_URL = "https://api.bigdatacloud.net/data/reverse-geocode-client";
+const geocodeCache = new Map();
+
+// Annual atlases published as binary tiles. Newest first so the default is the
+// current one and the list reads as "now, then back in time".
+const LP_YEARS = [2025, 2024, 2023, 2022, 2020, 2016];
+const DEFAULT_YEAR = LP_YEARS[0];
+
+// Tile geometry, from the atlas's own viewer.
+const LP_TILE_DEG = 5;
+const LP_TILE_N = 600;
+const LP_LAT_ORIGIN = 65;   // tile row 1 starts at 65S; rows run 1..28, i.e. to 75N
+const LP_PER_DEG = LP_TILE_N / LP_TILE_DEG;   // 120 points per degree
+
+const LP_ZONES = [
+    [0.01, "0"], [0.06, "1a"], [0.11, "1b"], [0.19, "2a"], [0.33, "2b"],
+    [0.58, "3a"], [1.00, "3b"], [1.73, "4a"], [3.00, "4b"], [5.20, "5a"],
+    [9.00, "5b"], [15.59, "6a"], [27.00, "6b"], [46.77, "7a"],
+];
+const LP_ZONE_BRIGHTEST = "7b";
+
+const LP_BORTLE = [
+    [21.99, 1], [21.89, 2], [21.69, 3], [20.49, 4],
+    [19.50, 5], [18.94, 6], [18.38, 7], [17.80, 8],
+];
+const LP_BORTLE_BRIGHTEST = 9;
+
+const mod360 = (x) => ((x % 360) + 360) % 360;
+
+/** The atlas's compressed integer -> artificial/natural brightness ratio. */
+function lpRatio(compressed) {
+    return (5.0 / 195.0) * (Math.exp(0.0195 * compressed) - 1.0);
+}
+
+/**
+ * Brightness ratio -> zenith sky brightness in mag/arcsec2.
+ *
+ * Lorenz's own line: 22.0 is the assumed natural sky brightness, and the rest is
+ * the ordinary linear-to-magnitude conversion, since the total sky is
+ * natural x (1 + ratio).
+ */
+function lpSqm(ratio) {
+    return 22.0 - 2.5 * Math.log10(1.0 + ratio);
+}
+
+function lpBortle(sqm) {
+    for (const [threshold, cls] of LP_BORTLE) {
+        if (sqm >= threshold) return cls;
+    }
+    return LP_BORTLE_BRIGHTEST;
+}
+
+function lpZone(ratio) {
+    for (const [threshold, zone] of LP_ZONES) {
+        if (ratio < threshold) return zone;
+    }
+    return LP_ZONE_BRIGHTEST;
+}
+
+/** Which tile holds a point, and where in it. */
+function lpAddress(lat, lon) {
+    const lonFromDateLine = mod360(lon + 180.0);
+    const latFromStart = lat + LP_LAT_ORIGIN;
+    const tilex = Math.floor(lonFromDateLine / LP_TILE_DEG) + 1;
+    const tiley = Math.floor(latFromStart / LP_TILE_DEG) + 1;
+    const half = 1 / (2 * LP_PER_DEG);
+    const ix = Math.round(LP_PER_DEG * (lonFromDateLine - LP_TILE_DEG * (tilex - 1) + half));
+    const iy = Math.round(LP_PER_DEG * (latFromStart - LP_TILE_DEG * (tiley - 1) + half));
+    return { lonFromDateLine, latFromStart, tilex, tiley, ix, iy };
+}
+
+function tileUrl(year, tilex, tiley) {
+    return `${LP_TILE_URL}/${year}/binary_tile_${tilex}_${tiley}.dat.gz`;
+}
+
+const tileCache = new Map();   // url -> {data, gzBytes} (successes only)
+
+/**
+ * Fetch and gunzip one tile.
+ *
+ * The tiles are gzip *files*, not gzip-encoded responses, so the browser will
+ * not unwrap them -- the atlas's own viewer pulls in pako for this. DecompressionStream
+ * is a built-in Web API (Chrome 80, Safari 16.4, Firefox 113), so this page needs
+ * no library either.
+ */
+async function fetchTile(url, timeoutMs = 30000) {
+    if (tileCache.has(url)) return tileCache.get(url);
+    if (typeof DecompressionStream === "undefined") {
+        throw new Error("this browser has no DecompressionStream (needs Chrome 80 / Safari 16.4 / Firefox 113)");
+    }
+    const started = performance.now();
+    const resp = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status} — no tile at that path`);
+    if (!resp.body) throw new Error("empty response body");
+    const gzBytes = Number(resp.headers.get("Content-Length")) || 0;
+    const stream = resp.body.pipeThrough(new DecompressionStream("gzip"));
+    const buffer = await new Response(stream).arrayBuffer();
+    if (buffer.byteLength < LP_TILE_N * LP_TILE_N) {
+        throw new Error(`tile too short: ${buffer.byteLength} bytes`);
+    }
+    const result = { data: new Int8Array(buffer), gzBytes, seconds: (performance.now() - started) / 1000 };
+    tileCache.set(url, result);
+    return result;
+}
+
+/**
+ * Sum the deltas to one grid point, reporting the two legs separately.
+ *
+ * The lower-left corner is a 2-byte absolute value; every byte after it is a
+ * signed 1-byte change from its neighbour. So reaching (ix, iy) means walking up
+ * column 0 to row iy, then across row iy to column ix. The "+ 1" offsets are
+ * because that first point costs two bytes rather than one.
+ */
+function decodePoint(data, ix, iy) {
+    const corner = 128 * Number(data[0]) + Number(data[1]);
+    let up = 0;
+    for (let i = 1; i < iy; i++) up += Number(data[LP_TILE_N * i + 1]);
+    let across = 0;
+    for (let i = 1; i < ix; i++) across += Number(data[LP_TILE_N * (iy - 1) + 1 + i]);
+    return { corner, up, across, compressed: corner + up + across };
+}
+
+/* ------------------------------------------------------------------ *
+ * The layers
+ * ------------------------------------------------------------------ */
+
+/*
+ * Lorenz's rendered tiles are a standard XYZ grid with two twists, both taken
+ * from the Leaflet options on his own viewer: the images are 1024 px rather
+ * than 256, which is `zoomOffset: -2` (tile z is map zoom minus 2), and the
+ * deepest tile z published is 6 -- map zoom 8, about 600 m per pixel, which is
+ * already finer than the atlas's own ~0.9 km grid. Past that the tiles are
+ * upscaled, exactly as his viewer upscales them.
+ *
+ * A tile that does not exist is not an error: outside the covered latitudes,
+ * and over stretches with nothing in them, the file is simply absent and his
+ * viewer paints black.png there (white.png for the trend layer, where white
+ * means "no significant trend"). Anything else would leave holes in the sea.
+ */
+const LP_IMAGE_URL = "https://djlorenz.github.io/astronomy/image_tiles";
+const LP_TREND_URL = "https://djlorenz.github.io/astronomy/lp/overlay/trend";
+
+/*
+ * NASA's Global Imagery Browse Services: keyless, CORS-clean, and the official
+ * public route to the VIIRS night lights the atlas is modelled from. Note the
+ * path order is {z}/{y}/{x}, not {z}/{x}/{y}.
+ *
+ * VIIRS_Black_Marble is the annual cloud-free composite, and GIBS publishes it
+ * for 2012 and 2016 only -- so the year is a constant here rather than a
+ * dropdown. It is the *lights*, not the sky: the atlas overlay answers "how
+ * dark is the sky here", this one answers "where is the light coming from".
+ */
+const GIBS_URL = "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best";
+
+/*
+ * What GIBS actually publishes, checked against its WMTSCapabilities:
+ *
+ *   VIIRS_Black_Marble            annual composite, **2012 and 2016 only**
+ *   ..._GapFilled_..._Radiance    one night at a time, 2018-01-05 onwards
+ *
+ * So there is no year dropdown running to 2025 here, the way
+ * lightpollutionmap.info has one: that is their own rendering of NASA's annual
+ * composites, on their own server (see the FAQ #20 note at the top). What is
+ * public is these two composites and the nightly product, and both are offered.
+ * Either way GIBS caps this projection at **zoom 8** (~600 m/px, about the
+ * 15-arcsec source resolution), so deeper zooms upscale and the info line says
+ * so. Don't look for a Level9 endpoint; a 400 is what it answers.
+ */
+const GIBS_BLACK_MARBLE_YEARS = [2016, 2012];
+const GIBS_NIGHTLY_LAYER = "VIIRS_NOAA20_GapFilled_BRDF_Corrected_DayNightBand_Radiance";
+const GIBS_NIGHTLY_FIRST = "2018-01-05";
+const GIBS_LAG_DAYS = 3;   // how far behind "today" the nightly product reliably is
+
+/** A yyyy-mm-dd date in UTC, n days back -- GIBS dates are UTC, not local. */
+function utcDate(daysBack = 0) {
+    const d = new Date(Date.now() - daysBack * 86400000);
+    return d.toISOString().slice(0, 10);
+}
+
+/*
+ * Basemaps, all keyless and CORS-clean.
+ *
+ * **The default is not OpenStreetMap, and that is deliberate.** OSM's standard
+ * tiles are run by volunteers for map *users*, and their usage policy is aimed
+ * at exactly the traffic a pannable map generates: a page opened off file://
+ * sends no Referer, and a few minutes of panning at z13 is enough to be served
+ * the "Access blocked — app is not following the tile usage policy" tile
+ * instead of a map. `pickOnMap()` in places.js stays on OSM because it asks for
+ * one screen once; this page pans. OSM is still in the list, and still
+ * credited, for when its own rendering is what you want.
+ *
+ * The default is Esri's Dark Gray Canvas: keyless, CORS-clean, quiet enough to
+ * read an overlay over, and the same family of services Lorenz's own viewer
+ * offers (his are World Imagery and World Topo, both here too). **CARTO's
+ * basemaps were tried first and are not usable:** the tiles still return
+ * HTTP 200 without a key, but every one of them is stamped "API KEY REQUIRED"
+ * — a 200 is not a working tile, which is why this was caught by looking at
+ * the map rather than at the status code.
+ */
+const ESRI_URL = "https://server.arcgisonline.com/ArcGIS/rest/services";
+const ESRI_CREDIT = "Basemap &copy; <a href='https://www.esri.com/' target='_blank' rel='noopener'>Esri</a>, " +
+    "&copy; <a href='https://www.openstreetmap.org/copyright' target='_blank' rel='noopener'>OpenStreetMap</a> contributors";
+
+const BASEMAPS = {
+    dark: {
+        key: "dark",
+        label: "深色 dark (Esri)",
+        // Esri's tile path is {z}/{y}/{x}, like GIBS and unlike OSM.
+        url: (z, x, y) => `${ESRI_URL}/Canvas/World_Dark_Gray_Base/MapServer/tile/${z}/${y}/${x}`,
+        maxZoom: 16,
+        attribution: ESRI_CREDIT,
+    },
+    topo: {
+        key: "topo",
+        label: "地形 topo (Esri)",
+        url: (z, x, y) => `${ESRI_URL}/World_Topo_Map/MapServer/tile/${z}/${y}/${x}`,
+        maxZoom: 19,
+        attribution: ESRI_CREDIT,
+    },
+    osm: {
+        key: "osm",
+        label: "OpenStreetMap",
+        url: (z, x, y) => MAP_TILE_URL.replace("{z}", z).replace("{x}", x).replace("{y}", y),
+        maxZoom: MAP_MAX_ZOOM,
+        attribution: "Basemap &copy; <a href='https://www.openstreetmap.org/copyright' target='_blank' rel='noopener'>OpenStreetMap</a>",
+    },
+    satellite: {
+        key: "satellite",
+        label: "衛星 satellite (Esri)",
+        url: (z, x, y) => `${ESRI_URL}/World_Imagery/MapServer/tile/${z}/${y}/${x}`,
+        maxZoom: 19,
+        attribution: "Imagery &copy; <a href='https://www.esri.com/' target='_blank' rel='noopener'>Esri</a>, Maxar, Earthstar Geographics",
+    },
+    none: null,
+};
+const DEFAULT_BASEMAP = "dark";
+
+/* The overlay list, in menu order: the atlases newest first, then the trend,
+   then the satellite lights, then nothing. `year` is what a click on the map is
+   read against; the layers that have none borrow the newest atlas and say so. */
+const OVERLAYS = [
+    ...LP_YEARS.map((year) => ({
+        id: `atlas${year}`,
+        label: `光害 sky brightness ${year}`,
+        year,
+        legend: "zones",
+        attribution: `<a href="https://djlorenz.github.io/astronomy/lp/" target="_blank" rel="noopener">World Atlas ${year}</a> &copy; D. Lorenz`,
+        spec: {
+            key: `atlas${year}`,
+            url: (z, x, y) => `${LP_IMAGE_URL}/tiles${year}/tile_${z}_${x}_${y}.png`,
+            errorUrl: `${LP_IMAGE_URL}/tiles${year}/black.png`,
+            offset: 2,
+            maxZoom: 6,
+        },
+    })),
+    {
+        id: "trend",
+        label: "變化 trend 2013–2025",
+        year: DEFAULT_YEAR,
+        legend: "trend",
+        attribution: `<a href="https://djlorenz.github.io/astronomy/lp/trend.html" target="_blank" rel="noopener">Trend 2013–2025</a> &copy; D. Lorenz`,
+        spec: {
+            key: "trend",
+            url: (z, x, y) => `${LP_TREND_URL}/tile_${z}_${x}_${y}.png`,
+            errorUrl: `${LP_TREND_URL}/white.png`,
+            offset: 2,
+            maxZoom: 6,
+        },
+    },
+    ...GIBS_BLACK_MARBLE_YEARS.map((year) => ({
+        id: `viirs${year}`,
+        label: `VIIRS 夜間燈光 ${year} (Black Marble)`,
+        year: DEFAULT_YEAR,
+        legend: "viirs",
+        attribution: `<a href="https://worldview.earthdata.nasa.gov/" target="_blank" rel="noopener">VIIRS Black Marble ${year}</a> &mdash; NASA EOSDIS GIBS`,
+        spec: {
+            key: `viirs${year}`,
+            url: (z, x, y) => `${GIBS_URL}/VIIRS_Black_Marble/default/${year}-01-01/GoogleMapsCompatible_Level8/${z}/${y}/${x}.png`,
+            offset: 0,
+            maxZoom: 8,
+        },
+    })),
+    {
+        id: "viirsnight",
+        label: "VIIRS 近期夜間 nightly (NOAA-20)",
+        year: DEFAULT_YEAR,
+        legend: "nightly",
+        dated: true,   // the one layer whose date is a control rather than a constant
+        attribution: `<a href="https://worldview.earthdata.nasa.gov/" target="_blank" rel="noopener">VIIRS NOAA-20 gap-filled radiance</a> &mdash; NASA EOSDIS GIBS`,
+        spec: {
+            // Rebuilt on every date change, which is also what makes the tiles
+            // drop: the key carries the date.
+            key: "viirsnight",
+            url: (z, x, y) => `${GIBS_URL}/${GIBS_NIGHTLY_LAYER}/default/${nightlyDate}/GoogleMapsCompatible_Level8/${z}/${y}/${x}.png`,
+            offset: 0,
+            maxZoom: 8,
+        },
+    },
+    {
+        id: "none",
+        label: "無 none (basemap only)",
+        year: DEFAULT_YEAR,
+        legend: "none",
+        attribution: "",
+        spec: null,
+    },
+];
+
+/*
+ * The atlas's own 15 steps, sampled out of the colour bar Lorenz publishes
+ * (djlorenz.github.io/astronomy/lp/colors.html), so a swatch in the legend is
+ * the colour on the tile rather than a guess at it. Same order as LP_ZONES,
+ * with LP_ZONE_BRIGHTEST last.
+ */
+const LP_ZONE_COLORS = [
+    "#000000", "#222222", "#424242", "#142f72", "#2154d8",
+    "#0f5714", "#1fa12a", "#6e641e", "#b8a625", "#bf641e",
+    "#fd9650", "#fb5a49", "#fb998a", "#a0a0a0", "#f2f2f2",
+];
+
+const DEFAULT_OVERLAY = OVERLAYS[0].id;
+const DEFAULT_OPACITY = 60;
+const DEFAULT_ZOOM = 8;      // the deepest zoom the atlas tiles are native at
+
+/* ------------------------------------------------------------------ *
+ * The map
+ * ------------------------------------------------------------------ */
+
+const view = document.getElementById("map");
+const pin = document.createElement("div");
+pin.className = "pin";
+
+let z = DEFAULT_ZOOM;
+let center = { lat: DEFAULT_LAT, lon: DEFAULT_LON };
+let marker = { lat: DEFAULT_LAT, lon: DEFAULT_LON };
+let overlayId = DEFAULT_OVERLAY;
+let basemapId = DEFAULT_BASEMAP;
+let opacity = DEFAULT_OPACITY;
+let nightlyDate = utcDate(GIBS_LAG_DAYS);
+
+const overlayById = (id) => OVERLAYS.find((o) => o.id === id) || OVERLAYS[0];
+
+/**
+ * One layer of <img> tiles.
+ *
+ * Tiles are kept between renders and keyed z/x/y, which is what stops a pan
+ * from re-requesting what is already on screen; changing the layer changes
+ * spec.key and throws the lot away. The display size is not the image's own
+ * size: it is 256 * 2^(map zoom - tile zoom), which covers both the 1024 px
+ * atlas tiles (offset 2) and any tile shown past its deepest published zoom.
+ */
+class TileGrid {
+    constructor(parent) {
+        this.el = document.createElement("div");
+        this.el.className = "maplayer";
+        parent.appendChild(this.el);
+        this.tiles = new Map();
+        this.key = "";
+    }
+
+    clear() {
+        this.el.replaceChildren();
+        this.tiles.clear();
+    }
+
+    draw(spec, zoom, left, top, w, h) {
+        if (!spec) {
+            if (this.key) { this.clear(); this.key = ""; }
+            return;
+        }
+        if (spec.key !== this.key) { this.clear(); this.key = spec.key; }
+        this.el.style.opacity = spec.opacity === undefined ? 1 : spec.opacity;
+
+        const tileZ = mapClamp(zoom - (spec.offset || 0), 0, spec.maxZoom);
+        const size = MAP_TILE_SIZE * 2 ** (zoom - tileZ);
+        const n = 2 ** tileZ;
+
+        const wanted = new Set();
+        for (let ty = Math.floor(top / size); ty <= Math.floor((top + h) / size); ty++) {
+            if (ty < 0 || ty >= n) continue;   // past a pole there is no tile row
+            for (let tx = Math.floor(left / size); tx <= Math.floor((left + w) / size); tx++) {
+                const id = `${tileZ}/${tx}/${ty}`;
+                wanted.add(id);
+                let img = this.tiles.get(id);
+                if (!img) {
+                    img = new Image();
+                    img.className = "maptile";
+                    img.alt = "";
+                    img.draggable = false;
+                    // A missing tile is ordinary here (see the LP_IMAGE_URL note):
+                    // swap in the layer's filler once, or hide the element if it
+                    // has none. Guarded, or a missing filler would loop.
+                    img.addEventListener("error", () => {
+                        if (img.dataset.failed) return;
+                        img.dataset.failed = "1";
+                        if (spec.errorUrl) img.src = spec.errorUrl;
+                        else img.style.visibility = "hidden";
+                    });
+                    img.src = spec.url(tileZ, ((tx % n) + n) % n, ty);   // wrap round the world
+                    this.el.appendChild(img);
+                    this.tiles.set(id, img);
+                }
+                img.style.width = `${size}px`;
+                img.style.height = `${size}px`;
+                img.style.left = `${Math.round(tx * size - left)}px`;
+                img.style.top = `${Math.round(ty * size - top)}px`;
+            }
+        }
+        for (const [id, img] of this.tiles) {
+            if (!wanted.has(id)) { img.remove(); this.tiles.delete(id); }
+        }
+    }
+}
+
+/* ------------------------------------------------------------------ *
+ * The atlas at high zoom, drawn here rather than fetched as a picture
+ * ------------------------------------------------------------------ */
+
+/*
+ * Lorenz's rendered tiles stop at map zoom 8. Past that a PNG layer can only
+ * upscale, which is what makes a zoomed-in view look like a smear -- and the
+ * data is not actually that coarse: the binary tile this folder decodes holds
+ * one value every 30 arcsec (~0.9 km), and at zoom 12 that is about 25 screen
+ * pixels per grid cell.
+ *
+ * So past zoom 8 the overlay is painted here, cell by cell, out of the same
+ * bytes the marker is read from. Two things fall out of that which are worth
+ * keeping: the picture and the reading can no longer disagree even in
+ * principle, since they are the same numbers, and the atlas's own colours are
+ * used (LP_ZONE_COLORS), so crossing zoom 8 does not change the palette.
+ *
+ * The cost is one ~65 KB tile per 5° square in view -- the same tile a click
+ * already needs, and cached with it.
+ */
+const LP_PNG_MAX_ZOOM = 8;      // the deepest map zoom Lorenz's PNGs are native at
+const LP_VALUE_MAX = 1024;      // compressed values well past the brightest city
+
+/** The 15 zone colours as bytes, indexed by the compressed value itself, so
+ *  per-pixel painting is one array lookup rather than a loop over LP_ZONES. */
+const LP_PALETTE = (() => {
+    const rgb = LP_ZONE_COLORS.map((hex) => [
+        parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16),
+    ]);
+    const table = new Uint8Array(LP_VALUE_MAX * 3);
+    for (let v = 0; v < LP_VALUE_MAX; v++) {
+        const ratio = lpRatio(v);
+        let band = LP_ZONES.length;   // LP_ZONE_BRIGHTEST
+        for (let i = 0; i < LP_ZONES.length; i++) {
+            if (ratio < LP_ZONES[i][0]) { band = i; break; }
+        }
+        table[v * 3] = rgb[band][0];
+        table[v * 3 + 1] = rgb[band][1];
+        table[v * 3 + 2] = rgb[band][2];
+    }
+    return table;
+})();
+
+const gridCache = new Map();   // "year/tilex_tiley" -> Int32Array(600·600), or null if there is no tile
+
+/**
+ * One tile's 360,000 deltas summed into the values themselves.
+ *
+ * decodePoint() walks to a single point, which is right for one reading and
+ * hopeless for a screenful; this is the same walk done once for the whole
+ * tile -- up column 0, then across each row -- so a pixel costs one index.
+ */
+function decodeGrid(data) {
+    const grid = new Int32Array(LP_TILE_N * LP_TILE_N);
+    let column = 128 * Number(data[0]) + Number(data[1]);
+    for (let iy = 1; iy <= LP_TILE_N; iy++) {
+        if (iy > 1) column += Number(data[LP_TILE_N * (iy - 1) + 1]);
+        const row = (iy - 1) * LP_TILE_N;
+        let value = column;
+        grid[row] = value;
+        for (let ix = 2; ix <= LP_TILE_N; ix++) {
+            value += Number(data[LP_TILE_N * (iy - 1) + ix]);
+            grid[row + ix - 1] = value;
+        }
+    }
+    return grid;
+}
+
+/**
+ * The overlay as a canvas, painted from the binary tiles.
+ *
+ * Drawing is synchronous and uses whatever is already decoded; anything missing
+ * is fetched in the background and the map redrawn when it lands, so a pan is
+ * never blocked on a 65 KB download. A failed tile is remembered as null --
+ * there are 5° squares the atlas has no file for -- and left transparent rather
+ * than retried on every frame.
+ */
+class AtlasLayer {
+    constructor(parent) {
+        this.canvas = document.createElement("canvas");
+        this.canvas.className = "mapcanvas";
+        parent.appendChild(this.canvas);
+        this.loading = new Set();
+    }
+
+    hide() { this.canvas.style.display = "none"; }
+
+    draw(year, zoom, left, top, w, h, opacity) {
+        this.canvas.style.display = "";
+        this.canvas.style.opacity = opacity;
+        this.canvas.style.width = `${w}px`;
+        this.canvas.style.height = `${h}px`;
+        // Retina: paint at device pixels, capped at 2 so a 3x phone does not
+        // pay for nine times the work to show a 0.9 km grid.
+        const dpr = Math.min(2, window.devicePixelRatio || 1);
+        const cw = Math.max(1, Math.round(w * dpr));
+        const ch = Math.max(1, Math.round(h * dpr));
+        if (this.canvas.width !== cw || this.canvas.height !== ch) {
+            this.canvas.width = cw;
+            this.canvas.height = ch;
+        }
+        const ctx = this.canvas.getContext("2d");
+        const img = ctx.createImageData(cw, ch);
+        const px = img.data;
+
+        // Mercator is separable: latitude depends only on the row, longitude
+        // only on the column, so the projection costs cw + ch calls, not cw·ch.
+        const lats = new Float64Array(ch);
+        const lons = new Float64Array(cw);
+        for (let y = 0; y < ch; y++) lats[y] = mapLatAt(top + (y + 0.5) / dpr, zoom);
+        for (let x = 0; x < cw; x++) lons[x] = mapWrapLon(mapLonAt(left + (x + 0.5) / dpr, zoom));
+
+        /*
+         * Sampling, and why it is bilinear rather than nearest.
+         *
+         * The stored value is one number per 30-arcsec cell, and at zoom 13 a
+         * cell is ~25 screen pixels: nearest-neighbour draws that honestly and
+         * it reads as a mosaic of squares, which is not what the atlas is. The
+         * field being sampled is a *modelled* continuous one -- scattered light
+         * over a landscape -- so interpolating between samples is the right
+         * reading of it, and it is what every published view of this atlas
+         * shows, Lorenz's own rendered tiles included.
+         *
+         * What is interpolated is the **compressed value**, i.e. the log of the
+         * brightness ratio, not the ratio: the quantisation is logarithmic, so
+         * a linear blend in that space is the even one, and it keeps the zone
+         * bands (which are ratio steps of 3) evenly spaced across a gradient.
+         * The palette stays banded, so the result is smooth contours rather
+         * than a continuous wash -- the same thing on screen as the atlas's own
+         * colour key.
+         *
+         * The marker is unaffected: a reading is the nearest grid point, as
+         * lpAddress() has always taken it, so the number is still a value the
+         * file holds and never an average of four.
+         */
+        const missing = new Set();
+        for (let y = 0; y < ch; y++) {
+            const latFromStart = lats[y] + LP_LAT_ORIGIN;
+            if (latFromStart < 0 || latFromStart >= 140) continue;   // off the atlas: transparent
+            // Grid coordinates as real numbers: the .5 shifts to cell centres,
+            // matching the "+ 1/240" in lpAddress().
+            const gy = LP_PER_DEG * latFromStart - 0.5;
+            const y0 = Math.floor(gy);
+            const fy = gy - y0;
+            for (let x = 0; x < cw; x++) {
+                const lonFromDateLine = mod360(lons[x] + 180);
+                const gx = LP_PER_DEG * lonFromDateLine - 0.5;
+                const x0 = Math.floor(gx);
+                const fx = gx - x0;
+
+                // The four neighbours can straddle a 5° tile edge, so each is
+                // located from scratch rather than from one tile's origin.
+                let v = 0;
+                let wanted = true;
+                for (const [dx, dy, weight] of [
+                    [0, 0, (1 - fx) * (1 - fy)], [1, 0, fx * (1 - fy)],
+                    [0, 1, (1 - fx) * fy], [1, 1, fx * fy],
+                ]) {
+                    if (weight === 0) continue;
+                    const sample = this.sample(year, x0 + dx, y0 + dy, missing);
+                    if (sample === null) { wanted = false; break; }
+                    v += weight * sample;
+                }
+                if (!wanted) continue;
+
+                const band = mapClamp(Math.round(v), 0, LP_VALUE_MAX - 1);
+                const o = (y * cw + x) * 4;
+                px[o] = LP_PALETTE[band * 3];
+                px[o + 1] = LP_PALETTE[band * 3 + 1];
+                px[o + 2] = LP_PALETTE[band * 3 + 2];
+                px[o + 3] = 255;
+            }
+        }
+        ctx.putImageData(img, 0, 0);
+        for (const key of missing) this.load(key);
+    }
+
+    /**
+     * One grid point by its global index (column from the date line, row from
+     * 65°S), which is what lets a bilinear sample cross a tile edge without the
+     * caller knowing where the edges are. Returns null when the tile holding it
+     * is missing or not decoded yet, and records what to fetch.
+     */
+    sample(year, gx, gy, missing) {
+        if (gy < 0 || gy >= LP_PER_DEG * 140) return null;
+        const columns = LP_PER_DEG * 360;
+        const gxWrapped = ((gx % columns) + columns) % columns;
+        const tilex = Math.floor(gxWrapped / LP_TILE_N) + 1;
+        const tiley = Math.floor(gy / LP_TILE_N) + 1;
+        const key = `${year}/${tilex}_${tiley}`;
+        const grid = gridCache.get(key);
+        if (grid === undefined) { missing.add(key); return null; }
+        if (grid === null) return null;
+        return grid[(gy % LP_TILE_N) * LP_TILE_N + (gxWrapped % LP_TILE_N)];
+    }
+
+    /** Fetch and decode one 5° tile, then redraw. Never awaited by draw(). */
+    load(key) {
+        if (this.loading.has(key)) return;
+        this.loading.add(key);
+        const [year, cell] = key.split("/");
+        const [tilex, tiley] = cell.split("_");
+        fetchTile(tileUrl(Number(year), Number(tilex), Number(tiley)))
+            .then((tile) => { gridCache.set(key, decodeGrid(tile.data)); })
+            .catch(() => { gridCache.set(key, null); })
+            .finally(() => { this.loading.delete(key); render(); });
+    }
+}
+
+const baseGrid = new TileGrid(view);
+const overGrid = new TileGrid(view);
+const atlasLayer = new AtlasLayer(view);
+view.appendChild(pin);
+
+/** Screen point (relative to the view) -> the coordinate under it. */
+function pointAt(px, py) {
+    const x = mapWorldX(center.lon, z) - view.clientWidth / 2 + px;
+    const y = mapWorldY(center.lat, z) - view.clientHeight / 2 + py;
+    return { lat: mapLatAt(y, z), lon: mapWrapLon(mapLonAt(x, z)) };
+}
+
+function render() {
+    const w = view.clientWidth;
+    const h = view.clientHeight;
+    const left = mapWorldX(center.lon, z) - w / 2;
+    const top = mapWorldY(center.lat, z) - h / 2;
+
+    const overlay = overlayById(overlayId);
+    baseGrid.draw(BASEMAPS[basemapId], z, left, top, w, h);
+
+    // Past zoom 8 an atlas layer is painted from the binary tiles instead of
+    // fetched as a picture -- see AtlasLayer. Everything else (the trend, the
+    // VIIRS layers) has no binary source here and upscales as before.
+    const ownGrid = overlay.legend === "zones" && z > LP_PNG_MAX_ZOOM;
+    if (ownGrid) {
+        overGrid.draw(null, z, left, top, w, h);
+        atlasLayer.draw(overlay.year, z, left, top, w, h, opacity / 100);
+    } else {
+        atlasLayer.hide();
+        // The nightly layer's date is part of its identity: without it in the
+        // key, changing the date would leave yesterday's tiles on screen.
+        const spec = overlay.spec && {
+            ...overlay.spec,
+            key: overlay.dated ? `${overlay.spec.key}:${nightlyDate}` : overlay.spec.key,
+            opacity: opacity / 100,
+        };
+        overGrid.draw(spec || null, z, left, top, w, h);
+    }
+
+    // The marker sits in world pixels like everything else, and is simply off
+    // screen when it is off screen -- no clamping, or it would lie about where
+    // the reading came from.
+    pin.style.left = `${Math.round(mapWorldX(marker.lon, z) - left)}px`;
+    pin.style.top = `${Math.round(mapWorldY(marker.lat, z) - top)}px`;
+
+    document.getElementById("mapinfo").textContent =
+        `${center.lat.toFixed(4)},${mapWrapLon(center.lon).toFixed(4)}  zoom ${z}` +
+        (ownGrid ? "  (30″ grid)"
+            : overlay.spec && z - (overlay.spec.offset || 0) > overlay.spec.maxZoom ? "  (upscaled)" : "");
+    document.getElementById("zin").disabled = z >= MAP_MAX_ZOOM;
+    document.getElementById("zout").disabled = z <= MAP_MIN_ZOOM;
+    queueHash();
+}
+
+/* Drag: the map moves with the finger, so the centre moves against it. The y
+   clamp is what stops a hard flick from throwing the view past a pole. */
+function panBy(dx, dy) {
+    const size = MAP_TILE_SIZE * 2 ** z;
+    const x = mapWorldX(center.lon, z) - dx;
+    const y = mapClamp(mapWorldY(center.lat, z) - dy, 0, size);
+    center = { lat: mapLatAt(y, z), lon: mapWrapLon(mapLonAt(x, z)) };
+    render();
+}
+
+/* Zoom about a screen point: whatever is under (ax, ay) is still under it
+   afterwards, so the wheel zooms into the cursor and a pinch into the fingers.
+   The buttons pass the centre. */
+function zoomTo(next, ax, ay) {
+    const target = mapClamp(next, MAP_MIN_ZOOM, MAP_MAX_ZOOM);
+    if (target === z) return;
+    const w = view.clientWidth;
+    const h = view.clientHeight;
+    const anchorX = ax === undefined ? w / 2 : ax;
+    const anchorY = ay === undefined ? h / 2 : ay;
+    const held = pointAt(anchorX, anchorY);
+    z = target;
+    const x = mapWorldX(held.lon, z) + (w / 2 - anchorX);
+    const y = mapWorldY(held.lat, z) + (h / 2 - anchorY);
+    center = { lat: mapLatAt(y, z), lon: mapWrapLon(mapLonAt(x, z)) };
+    render();
+}
+
+/* Pointer events, so one set of handlers covers mouse, pen and touch. Two
+   fingers down means a pinch, and pinching is stepped rather than smooth:
+   fractional zoom would mean scaling the tile layer, and whole levels are what
+   the tile scheme actually has. */
+const pointers = new Map();
+let dragged = false;
+let pinchBase = 0;
+
+function pinchSpan() {
+    const [a, b] = [...pointers.values()];
+    return Math.hypot(a.x - b.x, a.y - b.y);
+}
+function pinchMid() {
+    const [a, b] = [...pointers.values()];
+    const box = view.getBoundingClientRect();
+    return [(a.x + b.x) / 2 - box.left, (a.y + b.y) / 2 - box.top];
+}
+
+view.addEventListener("pointerdown", (event) => {
+    // The zoom buttons, the menu button and the attribution all sit inside the
+    // map element, so their pointer events bubble to here. Left alone, pressing
+    // + is a pointerdown and pointerup that never moved -- a tap -- and the tap
+    // rule would move the marker to the top-left corner before the click
+    // zoomed. Skipping the press is enough: pointermove and the release both
+    // no-op on a pointer id they never recorded.
+    if (event.target.closest(".mapctl, .mapattr, .menubtn, .mapinfo")) return;
+    try { view.setPointerCapture(event.pointerId); } catch (err) { /* fine */ }
+    pointers.set(event.pointerId, {
+        x: event.clientX, y: event.clientY,
+        x0: event.clientX, y0: event.clientY,
+    });
+    dragged = false;
+    pinchBase = pointers.size >= 2 ? pinchSpan() : 0;
+    view.classList.add("dragging");
+});
+
+view.addEventListener("pointermove", (event) => {
+    const was = pointers.get(event.pointerId);
+    if (!was) return;
+    const dx = event.clientX - was.x;
+    const dy = event.clientY - was.y;
+    pointers.set(event.pointerId, { ...was, x: event.clientX, y: event.clientY });
+    if (Math.hypot(event.clientX - was.x0, event.clientY - was.y0) > MAP_DRAG_SLOP) {
+        dragged = true;
+    }
+    if (pointers.size >= 2) {
+        const span = pinchSpan();
+        if (!pinchBase || !span) return;
+        if (span / pinchBase > MAP_PINCH_STEP) {
+            zoomTo(z + 1, ...pinchMid());
+            pinchBase = span;
+        } else if (pinchBase / span > MAP_PINCH_STEP) {
+            zoomTo(z - 1, ...pinchMid());
+            pinchBase = span;
+        }
+        return;   // two fingers zoom; they do not also pan
+    }
+    panBy(dx, dy);
+});
+
+function release(event) {
+    if (!pointers.delete(event.pointerId)) return;
+    if (pointers.size < 2) pinchBase = 0;
+    if (pointers.size > 0) return;
+    view.classList.remove("dragging");
+    if (!dragged) {
+        // A tap, not a drag. Unlike places.js's picker, which brings the tapped
+        // point to a fixed crosshair, this leaves the view where it is and moves
+        // the marker: the colour under your finger is the thing being asked
+        // about, and sliding the map out from under it would answer about a
+        // different pixel.
+        const box = view.getBoundingClientRect();
+        const point = pointAt(event.clientX - box.left, event.clientY - box.top);
+        readPoint(point.lat, point.lon, { fillBox: true });
+    }
+}
+view.addEventListener("pointerup", release);
+view.addEventListener("pointercancel", release);
+
+view.addEventListener("wheel", (event) => {
+    event.preventDefault();   // the page behind must not scroll
+    const box = view.getBoundingClientRect();
+    zoomTo(z + (event.deltaY < 0 ? 1 : -1), event.clientX - box.left, event.clientY - box.top);
+}, { passive: false });
+
+view.addEventListener("dblclick", (event) => {
+    if (event.target.closest(".mapctl, .mapattr, .menubtn, .mapinfo")) return;   // as above
+    const box = view.getBoundingClientRect();
+    zoomTo(z + 1, event.clientX - box.left, event.clientY - box.top);
+});
+
+document.getElementById("zin").addEventListener("click", () => zoomTo(z + 1));
+document.getElementById("zout").addEventListener("click", () => zoomTo(z - 1));
+window.addEventListener("resize", render);
+
+/* ------------------------------------------------------------------ *
+ * Reading one point
+ * ------------------------------------------------------------------ */
+
+const fmt = (x, n = 2) => (Number.isFinite(x) ? x.toFixed(n) : String(x));
+
+/* Only the newest click may write into the panel: a tile that takes three
+   seconds must not overwrite the answer to a point clicked after it. */
+let readToken = 0;
+
+function showCards(cards) {
+    const out = document.getElementById("out");
+    out.replaceChildren();
+    for (const c of cards) {
+        const div = document.createElement("div");
+        div.className = "card" + (c.good ? " good" : c.bad ? " bad" : "");
+        for (const [cls, text] of [["k", c.k], ["v", c.v], ["n", c.n]]) {
+            const span = document.createElement("div");
+            span.className = cls;
+            span.textContent = text;
+            div.appendChild(span);
+        }
+        out.appendChild(div);
+    }
+}
+
+function note(text, isError) {
+    const el = document.getElementById("readnote");
+    el.textContent = text;
+    el.classList.toggle("error", Boolean(isError));
+    return el;
+}
+
+/**
+ * Move the marker to a point and read the atlas there.
+ *
+ * The reading is the binary tile, not the picture: the rendered tiles are a
+ * colour per pixel, and a colour can only be read back to the band it came
+ * from. The number is the one the grid point actually holds.
+ *
+ * Which year is read is the overlay's: switch to 2016 and the marker's SQM
+ * follows the picture. The layers with no year of their own (trend, VIIRS,
+ * none) read the newest atlas, and the note says so.
+ */
+async function readPoint(lat, lon, { fillBox = false, recenter = false } = {}) {
+    lat = Number(lat.toFixed(6));
+    lon = Number(mapWrapLon(lon).toFixed(6));
+    marker = { lat, lon };
+    if (fillBox) {
+        document.getElementById("location").value = `${lat},${lon}`;
+        markActivePlace();
+    }
+    if (recenter) center = { lat, lon };
+    render();
+
+    const token = ++readToken;
+    const overlay = overlayById(overlayId);
+    const year = overlay.year;
+
+    if (lat < -65 || lat > 75) {
+        showCards([]);
+        note(`緯度 ${fmt(lat, 4)}° 在圖資之外 — the atlas covers 65°S to 75°N.`, true);
+        return;
+    }
+
+    const addr = lpAddress(lat, lon);
+    const url = tileUrl(year, addr.tilex, addr.tiley);
+    note(tileCache.has(url) ? "decoding…" : "fetching the binary tile…");
+
+    try {
+        const tile = await fetchTile(url);
+        if (token !== readToken) return;   // a newer click owns the panel now
+        const { compressed } = decodePoint(tile.data, addr.ix, addr.iy);
+        const ratio = lpRatio(compressed);
+        const sqm = lpSqm(ratio);
+        const bortle = lpBortle(sqm);
+        const zone = lpZone(ratio);
+
+        showCards([
+            { k: "SQM", v: fmt(sqm), n: "mag/arcsec² — bigger is darker", good: sqm >= 21.69, bad: sqm < 19.5 },
+            { k: "LP Zone", v: zone, n: "the atlas's own banding", good: /^[012]/.test(zone), bad: /^[67]/.test(zone) },
+            { k: "Bortle", v: String(bortle), n: "rule of thumb, read off SQM", good: bortle <= 3, bad: bortle >= 7 },
+            { k: "artificial glow", v: `${fmt(ratio)}×`, n: "of the natural night sky", good: ratio < 0.33, bad: ratio > 9 },
+        ]);
+        markLegend(zone);
+
+        const el = note(`atlas ${year} · tile ${addr.tilex}_${addr.tiley}, grid point ${addr.ix},${addr.iy} · ${lat},${lon}`);
+        // Not awaited: the reading is the result, and a name is a courtesy on
+        // top of it. Given the requested coordinates, like the tile lookup.
+        appendPlaceName(el, lat, lon);
+    } catch (err) {
+        if (token !== readToken) return;
+        showCards([]);
+        note(`could not read the tile: ${err.name === "TimeoutError" ? "timed out" : err.message}`, true);
+        markLegend(null);
+    }
+}
+
+/**
+ * Turn a lat,lon into a readable place name, e.g. 中華民國/宜蘭縣/南澳鄉/蘇澳鎮 --
+ * countryName, principalSubdivision, city and locality, in that order.
+ *
+ * The coordinates are the requested ones, not the atlas grid point: that point
+ * is the centre of a 30-arcsec cell, up to ~600 m away, and naming it rather
+ * than the place asked about would be a different answer to a different
+ * question.
+ *
+ * This is a label, never data: any failure resolves to "" and the line is left
+ * exactly as the reading wrote it.
+ */
+async function reverseGeocode(lat, lon, timeoutMs = 10000) {
+    const key = `${lat},${lon}`;
+    if (geocodeCache.has(key)) return geocodeCache.get(key);
+
+    const url = `${GEOCODE_URL}?latitude=${encodeURIComponent(lat)}` +
+        `&longitude=${encodeURIComponent(lon)}&localityLanguage=zh`;
+    let name = "";
+    try {
+        const resp = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+        if (resp.ok) {
+            const body = await resp.json();
+            name = [body.countryName, body.principalSubdivision, body.city, body.locality]
+                .filter((part, i, all) => part && all.indexOf(part) === i)
+                .join("/");
+        }
+    } catch {
+        // Timed out or offline. The reading itself is unaffected, so stay quiet.
+    }
+    geocodeCache.set(key, name);
+    return name;
+}
+
+/** Add the place name under the reading once the lookup returns, as a line of
+ *  its own. Deliberately not awaited, so it re-checks the line first and gives
+ *  up if a newer reading has replaced it. */
+function appendPlaceName(el, lat, lon) {
+    const line = el.textContent;
+    reverseGeocode(lat, lon).then((name) => {
+        if (!name || el.textContent !== line) return;
+        // A <br>, not a "\n": the note wraps normally, so a newline character in
+        // the text would come out as an ordinary space.
+        el.appendChild(document.createElement("br"));
+        el.appendChild(document.createTextNode(name));
+    });
+}
+
+/* ------------------------------------------------------------------ *
+ * The menu
+ * ------------------------------------------------------------------ */
+
+function buildOverlaySelect() {
+    const sel = document.getElementById("overlay");
+    for (const o of OVERLAYS) {
+        const opt = document.createElement("option");
+        opt.value = o.id;
+        opt.textContent = o.label;
+        sel.appendChild(opt);
+    }
+}
+
+function buildBasemapSelect() {
+    const sel = document.getElementById("basemap");
+    for (const [id, base] of Object.entries(BASEMAPS)) {
+        const opt = document.createElement("option");
+        opt.value = id;
+        opt.textContent = base ? base.label : "無 (overlay only)";
+        sel.appendChild(opt);
+    }
+}
+
+/* The nightly layer is the only one with a date, and GIBS runs a couple of
+   nights behind, so the box opens on today − 3 and cannot be set past today. */
+function buildDateField() {
+    const field = document.getElementById("viirsdate");
+    field.min = GIBS_NIGHTLY_FIRST;
+    field.max = utcDate(0);
+    field.value = nightlyDate;
+}
+
+/** One button per saved spot; clicking flies there and reads it. */
+function buildPlaces() {
+    const box = document.getElementById("places");
+    box.replaceChildren();   // 使用目前位置 moves 輸入, so this runs more than once
+    for (const [name, lat, lon] of PLACES) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "place";
+        button.textContent = name;
+        button.dataset.coords = `${lat},${lon}`;
+        button.title = `${lat}, ${lon}`;
+        button.addEventListener("click", () => {
+            document.getElementById("location").value = button.dataset.coords;
+            markActivePlace();
+            document.getElementById("form").requestSubmit();
+        });
+        box.appendChild(button);
+    }
+}
+
+function markActivePlace() {
+    const current = document.getElementById("location").value.trim();
+    for (const button of document.querySelectorAll(".place")) {
+        button.setAttribute("aria-pressed", String(button.dataset.coords === current));
+    }
+}
+
+/* The legend is the atlas's own banding, so it is built from LP_ZONES and read
+   the same way lpZone() reads it: a band runs from the previous threshold up to
+   its own. The SQM column is those two ratios through lpSqm(), which is why the
+   numbers descend as the colours brighten. */
+function buildLegend() {
+    const box = document.getElementById("legend");
+    box.replaceChildren();
+    const bands = LP_ZONES.map(([hi, name], i) => ({
+        name, hi, lo: i === 0 ? 0 : LP_ZONES[i - 1][0],
+    }));
+    bands.push({ name: LP_ZONE_BRIGHTEST, lo: LP_ZONES[LP_ZONES.length - 1][0], hi: Infinity });
+
+    bands.forEach((band, i) => {
+        const row = document.createElement("div");
+        row.className = "row";
+        row.dataset.zone = band.name;
+
+        const sw = document.createElement("span");
+        sw.className = "sw";
+        sw.style.background = LP_ZONE_COLORS[i];
+        const zone = document.createElement("span");
+        zone.className = "zone";
+        zone.textContent = band.name;
+        const range = document.createElement("span");
+        range.className = "range";
+        range.textContent = Number.isFinite(band.hi)
+            ? `SQM ${fmt(lpSqm(band.hi))}–${fmt(lpSqm(band.lo))}`
+            : `SQM ≤ ${fmt(lpSqm(band.lo))}`;
+
+        row.append(sw, zone, range);
+        box.appendChild(row);
+    });
+}
+
+/** Light up the band the marker's reading fell in -- the one thing a legend
+ *  that sits beside a number can do that a printed key cannot. */
+function markLegend(zone) {
+    for (const row of document.querySelectorAll(".legend .row")) {
+        row.classList.toggle("hit", row.dataset.zone === zone);
+    }
+}
+
+/* The legend below the swatches, and the attribution line in the map's corner,
+   both depend on which overlay is up. */
+const LEGEND_NOTES = {
+    zones: "Zone bands and SQM are the atlas's own; <b>Bortle is not</b> — Lorenz " +
+        "<a href='https://djlorenz.github.io/astronomy/lp/bortle.html' target='_blank' rel='noopener'>declines to publish one</a>, " +
+        "because Bortle judges the whole sky and this is the zenith. Bortle 4 alone swallows zones 3a–4b, the entire dark-site range, " +
+        "which is why the map separates sites the Bortle number cannot.",
+    trend: "The trend layer is its own scale, not these bands: <b>red/orange means light pollution is rising</b>, " +
+        "blue that it is falling, white that no trend is statistically significant (Theil–Sen, Mann–Kendall at 90%). " +
+        "The marker still reads the newest atlas.",
+    viirs: "VIIRS is <b>radiance, not sky brightness</b> — where the light is emitted, not how bright the sky is above you. " +
+        "The atlas overlay is modelled from exactly this, plus how light scatters. NASA GIBS publishes this cloud-free annual " +
+        "composite for <b>2012 and 2016 only</b>, and caps it at zoom 8, so deeper views upscale. The marker still reads the newest atlas.",
+    nightly: "One night's radiance (NOAA-20, gap-filled and BRDF-corrected), not a composite — so it carries that night's " +
+        "clouds and any moonlight, and a blank patch means no usable pass rather than no light. Dates run from 2018 to about " +
+        "three nights ago; GIBS caps it at zoom 8. The marker still reads the newest atlas.",
+    none: "No overlay. The marker still reads the newest atlas.",
+};
+
+function applyOverlay() {
+    const overlay = overlayById(overlayId);
+    document.getElementById("overlay").value = overlay.id;
+    document.getElementById("daterow").hidden = !overlay.dated;
+    document.getElementById("legendnote").innerHTML = LEGEND_NOTES[overlay.legend];
+    updateAttribution();
+    render();
+    // The year the marker is read against belongs to the overlay, so switching
+    // layers re-reads the point rather than leaving last year's number beside
+    // this year's colours.
+    readPoint(marker.lat, marker.lon);
+}
+
+/*
+ * The line in the map's corner, rebuilt whenever a layer changes. Both tile
+ * licences require it, so it names exactly what is on screen: no basemap credit
+ * when the basemap is 無, and the atlas is credited even under an overlay of its
+ * own or none at all, because the number beside the marker is always read from
+ * it.
+ */
+const ATLAS_CREDIT = "<a href='https://djlorenz.github.io/astronomy/lp/' target='_blank' rel='noopener'>World Atlas</a> &copy; D. Lorenz";
+
+function updateAttribution() {
+    const overlay = overlayById(overlayId);
+    const base = BASEMAPS[basemapId];
+    const parts = [];
+    // Each basemap carries its own credit: Esri's services and OSM's tiles do
+    // not want the same line, and crediting the wrong one is worse than short.
+    if (base) parts.push(base.attribution);
+    parts.push(overlay.attribution || ATLAS_CREDIT);
+    document.getElementById("attr").innerHTML = parts.join(" &middot; ");
+}
+
+/**
+ * 使用目前位置 (use current position): the device's own coordinates into the
+ * location box and into PLACES[0], the 輸入 spot, so its pill lights up like any
+ * saved one and the box and the list agree. Then it flies there and reads it.
+ *
+ * Geolocation is a secure-context API, which makes this the one control here
+ * that cannot work over file://. It fails as an ordinary rejection, and the
+ * reason is printed beside the button rather than thrown, leaving the map and
+ * whatever reading is on screen alone.
+ */
+async function useCurrentPosition() {
+    const button = document.getElementById("geo");
+    const noteEl = document.getElementById("geonote");
+    button.disabled = true;
+    noteEl.classList.remove("error");
+    noteEl.textContent = "定位中...";
+    try {
+        const { lat, lon, accuracy } = await currentPosition();
+        setInputPlace(lat, lon);
+        buildPlaces();   // the 輸入 pill carries coordinates in a dataset, so redraw it
+        document.getElementById("location").value = `${lat},${lon}`;
+        noteEl.textContent = `±${Math.round(accuracy)} m`;
+        markActivePlace();
+        document.getElementById("form").requestSubmit();
+    } catch (err) {
+        noteEl.classList.add("error");
+        noteEl.textContent = err.message;
+    } finally {
+        button.disabled = false;
+    }
+}
+
+function locationFromForm() {
+    const raw = document.getElementById("location").value.trim();
+    if (!raw) return { lat: DEFAULT_LAT, lon: DEFAULT_LON };
+    const [latS, lonS] = raw.split(",");
+    const lat = Number(latS), lon = Number(lonS);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+        throw new Error(`Bad location "${raw}": expected "lat,lon"`);
+    }
+    return { lat, lon };
+}
+
+document.getElementById("form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    let lat, lon;
+    try {
+        ({ lat, lon } = locationFromForm());
+    } catch (err) {
+        showCards([]);
+        note(err.message, true);
+        return;
+    }
+    // Typing a coordinate is the same act as clicking the map, so it moves the
+    // marker the same way -- but it also has to bring the view along, since the
+    // point may be nowhere near what is on screen.
+    readPoint(lat, lon, { recenter: true });
+});
+
+/* State only, no drawing and no fetch: the boot sequence lets a shared link
+   overwrite some of this before anything is requested, and a Reset button that
+   fetched twice would be the same code written round the other way. */
+function setDefaults() {
+    document.getElementById("location").value = `${DEFAULT_LAT},${DEFAULT_LON}`;
+    // ...and 輸入 -- PLACES[0] -- goes back to what places.js says, so the pill
+    // matches the box again after 使用目前位置 has moved it. Rebuilt because the
+    // coordinates a pill carries are baked into its dataset.
+    setInputPlace(DEFAULT_LAT, DEFAULT_LON);
+    buildPlaces();
+    markActivePlace();
+    document.getElementById("geonote").textContent = "";
+    overlayId = DEFAULT_OVERLAY;
+    basemapId = DEFAULT_BASEMAP;
+    opacity = DEFAULT_OPACITY;
+    nightlyDate = utcDate(GIBS_LAG_DAYS);
+    z = DEFAULT_ZOOM;
+    center = { lat: DEFAULT_LAT, lon: DEFAULT_LON };
+    marker = { lat: DEFAULT_LAT, lon: DEFAULT_LON };
+}
+
+/** The three controls that hold state of their own, brought back in line with
+ *  it -- after a reset, and after a hash has overridden it. */
+function syncControls() {
+    document.getElementById("basemap").value = basemapId;
+    document.getElementById("opacity").value = String(opacity);
+    document.getElementById("opacityval").textContent = `${opacity}%`;
+    document.getElementById("viirsdate").value = nightlyDate;
+}
+
+function resetDefaults() {
+    setDefaults();
+    syncControls();
+    applyOverlay();   // draws, and reads the marker
+}
+
+document.getElementById("overlay").addEventListener("change", (event) => {
+    overlayId = event.target.value;
+    applyOverlay();
+});
+document.getElementById("basemap").addEventListener("change", (event) => {
+    basemapId = event.target.value;
+    updateAttribution();
+    render();
+});
+document.getElementById("opacity").addEventListener("input", (event) => {
+    opacity = Number(event.target.value);
+    document.getElementById("opacityval").textContent = `${opacity}%`;
+    render();
+});
+document.getElementById("viirsdate").addEventListener("change", (event) => {
+    // An empty or out-of-range box keeps the date it had: the tiles would 404
+    // silently, which reads as an outage rather than as a typo.
+    const value = event.target.value;
+    if (!value || value < GIBS_NIGHTLY_FIRST || value > utcDate(0)) {
+        event.target.value = nightlyDate;
+        return;
+    }
+    nightlyDate = value;
+    render();
+});
+document.getElementById("geo").addEventListener("click", useCurrentPosition);
+document.getElementById("location").addEventListener("input", markActivePlace);
+document.getElementById("reset").addEventListener("click", resetDefaults);
+document.getElementById("menubtn").addEventListener("click", () => {
+    document.body.classList.toggle("menuclosed");
+    render();   // the map just changed width, so the tile grid has to refill
+});
+
+/* ------------------------------------------------------------------ *
+ * The URL hash: where you are looking, so a view can be sent to someone.
+ *
+ * Written with replaceState rather than location.hash, which would push a
+ * history entry per pan and make Back useless. Read once at load and never
+ * again -- a hashchange handler would fight the pan that wrote it.
+ * ------------------------------------------------------------------ */
+
+let hashTimer = 0;
+function queueHash() {
+    clearTimeout(hashTimer);
+    hashTimer = setTimeout(() => {
+        const hash = `#lat=${center.lat.toFixed(5)}&lon=${mapWrapLon(center.lon).toFixed(5)}` +
+            `&z=${z}&layer=${overlayId}&base=${basemapId}&o=${opacity}` +
+            `&mlat=${marker.lat}&mlon=${marker.lon}` +
+            (overlayById(overlayId).dated ? `&d=${nightlyDate}` : "");
+        try { history.replaceState(null, "", hash); } catch { /* file:// in some browsers */ }
+    }, 400);
+}
+
+function applyHash() {
+    const raw = location.hash.replace(/^#/, "");
+    if (!raw) return false;
+    const q = new URLSearchParams(raw);
+    const num = (key, fallback) => {
+        const value = Number(q.get(key));
+        return Number.isFinite(value) && q.get(key) !== null && q.get(key) !== "" ? value : fallback;
+    };
+    center = { lat: num("lat", DEFAULT_LAT), lon: num("lon", DEFAULT_LON) };
+    z = mapClamp(Math.round(num("z", DEFAULT_ZOOM)), MAP_MIN_ZOOM, MAP_MAX_ZOOM);
+    marker = { lat: num("mlat", center.lat), lon: num("mlon", center.lon) };
+    if (OVERLAYS.some((o) => o.id === q.get("layer"))) overlayId = q.get("layer");
+    if (BASEMAPS[q.get("base")] !== undefined) basemapId = q.get("base");
+    opacity = mapClamp(Math.round(num("o", DEFAULT_OPACITY)), 0, 100);
+    const date = q.get("d");
+    if (date && date >= GIBS_NIGHTLY_FIRST && date <= utcDate(0)) nightlyDate = date;
+    return true;
+}
+
+/* ------------------------------------------------------------------ *
+ * Go
+ * ------------------------------------------------------------------ */
+
+buildOverlaySelect();
+buildBasemapSelect();
+buildDateField();
+buildLegend();
+setDefaults();
+
+// A shared link wins over the defaults, and the box follows the marker it names
+// so the pills and the coordinate on screen agree with the map. Read before the
+// first draw, so the page opens on the view it was sent rather than flying
+// there from Taipei.
+if (applyHash()) {
+    document.getElementById("location").value = `${marker.lat},${marker.lon}`;
+    setInputPlace(marker.lat, marker.lon);
+    buildPlaces();
+    markActivePlace();
+}
+syncControls();
+applyOverlay();
+</script>
+</body>
+</html>

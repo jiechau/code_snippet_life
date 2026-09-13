@@ -15,7 +15,7 @@ what it does and how to run it.
 - **One folder per snippet.** Keep everything a snippet needs inside its folder. Do not
   introduce cross-snippet imports or a shared root package. **There is exactly one
   sanctioned exception:** root `places.js`, the saved stargazing spots shared by all
-  nine of the eleven demo pages (see below). Do not widen it — nothing else moves to
+  ten of the twelve demo pages (see below). Do not widen it — nothing else moves to
   the root.
 - **Each snippet folder gets its own `README.md`**, and the new snippet must be added as a
   row to the table in the root `README.md`.
@@ -39,13 +39,15 @@ Navigation is two levels of list page: root `index.html` links to one
 `<snippet>/index.html` per snippet folder, and that folder list links to one page per
 demo, **named after the script it ports** (`open_meteo/open-meteo.html` ports
 `open_meteo/open-meteo.py`); an alternate view of the same script adds a `_suffix`
-(`open-meteo_readable.html`). Seven pages have no script to be named after:
+(`open-meteo_readable.html`). Eight pages have no script to be named after:
 the two `astro_score/astro-score_*.html` pages are forks of
 `open_meteo/open-meteo_readable.html` rather than ports of one script, so they take
 their folder's name; `bigdatacloud/reverse-geocode.html` is named after the
 endpoint it calls because `bigdatacloud/` holds no script at all, and
 `light_pollution/binary-tile.html` the same way, after the
-`binary_tile_<x>_<y>.dat.gz` file it fetches; and the three
+`binary_tile_<x>_<y>.dat.gz` file it fetches, with
+`light_pollution/light_pollution_map.html` beside it named after **what it draws**,
+the folder's subject as a map &mdash; the only page named that way; and the three
 `pure_math/*.html` pages are named after the **quantity each computes**
 (`galactic_center.html`, `sun_phase.html`, `moon_phase.html`) for the same reason —
 that folder holds no script either, and each page is one block lifted out of
@@ -327,8 +329,10 @@ whatever `setInputPlace()` does). Because a pill bakes its coordinates into
 it, replacing the standalone load-time `buildPlaces()` those pages used to end with.
 
 `pickOnMap()` (also `places.js`, ~230 lines with its injected stylesheet) is the
-third way that box gets filled, offered by all 9 pages that have a location box
-(not the `cwa_opendata/` two, addressed by county). It
+third way that box gets filled, offered by 9 of the 10 pages that have a location
+box &mdash; not the `cwa_opendata/` two, addressed by county, and not
+`light_pollution/light_pollution_map.html`, which **is** a map and so fills its box
+by a click on itself. It
 opens a **dialog over the page** — not another tab: a second window would need
 either a map page of its own at the repo root, which the one-folder rule forbids,
 or a document written into `about:blank`, and would then have to hand a coordinate
@@ -364,15 +368,15 @@ rather than into the result area, leaving whatever is on screen alone.
 
 ## What is duplicated across the demo pages
 
-There are **eleven demo pages** (ignoring `google_news_url`, which shares nothing),
-four of them built on one Open-Meteo request core, one that fetches a binary tile
+There are **twelve demo pages** (ignoring `google_news_url`, which shares nothing),
+four of them built on one Open-Meteo request core, two that fetch a binary tile
 from somewhere else, two that call a keyed API, three that issue no request at all,
 and no shared file except
 `places.js` — by the one-folder-per-snippet rule, keeping them in step is a manual
 discipline. They are `open_meteo/open-meteo.html`,
 `open_meteo/open-meteo_readable.html`, `astro_score/astro-score_readable.html`,
 `astro_score/astro-score_daily.html`, `bigdatacloud/reverse-geocode.html`,
-`light_pollution/binary-tile.html`, the three
+`light_pollution/binary-tile.html`, `light_pollution/light_pollution_map.html`, the three
 `pure_math/{galactic_center,sun_phase,moon_phase}.html` and the two
 `cwa_opendata/cwa_{sunrise,moonrise}.html`. The `pure_math/` three copy
 the *page chrome* and the *astronomy* but none of the request machinery, so they
@@ -386,14 +390,15 @@ two copy the chrome and the request *shape* but are the only pages addressed by
 | Request core (`buildUrl`, `fetchForecast`, `FORECAST_URL`) | the 4 Open-Meteo pages + `open_meteo/open-meteo.py`; `bigdatacloud/` and both `cwa_opendata/` pages have the same `buildUrl` shape against their own endpoint (the `cwa` copies add `maskUrl()`, which blanks the key out of the URL before it goes on screen — the credential travels in the query string, so the request URL *is* the credential). **No `pure_math/` page has one** — there is no URL to build |
 | `paramsFromForm()` | the 3 pages with a location box **and** a single request to make, plus both `cwa_opendata/` pages — same name, same "throw on anything the API would silently answer with nothing" policy, but reading key/county/date instead of a coordinate. `astro-score_daily.html` splits it in two — `paramsFor(lat, lon)` for the fields (called once per row) and `inputPlaceFromForm()` for the box, which names one row rather than one request. The `pure_math/` pages split it the same way into `placeFromForm()` → `{lat, lon}`: same parse and same error text, but there are no request params to return |
 | Page chrome (whole `<style>` block, `show()`, submit handler) | `open_meteo/open-meteo.html` + `bigdatacloud/reverse-geocode.html` + the 3 `pure_math/` pages + the 2 `cwa_opendata/` pages. The `cwa` two are `reverse-geocode.html` with the location field swapped for key/date/county, a `.keyrow` + 顯示金鑰 toggle added, and an `.out` block above the `.url` pane holding the two lines the script prints; `cwa_moonrise.html` adds a `.window` table under it. `reverse-geocode.html` is `open-meteo.html` with the form cut to one field; the `pure_math/` three are `reverse-geocode.html` with a time field added, `Fetch` renamed `Compute`, the `.url`/`<pre>` panes swapped for `.card`/step-table CSS, and `show()` taking `{cards, rows}` instead of `{url, json}`. The submit handler loses its `async`, its `try/finally` and the button disabling — nothing is in flight — but keeps the policy of *displaying* a bad input rather than throwing |
-| `.locrow` CSS | all 11 pages, verbatim (2 lines) — on the `cwa_opendata/` two it wraps the **county** box, not a coordinate one. Both `astro-score_*.html` add a third for `.locname` — the `輸入:` label in front of the box, a second `<label for="location">` naming what the box writes to (`PLACES[0]`: the first pill on one page, the top grid row on the other). The other 7 pages do not have it |
-| `.place`/`.places` CSS, `buildPlaces()` / `markActivePlace()` | 8 pages, verbatim, plus the 2 `cwa_opendata/` pages, which take the **CSS verbatim** but rename the functions `buildCounties()` / `markActiveCounty()` and drive them from a local `COUNTIES` list rather than `PLACES` — 22 county names, ours in that order, not the API's. That is the point of the pills there: the API spells it 臺北市 and answers a typed 台北市 with an empty HTTP 200. Not on `astro-score_daily.html`: its rows *are* the saved spots, so pills repeating them would say it twice. Its location box therefore stands alone beside 使用目前位置, and nothing there is ever "pressed" |
-| `useCurrentPosition()` + the 使用目前位置 button and its `.geonote` | 9 of the 11 — **not** the `cwa_opendata/` two, which have no coordinate to fill: fill the box, note the accuracy, resubmit. The 8 pill pages also `setInputPlace()` + `buildPlaces()` so the 輸入 pill follows; `astro-score_daily.html` has no pills and lets its submit handler do the `setInputPlace()`, so its copy is four lines shorter. `setInputPlace()`/`currentPosition()`/`GEO_ERRORS` are **not** duplicated: root `places.js` |
-| `pickFromMap()` + the 在地圖上點選 button | the same 9 of the 11 as the row above, and always **beside** that button — the two travel together, since it is the **same write minus the accuracy**. **Byte-identical across the 8 pill pages** (box + `setInputPlace()` + `buildPlaces()` + `markActivePlace()` + resubmit), with `astro-score_daily.html` the one shorter copy, just the box, exactly as its geo copy is shorter. All 9 clear the `.geonote`, since a leftover `±12 m` would describe a coordinate the box no longer holds, and all 9 return silently on `null` (取消). The map itself — `pickOnMap()`, `mapStyle()`, the Mercator four — is **not** duplicated: root `places.js`. Adding it to a tenth page is four edits: the button, the hint, the function, the listener |
-| `PLACES` | **not duplicated** — root `places.js`, loaded by 9 of the 11 pages (not the `cwa_opendata/` two, which are addressed by county). `DEFAULT_LAT`/`DEFAULT_LON` are every page's empty-box fallback, `astro-score_daily.html` included |
-| The `countryName/principalSubdivision/city/locality` join | all 9 pages with a location box: `reverseGeocode()` on 8 of them, `placeName()` on `bigdatacloud/reverse-geocode.html`, which demos the endpoint head-on |
-| `reverseGeocode()` (the *deferred, never-awaited* lookup) | 8 pages — both `astro_score/`, both `open_meteo/`, the 3 `pure_math/` and `light_pollution/binary-tile.html` — **byte-identical in code**, with only three doc comments reworded where a page has no forecast and no grid point to disclaim. `bigdatacloud/reverse-geocode.html` is the ninth and the odd one: it awaits its own `placeName()` inline, because there the name *is* the result. Only the `cwa_opendata/` two have none, having no coordinate. Every copy is fired after the page's own result is on screen, given the **requested** coordinates, and guarded on the meta line not having changed. What differs is how the name reaches the screen: `astro-score_readable.html` appends it to the meta element (`appendPlaceName()`, guarded on the line not having changed), `astro-score_daily.html` stores it in `inputPlaceName` and lets `setMeta()` redraw it (`loadInputPlaceName()`, guarded on `PLACES[0]` still being that coordinate) — because a tab click there rewrites the meta line, which would wipe an appended node |
-| Light-pollution atlas (`lpRatio`, `lpSqm`, `lpBortle`, `lpZone`, `LP_ZONES`, `LP_BORTLE`, tile geometry, the `DecompressionStream` read) | `astro_score/astro-score_readable.html` + `light_pollution/binary-tile.html` — the only third-party binary format in the repo. The *deferred, never-awaited* wrapper (`lightPollution()`, `loadLightPollution()`) is `astro_score`'s alone; `binary-tile.html` awaits its fetch, because there the tile **is** the result |
+| `.locrow` CSS | all 12 pages, verbatim (2 lines) — on the `cwa_opendata/` two it wraps the **county** box, not a coordinate one. Both `astro-score_*.html` add a third for `.locname` — the `輸入:` label in front of the box, a second `<label for="location">` naming what the box writes to (`PLACES[0]`: the first pill on one page, the top grid row on the other). The other 7 pages do not have it |
+| `.place`/`.places` CSS, `buildPlaces()` / `markActivePlace()` | 9 pages, verbatim (`light_pollution/light_pollution_map.html` is the ninth, where a pill flies the map there and reads it), plus the 2 `cwa_opendata/` pages, which take the **CSS verbatim** but rename the functions `buildCounties()` / `markActiveCounty()` and drive them from a local `COUNTIES` list rather than `PLACES` — 22 county names, ours in that order, not the API's. That is the point of the pills there: the API spells it 臺北市 and answers a typed 台北市 with an empty HTTP 200. Not on `astro-score_daily.html`: its rows *are* the saved spots, so pills repeating them would say it twice. Its location box therefore stands alone beside 使用目前位置, and nothing there is ever "pressed" |
+| `useCurrentPosition()` + the 使用目前位置 button and its `.geonote` | 10 of the 12 — **not** the `cwa_opendata/` two, which have no coordinate to fill: fill the box, note the accuracy, resubmit. The 9 pill pages also `setInputPlace()` + `buildPlaces()` so the 輸入 pill follows; `astro-score_daily.html` has no pills and lets its submit handler do the `setInputPlace()`, so its copy is four lines shorter. `setInputPlace()`/`currentPosition()`/`GEO_ERRORS` are **not** duplicated: root `places.js` |
+| `pickFromMap()` + the 在地圖上點選 button | 9 of the 12, and always **beside** that button — the two travel together, since it is the **same write minus the accuracy**. **Byte-identical across 8 pill pages** (box + `setInputPlace()` + `buildPlaces()` + `markActivePlace()` + resubmit), with `astro-score_daily.html` the one shorter copy, just the box, exactly as its geo copy is shorter. `light_pollution/light_pollution_map.html` is the tenth location-box page and has **no** copy: clicking its own map is the same write, so a dialog holding a second map over the first would be the button asking the page to do what the page already is. All 9 clear the `.geonote`, since a leftover `±12 m` would describe a coordinate the box no longer holds, and all 9 return silently on `null` (取消). The map itself — `pickOnMap()`, `mapStyle()`, the Mercator four — is **not** duplicated: root `places.js`. Adding it to a tenth page is four edits: the button, the hint, the function, the listener |
+| The slippy map (Web Mercator + a grid of `<img>` tiles) | **`places.js` holds the geometry, and it is imported, not copied**: `mapWorldX`/`mapWorldY`/`mapLatAt`/`mapLonAt`, `mapClamp`, `mapWrapLon` and the `MAP_*` constants are used as-is by `light_pollution/light_pollution_map.html`, which is the only page that draws a map of its own. What it does **not** share is the tile loop: `pickOnMap()` renders one 256px layer into a dialog, the map page's `TileGrid` class renders **two stacked layers** at a tile size of `256 · 2^(map zoom − tile zoom)`, which is what lets a 1024px atlas tile and a 256px basemap tile sit on one grid. The pan/pinch/wheel handlers are the same shape in both and are **not** byte-identical: the map page's tap moves the marker instead of recentring, since sliding the map out from under your finger would answer about a different pixel. Change the Mercator four and both follow; change a handler and check the other by eye |
+| `PLACES` | **not duplicated** — root `places.js`, loaded by 10 of the 12 pages (not the `cwa_opendata/` two, which are addressed by county). `DEFAULT_LAT`/`DEFAULT_LON` are every page's empty-box fallback, `astro-score_daily.html` included |
+| The `countryName/principalSubdivision/city/locality` join | all 10 pages with a location box: `reverseGeocode()` on 9 of them, `placeName()` on `bigdatacloud/reverse-geocode.html`, which demos the endpoint head-on |
+| `reverseGeocode()` (the *deferred, never-awaited* lookup) | 9 pages — both `astro_score/`, both `open_meteo/`, the 3 `pure_math/` and both `light_pollution/` — **byte-identical in code**, with only four doc comments reworded where a page has no forecast and no grid point to disclaim. `bigdatacloud/reverse-geocode.html` is the tenth and the odd one: it awaits its own `placeName()` inline, because there the name *is* the result. Only the `cwa_opendata/` two have none, having no coordinate. Every copy is fired after the page's own result is on screen, given the **requested** coordinates, and guarded on the meta line not having changed. What differs is how the name reaches the screen: `astro-score_readable.html` appends it to the meta element (`appendPlaceName()`, guarded on the line not having changed), `astro-score_daily.html` stores it in `inputPlaceName` and lets `setMeta()` redraw it (`loadInputPlaceName()`, guarded on `PLACES[0]` still being that coordinate) — because a tab click there rewrites the meta line, which would wipe an appended node |
+| Light-pollution atlas (`lpRatio`, `lpSqm`, `lpBortle`, `lpZone`, `LP_ZONES`, `LP_BORTLE`, tile geometry, the `DecompressionStream` read) | `astro_score/astro-score_readable.html` + both `light_pollution/` pages — the only third-party binary format in the repo, and the one block copied three times. The *deferred, never-awaited* wrapper (`lightPollution()`, `loadLightPollution()`) is `astro_score`'s alone; `binary-tile.html` awaits its fetch, because there the tile **is** the result, and `light_pollution_map.html` awaits it per click, guarded by a `readToken` so a slow tile cannot overwrite the answer to a point clicked after it. `LP_ZONE_COLORS` — the atlas's 15 swatches, sampled out of Lorenz's published colour bar — is the **map page's alone**: it is the only page that draws the banding rather than naming one band |
 | Meeus solar/lunar series | both `astro_score/astro-score_*.html` pages + `astro_score/milkyway.py` + the 3 `pure_math/` pages — never in `open_meteo/`. Every copy carries **only what it draws**: `astro-score_daily.html` has no `moonIllumination()` (it has `GC_RA`/`GC_DEC`, which its MilkyScore strip needs); `pure_math/galactic_center.html` has no `obliquity()`/`eclipticToEquatorial()` at all (A* is already equatorial); `pure_math/sun_phase.html` has nothing lunar; `pure_math/moon_phase.html` carries `sunPosition()` too, because the illuminated fraction needs the moon–sun elongation |
 | `DARK_SUN_ALT`, `MOON_KILL_ALT`, `moonPenalty()`, `astroScore()` | both `astro_score/astro-score_*.html` pages, verbatim. Split across `pure_math/`: `sun_phase.html` takes `DARK_SUN_ALT`, `moon_phase.html` takes `MOON_KILL_ALT` + `moonPenalty()`. **`astroScore()` is in neither** — a pure-math page has no cloud figure to score |
 | `LABELS`, `API_SHORT`, `UNIT_SHORT`, `tint()`, `SCALES`, hour-grid rendering | the 2 hour-by-hour grid pages only — `astro-score_daily.html` draws days as bars, not variables as tinted cells, and has none of them; `open-meteo.html`/`reverse-geocode.html`/the `pure_math/` three draw no grid at all |
@@ -833,9 +838,15 @@ Taiwan in monsoon season should score near zero, and a pristine site (e.g. Ataca
 
 ## light_pollution specifics
 
-One page, `binary-tile.html` (listed as **binary tile**), and **no script** — the second
-folder after `bigdatacloud/` with nothing to run. The call is one `GET` for a static file
-plus about twenty lines of arithmetic, so a Python version would demonstrate nothing.
+Two pages, `binary-tile.html` (listed as **binary tile**) and `light_pollution_map.html`
+(**light pollution map**), and **no script** — the second folder after `bigdatacloud/`
+with nothing to run. The call is one `GET` for a static file plus about twenty lines of
+arithmetic, so a Python version would demonstrate nothing.
+
+The two answer different questions, which is why both exist: `binary-tile.html` is
+**one point, all the working**; `light_pollution_map.html` is **where, at a glance** —
+the same atlas as a picture you can pan. Don't merge them, and don't grow a step table
+on the map page: the decode is one click away and that is where it belongs.
 
 It is the light-pollution block of `astro_score/astro-score_readable.html` on its own, and
 the two are **parallel implementations — change one, mirror the other**. What differs is
@@ -860,6 +871,119 @@ Two things this page has that `astro-score_readable.html` does not:
 The tile cache is keyed by **URL, not by tile id**, so switching year refetches while
 switching location within one 5° square does not. `astro_score`'s cache is keyed by tile id
 because it only ever reads `LP_YEAR`.
+
+### light_pollution_map.html
+
+**Two files from the same atlas, doing two jobs.** The picture is Lorenz's *rendered*
+tiles, `image_tiles/tiles<year>/tile_{z}_{x}_{y}.png`; the number beside the marker is the
+*binary* tile this folder already decodes. A rendered pixel can only be read back to the
+band it came from, so the reading never comes off the picture — which is also why the
+colour under the marker and the SQM in the card cannot disagree.
+
+**Why not lightpollutionmap.info**, which is the obvious map to copy. Its overlays are
+GeoServer WMS tiles (`LAYERS=PostGIS:SB_2025`, EPSG:3857) on its own server, and its help
+FAQ #20, headed *"We want to use your WMS/WMTS service"*, answers with "download the
+GeoTIFFs, or contact me" rather than a URL. Its `/tiles/wms` path 403s from any other
+origin; `/geoserver/wms` does answer, with `Access-Control-Allow-Origin: *`, so it *would*
+work — and is not ours to spend. The science under it is public (NASA Black Marble,
+Falchi/Cinzano), his rendering is not, so this page goes to the public sources instead.
+**Do not "fix" a slow tile by pointing it at lightpollutionmap.**
+
+Tile sources, all keyless and CORS-clean, so the page works off `file://`:
+
+- **`LP_IMAGE_URL`** — the atlas, one layer per `LP_YEARS` entry plus `LP_TREND_URL`
+  (his 2013–2025 trend: red rising, blue falling, white not significant). Two quirks
+  taken from the Leaflet options on his own viewer and reproduced by `TileGrid`: the
+  images are **1024 px**, i.e. tile z is map zoom **minus 2** (`offset: 2`), and the
+  deepest z published is **6** — map zoom 8, ~600 m/px. Past that the page stops
+  fetching pictures and paints the atlas itself (next paragraph). A **missing tile is
+  ordinary**, not an error: outside the covered latitudes the file is simply absent, so
+  each layer names a filler (`black.png`, `white.png` for the trend) the way his viewer
+  does. Anything else leaves holes in the sea.
+- **NASA GIBS** — the official keyless imagery service, for the raw radiance the atlas is
+  modelled *from*. Path order is **`{z}/{y}/{x}`**, not `{z}/{x}/{y}`, and the projection
+  caps at **zoom 8** (a z9 tile is a 400, not a blank). Two products, because that is what
+  is public: `VIIRS_Black_Marble`, the cloud-free annual composite, which GIBS publishes
+  for **2012 and 2016 only** — hence two entries and no 2025, unlike lightpollutionmap's
+  own dropdown, which renders NASA's annual composites itself — and
+  `VIIRS_NOAA20_GapFilled_BRDF_Corrected_DayNightBand_Radiance`, **one night at a time**
+  from 2018 on, which is the only current data going. That last one is the only layer with
+  a date, so `#viirsdate` is shown only for it (`overlay.dated`), its date is part of the
+  tile key (or changing it would leave yesterday's tiles up), it defaults to
+  `utcDate(GIBS_LAG_DAYS)` because GIBS runs a night or two behind, and a date outside
+  2018‑01‑05…today is refused rather than left to 404 silently.
+- **Basemaps**: Esri's `Canvas/World_Dark_Gray_Base` (the default), `World_Topo_Map` and
+  `World_Imagery`, plus OpenStreetMap and none. **The default is deliberately not OSM.**
+  Its tiles are volunteer-run for map users, and a pannable map off `file://` sends no
+  Referer — a few minutes at z13 earns the *"Access blocked — app is not following the
+  tile usage policy"* tile in place of a map, which is exactly what happened here.
+  `pickOnMap()` stays on OSM because it asks for one screen once; this page pans, so it
+  opens on Esri's dark canvas, which is also the better ground for an overlay. **CARTO
+  was tried and rejected**: its keyless tiles still answer `HTTP 200`, but every one is
+  stamped "API KEY REQUIRED" — a 200 is not a working tile, and only looking at the map
+  caught it. Each basemap carries **its own attribution string**; do not hard-code one.
+
+**Past zoom 8 the overlay is drawn here, not fetched** (`AtlasLayer`, `LP_PNG_MAX_ZOOM`).
+Upscaling a z6 PNG by 32 is a smear, and the data is not that coarse: the binary tile
+holds a value every 30 arcsec, which at zoom 13 is ~25 screen pixels a cell. So the canvas
+is painted from the same bytes the marker is read from — the picture and the number can
+then not disagree even in principle, and the info line says `(30″ grid)` rather than
+`(upscaled)`. Four things in that painter are load-bearing:
+
+- **`decodeGrid()`** sums the whole tile's deltas once (up column 0, then across each row)
+  into an `Int32Array`, because `decodePoint()`'s per-point walk is `O(ix+iy)` and a
+  screenful of it would be minutes. The two **must** agree — the test suite checks 400
+  random points — since one draws and the other reports.
+- **Bilinear, not nearest**, and what is interpolated is the **compressed value**, i.e.
+  log brightness: the quantisation is logarithmic, so a linear blend there is the even
+  one. Nearest-neighbour is the honest-looking wrong answer — it draws a modelled
+  continuous field as a mosaic of 0.9 km squares, which no published view of this atlas
+  shows. The palette stays **banded**, so what appears is smooth contours, the atlas's own
+  colour key. The marker is unaffected: a reading is still the nearest grid point.
+- **`sample()` takes global grid indices**, not tile-local ones, so the four neighbours of
+  a pixel may sit in different 5° tiles and it just works at a tile seam.
+- Drawing is **synchronous against `gridCache`** and missing tiles are fetched in the
+  background, then `render()` again; a failed tile is cached as `null` and left
+  transparent. A pan must never block on a 65 KB download.
+
+`LP_ZONE_COLORS` is sampled out of Lorenz's published `colorbar.png`, so a legend swatch
+is the colour on the tile rather than an approximation — and it is the same palette the
+canvas paints with, which is why crossing zoom 8 does not change the colours.
+`markLegend()` lights up the band the marker landed in — the one thing a legend beside a
+number can do that a printed key cannot.
+
+The layers each carry a `year`, and **switching layer re-reads the marker** with it: pick
+2016 and the number follows the picture. The three layers with no year of their own
+(trend, VIIRS, none) read `LP_YEARS[0]` and the legend note says so.
+
+Everything else is the repo's usual furniture with one deliberate absence: the location
+box, 📍 使用目前位置 and the saved-spot pills are the standard copies (see the duplication
+table), but there is **no 🗺️ 在地圖上點選** — clicking the page's own map is that button,
+and a dialog holding a second map over the first would be absurd. Three more things not
+to undo: the map **box stops where the phone sheet starts** (`inset: 0 0 62vh 0`), because
+the view centres on the middle of the map element and a full-height box would centre on a
+point hidden behind the sheet; a **tap moves the marker** rather than recentring, unlike
+`pickOnMap()`'s fixed crosshair, since sliding the map out from under your finger answers
+about a different pixel; and the in-map controls carry a `z-index` because the tile layers
+are appended by script and would otherwise paint over them.
+
+The `#lat=…&lon=…&z=…&layer=…&base=…&o=…&mlat=…&mlon=…` hash is written with
+`replaceState` (one history entry per pan would make Back useless) and read **once**, at
+load, before the first draw — a `hashchange` listener would fight the pan that wrote it.
+
+There is no test command, so the way this was checked is the mechanical one the
+`cwa_opendata` pages use: a ~90-line DOM stub (`getElementById` validated against the
+ids actually in the markup, plus `createElement`/`classList`/`Image` and enough of a
+`<canvas>` to read the painted pixels back) is enough to `new Function(...)` `places.js`
+and the whole inline script together and drive them against the live tiles — **56
+assertions**: the opening tile requests (the centre atlas tile is `tile_6_53_27`; the
+basemap comes at the map zoom and is not OSM), 合歡山 reading **SQM 21.37 / 3b / Bortle 4
+/ 0.78×** in 2025 and **21.51** in 2016 — the numbers this folder's README publishes —
+the year switch, every basemap carrying its own attribution, the VIIRS years and the
+nightly date box (including a refused out-of-range date), `decodeGrid()` against
+`decodePoint()` at 400 random points, `sample()`'s indexing, that zooming past 8 fetches
+**no** further PNGs and paints the marker's own zone colour under the marker, a malformed
+box, a latitude off the atlas, and the hash. Re-run it when touching either page.
 
 ## pure_math specifics
 
