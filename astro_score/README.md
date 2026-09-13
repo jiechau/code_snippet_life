@@ -56,7 +56,7 @@ round the Fetch button sends.
 **Cloud comes from one model at a time**, picked with the 雲量來源 tabs above the
 grid. All four models are fetched in the same request, so switching is instant
 and costs nothing extra — the same idiom as `astro-score_readable.html`'s tabs;
-the default is `icon_global`, the first tab. `jma_seamless`
+the default is `ecmwf_ifs025`, the first tab. `jma_seamless`
 is the one to switch to for a spot in the Central Range — it is the only one of the
 four with a ~5 km regional nest over Taiwan instead of an 11–25 km global grid. The
 models disagree substantially — on a sample week `icon_global` scored almost
@@ -177,10 +177,10 @@ dataset:
 
 | id | Agency | Country | Resolution over Taiwan | New run |
 | --- | --- | --- | --- | --- |
-| `icon_global` | DWD (Deutscher Wetterdienst) | Germany | ~11 km | every 3 h |
-| `jma_seamless` | JMA — MSM where it reaches, GSM beyond | Japan | 0.05° ≈ **5 km** | every 3 h |
-| `gfs_global` | NOAA / NCEP — Global Forecast System | USA | 0.25° ≈ 25 km | every 1 h |
 | `ecmwf_ifs025` | ECMWF (European Centre for Medium-Range Weather Forecasts) | EU / intergovernmental | 0.25° ≈ 25 km | every 6 h |
+| `gfs_global` | NOAA / NCEP — Global Forecast System | USA | 0.25° ≈ 25 km | every 1 h |
+| `jma_seamless` | JMA — MSM where it reaches, GSM beyond | Japan | 0.05° ≈ **5 km** | every 3 h |
+| `icon_global` | DWD (Deutscher Wetterdienst) | Germany | ~11 km | every 3 h |
 
 Open-Meteo's docs list each model *family*, so its quoted resolution ranges fold
 in high-resolution regional nests (HRRR for GFS, ICON-D2 for ICON) that only
@@ -252,8 +252,8 @@ does not feed it removed.
 - **All four models, one drawn at a time.** The 雲量來源 tabs above the grid pick
   which one every row is drawn from — and which one 觀星 is scored with. They all
   arrive in the same request, so switching is a re-render, not a refetch, and
-  disagreement between them is itself information. The default is `icon_global`,
-  the first tab. Two or more models makes Open-Meteo **suffix** every series key
+  disagreement between them is itself information. The default is
+  `ecmwf_ifs025`, the first tab. Two or more models makes Open-Meteo **suffix** every series key
   (`cloud_cover_icon_global`), which `seriesKey()` resolves; clearing `models=`
   in the extra params drops back to bare keys and a single tab. `jma_seamless`
   publishes no `precipitation_probability`, so 降雨 is a row of dashes there.

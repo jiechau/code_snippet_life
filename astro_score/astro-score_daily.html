@@ -472,7 +472,7 @@
                         nothing &mdash; and disagreement between them <em>is</em> information: where
                         <code>jma</code> and <code>icon</code> tell the same story the forecast is worth
                         trusting, and where they do not, it is not. The default is
-                        <code>icon_global</code>; <code>jma_seamless</code> is the one to switch to for a
+                        <code>ecmwf_ifs025</code>; <code>jma_seamless</code> is the one to switch to for a
                         spot in the Central Range, being the only one of the four with a ~5 km regional
                         nest over Taiwan rather than an 11&ndash;25 km global grid.</li>
                 </ul>
@@ -577,17 +577,17 @@ const HOURLY_VARS = ["cloud_cover"];
 // milkyway.py's 信心 column does. Four models of one variable is ~12.9 KB a place
 // against ~9.0 KB for one -- the timestamps dominate either way -- which is why
 // fetching all four to show one is cheap enough to be the default.
-const MODELS = ["icon_global", "jma_seamless", "gfs_global", "ecmwf_ifs025"];
+const MODELS = ["ecmwf_ifs025", "gfs_global", "jma_seamless", "icon_global"];
 
-// Which model the score comes from until a tab is clicked: icon_global, i.e.
+// Which model the score comes from until a tab is clicked: ecmwf_ifs025, i.e.
 // MODELS[0], so the tab order and the opening view agree.
 //
 // jma_seamless is the finer grid over Taiwan (MSM, 0.05 deg ~ 5 km, against
 // ~11-25 km for the globals, falling back to GSM outside MSM's ~22.4N/120E
-// domain rather than dropping the key), so it stays the first tab to reach for
-// when a spot sits in the Central Range. It is one click away, and all four
-// models are already in the response -- switching is a re-render, not a refetch.
-const DEFAULT_MODEL = "icon_global";
+// domain rather than dropping the key), so it is the tab to reach for when a
+// spot sits in the Central Range. It is one click away, and all four models are
+// already in the response -- switching is a re-render, not a refetch.
+const DEFAULT_MODEL = "ecmwf_ifs025";
 
 // Prefilled into the "extra params" box rather than added to defaultParams(). One
 // key=value per line; clear a line to drop that parameter. Applied to every request
@@ -1051,9 +1051,10 @@ const UNDER_GLYPH = "▀";   // UPPER HALF BLOCK
 // returns nulls, and blocksByDate() declines to score them, so the block keeps
 // peak 0 and would otherwise draw the same blank as a hopeless night. A missing
 // forecast and a washed-out sky are not the same answer, and at the 16-day
-// default the right half of the icon_global grid is the first kind. One faint
-// middle dot says "nothing to score" without competing with the bars; the cell
-// title still carries the (0/12 hr) count behind it.
+// default the last column of the ecmwf_ifs025 grid -- and most of the right half
+// of the icon_global one -- is the first kind. One faint middle dot says
+// "nothing to score" without competing with the bars; the cell title still
+// carries the (0/12 hr) count behind it.
 const NO_DATA_GLYPH = "·";   // MIDDLE DOT
 
 /**

@@ -493,8 +493,9 @@ const FORECAST_URL = "https://api.open-meteo.com/v1/forecast";
 // 16 days icon_global runs out after ~7.5 (177 hours), jma_seamless ~11 (266),
 // ecmwf_ifs025 ~15 (359) and only gfs_global fills all 384. Past its own horizon
 // a model returns nulls, which the grid draws as dashes, so the default
-// icon_global tab goes blank about halfway across while the gfs tab keeps going.
-// That is the honest picture of how far ahead each model actually forecasts.
+// ecmwf_ifs025 tab gives out in the last day while the icon_global tab stops
+// about halfway across. That is the honest picture of how far ahead each model
+// actually forecasts.
 const DEFAULT_DAYS = 16;
 
 // The cloud decks plus 降雨 and 氣溫: this page drops 能見度/濕度/露點/風速, which
@@ -521,10 +522,10 @@ const HOURLY_VARS = [
 // page. Two or more models makes Open-Meteo suffix every series key
 // (cloud_cover_icon_global), which is what seriesKey() below resolves -- clearing
 // models= in the extra params drops back to bare keys and a single tab.
-const MODELS = ["icon_global", "jma_seamless", "gfs_global", "ecmwf_ifs025"];
+const MODELS = ["ecmwf_ifs025", "gfs_global", "jma_seamless", "icon_global"];
 
 // Which model the grid opens on: MODELS[0], so the view matches the first tab.
-const DEFAULT_MODEL = "icon_global";
+const DEFAULT_MODEL = "ecmwf_ifs025";
 
 // Prefilled into the "extra params" box rather than added to defaultParams(),
 // which stays the same request open-meteo.py makes. One key=value per line;

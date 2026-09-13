@@ -32,10 +32,10 @@ dataset:
 
 | id | Agency | Country | Resolution over Taiwan | New run |
 | --- | --- | --- | --- | --- |
-| `icon_global` | DWD (Deutscher Wetterdienst) | Germany | ~11 km | every 3 h |
-| `jma_seamless` | JMA — MSM where it reaches, GSM beyond | Japan | 0.05° ≈ **5 km** | every 3 h |
-| `gfs_global` | NOAA / NCEP — Global Forecast System | USA | 0.25° ≈ 25 km | every 1 h |
 | `ecmwf_ifs025` | ECMWF (European Centre for Medium-Range Weather Forecasts) | EU / intergovernmental | 0.25° ≈ 25 km | every 6 h |
+| `gfs_global` | NOAA / NCEP — Global Forecast System | USA | 0.25° ≈ 25 km | every 1 h |
+| `jma_seamless` | JMA — MSM where it reaches, GSM beyond | Japan | 0.05° ≈ **5 km** | every 3 h |
+| `icon_global` | DWD (Deutscher Wetterdienst) | Germany | ~11 km | every 3 h |
 
 Open-Meteo's docs list each model *family*, so its quoted resolution ranges fold
 in high-resolution regional nests (HRRR for GFS, ICON-D2 for ICON) that only
@@ -104,7 +104,7 @@ for watching the response shape change when the model list goes away.
   "timezone": "Asia/Taipei",
   "hourly_units": { ... },
   "hourly": { ... },
-  "get_para": "https://api.open-meteo.com/v1/forecast?latitude=25.033&longitude=121.565&hourly=cloud_cover,cloud_cover_low,...&models=icon_global,jma_seamless,gfs_global,ecmwf_ifs025&timezone=auto&forecast_days=7"
+  "get_para": "https://api.open-meteo.com/v1/forecast?latitude=25.033&longitude=121.565&hourly=cloud_cover,cloud_cover_low,...&models=ecmwf_ifs025,gfs_global,jma_seamless,icon_global&timezone=auto&forecast_days=7"
 }
 ```
 

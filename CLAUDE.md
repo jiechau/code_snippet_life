@@ -509,7 +509,7 @@ coordinates, but `timezone=auto` is still **sent** as a constant in `defaultPara
 without it `hourly.time` comes back in GMT and every hour label, date break and
 從現在開始 trim on the page reads local wall time. It fetched `icon_global` alone until the 雲量來源 tabs were added: the grid is
 drawn from **one model at a time** and 觀星 is scored with that model, `DEFAULT_MODEL` is
-`icon_global` (= `MODELS[0]`, so the view matches the first tab), and switching is a
+`ecmwf_ifs025` (= `MODELS[0]`, so the view matches the first tab), and switching is a
 **re-render, not a refetch** — all four came back together, exactly as on
 `astro-score_daily.html`. Four models means **suffixed series keys**, which `seriesKey()`
 resolves; clearing `models=` in the extra params drops back to bare keys and one tab. The
@@ -517,8 +517,8 @@ response is ~43 KB / 384 hours at the 16-day default, against ~19 KB / 168 for a
 `DEFAULT_DAYS` is **16, Open-Meteo's maximum**, which puts the models' differing horizons
 on screen: at that range `icon_global` stops after ~7.5 days (177 of 384 hours),
 `jma_seamless` ~11 (266) and `ecmwf_ifs025` ~15 (359), and only `gfs_global` fills all 384.
-Past its own horizon a model returns nulls, drawn as dashes, so the **default tab runs out
-mid-scroll** — documented on the page so it is not read as a fault. **`jma_seamless` publishes no
+Past its own horizon a model returns nulls, drawn as dashes, so the **default tab gives out
+in the last day** — documented on the page so it is not read as a fault. **`jma_seamless` publishes no
 `precipitation_probability`**, so 降雨 is a row of dashes on that tab — the same "key
 present, nulls all the way down, unit the literal string `undefined`" quirk
 `open-meteo_readable.html` documents for `visibility`. The tab click deliberately does
@@ -641,8 +641,9 @@ of exactly 90 draws `▆`.
 `·` (`NO_DATA_GLYPH`, `.bar.nodata`) is a block where *nothing was scored* — past a model's
 horizon Open-Meteo returns nulls, `blocksByDate()` declines to score them, and the block
 keeps `peak 0`. Without the dot a missing forecast drew exactly the blank a washed-out sky
-draws, which at the 16-day default is most of the right half of the `icon_global` grid. The
-cell title still reports the `(0/12 hr)` count behind it. Don't collapse the two back.
+draws, which at the 16-day default is the last column of the `ecmwf_ifs025` grid and most
+of the right half of the `icon_global` one. The cell title still reports the `(0/12 hr)`
+count behind it. Don't collapse the two back.
 
 Max rather than sum or average is the point: the grid answers "is there an hour worth
 going out for", and one excellent hour justifies the drive even when the rest of the night
@@ -677,7 +678,7 @@ pulling its neighbours' floor out of line.
 It requests **all four models** and scores **one at a time**, picked by the 雲量來源 tabs
 above the grid (`renderTabs()`, the same idiom as `open-meteo_readable.html`). Switching is
 a re-render, not a refetch — every model came back in the same response, which is the whole
-reason all four are asked for. `DEFAULT_MODEL` is **`icon_global`, i.e. `MODELS[0]`**, so the opening view matches the
+reason all four are asked for. `DEFAULT_MODEL` is **`ecmwf_ifs025`, i.e. `MODELS[0]`**, so the opening view matches the
 tab order. `jma_seamless` is the one to switch to over the Central Range — the only member
 with a regional nest over Taiwan (MSM, 0.05° ≈ 5 km, against 11–25 km for the globals), and
 south of MSM's ~22.4°N/120°E domain edge — which `柚子湖` at 22.67°N sits near — it falls
@@ -813,7 +814,7 @@ column's own border.
 `milkyway.py` scores each upcoming hour for Milky Way astrophotography at a `lat,lon`.
 No API key — Open-Meteo's free tier is keyless (10,000 calls/day), so there is nothing to
 read from `config.yml`. It queries `hourly=` cloud/moisture variables with
-`&models=icon_global,jma_seamless,gfs_global,ecmwf_ifs025`, which suffixes every series with
+`&models=ecmwf_ifs025,gfs_global,jma_seamless,icon_global`, which suffixes every series with
 its model name (`cloud_cover_gfs_global`) — and not every model publishes every variable
 (of the four, **only gfs returns `visibility`**; `precipitation_probability` is null for
 jma), so `_hour_vars()` fills gaps from the ensemble mean, which for `visibility` means

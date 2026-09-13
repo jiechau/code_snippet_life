@@ -35,7 +35,7 @@ FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 # forecast from two predicting 0% and two predicting 60%. Who runs them, at what
 # resolution, how independent they really are and why they are weighted equally:
 # see "The four models" in README.md.
-MODELS = ["icon_global", "jma_seamless", "gfs_global", "ecmwf_ifs025"]
+MODELS = ["ecmwf_ifs025", "gfs_global", "jma_seamless", "icon_global"]
 
 # Not every model publishes every variable through Open-Meteo: of the four
 # models here, only gfs_global returns visibility (icon_global, jma_seamless and
