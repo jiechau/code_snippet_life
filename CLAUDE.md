@@ -373,7 +373,10 @@ four of them built on one Open-Meteo request core, two that fetch a binary tile
 from somewhere else, two that call a keyed API, three that issue no request at all,
 and no shared file except
 `places.js` — by the one-folder-per-snippet rule, keeping them in step is a manual
-discipline. They are `open_meteo/open-meteo.html`,
+discipline. `astro_score/astro-bookmark.html` is **not one of them** and appears
+in no row below: it is a static list of outbound links — no form, no request, no
+`places.js`, none of the chrome — so nothing there has to be kept in step with
+anything. They are `open_meteo/open-meteo.html`,
 `open_meteo/open-meteo_readable.html`, `astro_score/astro-score_readable.html`,
 `astro_score/astro-score_daily.html`, `bigdatacloud/reverse-geocode.html`,
 `light_pollution/binary-tile.html`, `light_pollution/light_pollution_map.html`, the three
@@ -458,6 +461,14 @@ The locally computed astronomy on these pages is also extracted, one formula per
 page, into `pure_math/` — same functions, every intermediate printed. That folder
 is where to look when a computed row needs checking, and it is a **copy**, not an
 import: see the duplication table above.
+
+A third page, `astro-bookmark.html`, is a **bookmark list, not a demo**: the
+outside pages worth a look before driving out (two light-pollution maps, NCDR's
+即時降雨預警, CWA's 雷達回波圖 / 一週 / 降水預報), each opening in a new tab. It copies
+this folder's **`index.html`** chrome rather than the demo pages', because it has no
+form, no request and no script; adding a link is one `<li>`, and the small host line
+under each is what tells the two 光害地圖 entries apart. Nothing in the duplication
+table applies to it.
 
 The two answer different questions and that is the whole reason both exist:
 `astro-score_readable.html` is **which hour tonight, at one place**;

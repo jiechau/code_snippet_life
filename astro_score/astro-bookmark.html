@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex, nocache">
+    <title>Astro Bookmark &mdash; astro_score</title>
+    <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+    <style>
+        /* Page chrome is this folder's index.html, not the demo pages': there is
+           no form, no request and no script here — just outbound links. */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background-color: #f0f2f5;
+            margin: 0;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 500px;
+            width: 90%;
+            box-sizing: border-box;
+            margin: 20px 0;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 8px;
+        }
+        p.sub {
+            color: #777;
+            margin-top: 0;
+            font-size: 0.9rem;
+        }
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        li {
+            margin: 15px 0;
+        }
+        a {
+            text-decoration: none;
+            color: #2196F3;
+            font-size: 1.2rem;
+            font-weight: bold;
+            padding: 10px 20px;
+            border: 2px solid #2196F3;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            display: inline-block;
+        }
+        a:hover {
+            background-color: #2196F3;
+            color: white;
+        }
+        /* The host under each link: two entries share the label 光害地圖, and the
+           domain is what tells them apart. */
+        span.host {
+            display: block;
+            color: #999;
+            font-size: 0.75rem;
+            margin-top: 4px;
+            word-break: break-all;
+        }
+        a.back {
+            font-size: 0.9rem;
+            font-weight: 400;
+            padding: 0;
+            border: none;
+            border-radius: 0;
+            display: block;
+            text-align: left;
+            margin-bottom: 10px;
+        }
+        a.back:hover {
+            background: none;
+            color: #2196F3;
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a class="back" href="index.html">&larr; astro_score</a>
+        <h1>Astro Bookmark</h1>
+        <p class="sub">出門前看的別人家的圖 &mdash; 光害、降雨、雷達、預報。全部另開分頁。</p>
+        <ul>
+            <li>
+                <a href="https://www.lightpollutionmap.info/" target="_blank" rel="noopener noreferrer">光害地圖</a>
+                <span class="host">lightpollutionmap.info</span>
+            </li>
+            <li>
+                <a href="https://lightpollutionmap.app/zh-tw/" target="_blank" rel="noopener noreferrer">光害地圖</a>
+                <span class="host">lightpollutionmap.app</span>
+            </li>
+            <li>
+                <a href="https://watch.ncdr.nat.gov.tw/watch_nowcast" target="_blank" rel="noopener noreferrer">即時降雨預警</a>
+                <span class="host">watch.ncdr.nat.gov.tw</span>
+            </li>
+            <li>
+                <a href="https://www.cwa.gov.tw/V8/C/W/OBS_Radar.html" target="_blank" rel="noopener noreferrer">雷達回波圖</a>
+                <span class="host">cwa.gov.tw</span>
+            </li>
+            <li>
+                <a href="https://www.cwa.gov.tw/V8/C/W/Town/index.html" target="_blank" rel="noopener noreferrer">CWA 一週</a>
+                <span class="host">cwa.gov.tw</span>
+            </li>
+            <li>
+                <a href="https://www.cwa.gov.tw/V8/C/P/QPF.html" target="_blank" rel="noopener noreferrer">降水預報</a>
+                <span class="host">cwa.gov.tw</span>
+            </li>
+        </ul>
+    </div>
+</body>
+</html>

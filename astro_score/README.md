@@ -35,6 +35,11 @@ here mainly when changing those constants; the adjustable form is
   The first row is 輸入, which 使用目前位置 points at wherever you are standing
   and 在地圖上點選 at wherever you can find on a map.
 
+- [Astro Bookmark](https://jiechau.github.io/code_snippet_life/astro_score/astro-bookmark.html)
+  — outbound links only: two light-pollution maps, NCDR's 即時降雨預警, and CWA's
+  雷達回波圖 / 一週 / 降水預報. Nothing here computes or fetches anything; it is the
+  list of other people's pages worth checking beside these two.
+
 ## The two pages
 
 `astro-score_readable.html` answers *which hour tonight*, for one place.
