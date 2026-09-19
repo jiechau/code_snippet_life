@@ -563,7 +563,7 @@ const DEFAULT_DAYS = 16;
 // carries for exactly that reason, would be one response per place of data nothing
 // on screen draws. One variable puts a response at ~9.0 KB / 384 hours for a single
 // model and ~12.9 KB for all four; with the prefilled past_days=7 that is ~18.4 KB
-// a place, so a round of the twelve rows places.js holds is ~220 KB.
+// a place, so a round of the fifteen rows places.js holds is ~276 KB.
 const HOURLY_VARS = ["cloud_cover"];
 
 // All four models, as milkyway.py and the open_meteo/ pages ask for -- keep the
@@ -598,7 +598,7 @@ const DEFAULT_MODEL = "ecmwf_ifs025";
 // the sky actually did. 從今天開始 starts TICKED, so they are fetched but not drawn
 // until it is unticked, and this line shows up in the response size before it shows
 // up in the grid: each past day is another ~770 bytes per place across four models,
-// taking a twelve-row round from ~155 KB to ~220 KB.
+// taking a fifteen-row round from ~194 KB to ~276 KB.
 const DEFAULT_EXTRA = [
     "past_days=7",
 ].join("\n");

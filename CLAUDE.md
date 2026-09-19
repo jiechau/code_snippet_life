@@ -720,7 +720,7 @@ a malformed line reports itself with nothing sent — and, last and directly abo
 a **location** box. `past_days` on a day grid means extra
 columns to the **left** of today, fetched but not drawn until 從今天開始 is unticked,
 since it starts ticked here. Each past day is
-~770 bytes per place across four models, taking a twelve-row round from ~155 KB to ~220 KB.
+~770 bytes per place across four models, taking a fifteen-row round from ~194 KB to ~276 KB.
 `timezone` is not a field here either — every row carries its own coordinates — but
 `timezone=auto` is still sent, and the extra-params box overriding it is what moves the
 today column (see `localToday()`).
@@ -744,8 +744,8 @@ It asks for `cloud_cover` alone — `astroScore()` reads nothing else and the pa
 no number a human reads directly, so the 降雨/氣溫 that `astro-score_readable.html` carries
 for exactly that reason would be one response of undrawn data per place. At the 16-day
 default each response is ~9.0 KB / 384 hours for a single model and ~12.9 KB for all four;
-with the prefilled `past_days=7` that is ~18.4 KB a place, so at the twelve rows
-`places.js` currently holds a round is **~220 KB**.
+with the prefilled `past_days=7` that is ~18.4 KB a place, so at the fifteen rows
+`places.js` currently holds a round is **~276 KB**.
 **The count follows `places.js`** — it was seven when this page was written, so treat any
 figure here as "per place × however many rows the file holds".
 

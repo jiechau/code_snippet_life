@@ -79,8 +79,8 @@ behaviour, same request core — with the form cut down to the one input this en
 needs:
 
 - **location** — a `lat,lon` box with **📍 使用目前位置** and **🗺️ 在地圖上點選**
-  beside it and the saved spots wrapped onto a line of their own: 輸入, 瑞光路, 大武崙砲台, 內洞停車場, 烏石港, 東澳, 石梯坪, 加路蘭,
-  龍磐公園, 拉拉山, 合歡山, 柚子湖.
+  beside it and the saved spots wrapped onto a line of their own: 輸入, 瑞光路, 大武崙砲台, 烏石港, 東澳灣, 新城鄉, 石梯坪,
+  三仙台, 加路蘭, 龍磐公園, 柚子湖, 內洞停車場, 拉拉山, 合歡山, 國聖港燈塔.
   Clicking one fills the coordinates and refetches; the pressed button shows which
   spot is displayed, and a hand-typed coordinate presses none. They come from the
   `PLACES` array in [`../places.js`](../places.js), shared by every demo page in the
