@@ -465,8 +465,9 @@ is where to look when a computed row needs checking, and it is a **copy**, not a
 import: see the duplication table above.
 
 A third page, `astro-bookmark.html`, is a **bookmark list, not a demo**: the
-outside pages worth a look before driving out (two light-pollution maps, NCDR's
-即時降雨預警, CWA's 雷達回波圖 / 一週 / 降水預報), each opening in a new tab. It copies
+outside pages worth a look before driving out (CWA's 月相圖, two light-pollution
+maps, NCDR's 即時降雨預警, CWA's 雷達回波圖 / 一週 / 降水預報), each opening in a
+new tab. It copies
 this folder's **`index.html`** chrome rather than the demo pages', because it has no
 form, no request and no script; adding a link is one `<li>`, and the small host line
 under each is what tells the two 光害地圖 entries apart. Nothing in the duplication
