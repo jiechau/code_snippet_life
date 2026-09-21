@@ -36,16 +36,31 @@ here mainly when changing those constants; the adjustable form is
   and an orange OrionScore one.
   The first row is 輸入, which 使用目前位置 points at wherever you are standing
   and 在地圖上點選 at wherever you can find on a map.
+- [AstroScore daily full](https://jiechau.github.io/code_snippet_life/astro_score/astro-score_daily_full.html)
+  — that grid with three more rows under every bar, all three of them geometry
+  rather than forecast: a purple `*` when 銀心 (A*) cleared 10° during that
+  half-day's dark hours, an orange `*` when M42 did, and the moon phase
+  (🌑 🌒 🌓 🌔 🌕 🌖 🌗 🌘) once per cell. Because none of the three reads the
+  cloud model, they stay true at the right-hand end of the grid where the bars
+  have given out — the page answers *when is the season* beside *which night is
+  clear*.
 
 - [Astro Bookmark](https://jiechau.github.io/code_snippet_life/astro_score/astro-bookmark.html)
   — outbound links only: CWA's 月相圖, two light-pollution maps, NCDR's
   即時降雨預警, and CWA's 雷達回波圖 / 一週 / 降水預報. Nothing here computes or fetches anything; it is the
   list of other people's pages worth checking beside these two.
 
-## The two pages
+## The pages
 
 `astro-score_readable.html` answers *which hour tonight*, for one place.
-`astro-score_daily.html` answers *which place, which night* — it asks the same
+`astro-score_daily.html` answers *which place, which night*, and
+`astro-score_daily_full.html` is that grid with the sky's own calendar under it —
+the same bars and strips, plus three forecast-independent rows per cell
+(A* visibility, M42 visibility, moon phase). Everything below about the daily
+grid applies to both; the section on `astro-score_daily_full.html` covers what
+only that one has.
+
+`astro-score_daily.html` — it asks the same
 question of every entry in [`places.js`](../places.js) at once (one request each)
 and folds each day's 24 hourly scores into 2 half-day blocks:
 
@@ -478,6 +493,102 @@ This is **deliberately not** a port of `sky_quality()` below — it is a simpler
 rule of thumb kept on purpose, so the two are free to disagree. The astronomy
 *is* shared, though: change the Meeus series here, in `milkyway.py` or in
 `open_meteo/open-meteo_readable.html` and all three need re-checking.
+
+## `astro-score_daily_full.html`
+
+The daily grid, with three rows added under every bar. The bars and the two
+strips are unchanged and mean exactly what they mean on `astro-score_daily.html`;
+what is new is that a cell now says something the forecast cannot take away.
+
+| row | what it is |
+| --- | --- |
+| `▂▄▆█` | best 觀星 hour in the half-day (as on the daily page) |
+| purple `▀` | best MilkyScore in it — sky × A* altitude |
+| orange `▀` | best OrionScore in it — sky × M42 altitude |
+| purple `*` | **A* got above 10° while it was dark**, that half-day |
+| orange `*` | **M42 did**, same test |
+| 🌑…🌘 | **moon phase** at that date's local noon — one per cell, not per block |
+
+The three new rows are **geometry, with no weather in them**. The strips weigh
+the sky and the subject together, so they go blank on a cloudy night; a mark asks
+only whether the subject was up in the dark, which is as certain at day 16 as at
+day 1. So a mark can stand under a blank bar — the subject was up, the sky was
+hopeless — or under a no-forecast `·` at the far right of the grid. That is the
+whole point of them: *when is the season* read separately from *which night is
+clear*. Where a strip is coloured its mark is lit too, so the cells worth looking
+at are the ones with a mark and no strip.
+
+Two thresholds, both the page's own:
+
+- **10°** (`TARGET_UP_ALT`) rather than the horizon — below that you are looking
+  through more than five atmospheres of haze, and real horizons have a ridge or a
+  tree line in them. It is the same number as `MOON_KILL_ALT` by coincidence, not
+  for the same reason.
+- **dark** is the page's existing `DARK_SUN_ALT` (−10°), the threshold
+  AstroScore already zeroes the score above, so a mark and the bar over it agree
+  about when the night starts.
+
+The altitude behind a mark (hover a cell) is the highest the subject reached
+*while it was dark*, which is **not** its transit altitude: in late September A*
+transits around +39° at 龍磐公園 but does it in twilight, so the marks there
+report +29° to +36°. A target whose whole passage falls in daylight is correctly
+unmarked however high it climbs.
+
+**The two marks rarely light in the same block**, for the same reason the two
+strips rarely paint together, and the effect is sharper: across a live 16-day
+response at 龍磐公園, all 32 blocks carried exactly one mark and none carried
+both — M42 at +61° to +63° in the small hours with A* below the horizon, A* at
++29° to +36° in the evening with M42 at −9° to +5°. So the orange mark falls
+under a day's **left** glyph and the purple under its **right** one: the same
+one-night-across-two-cells reading as the bars.
+
+**The moon glyph is per cell, not per block**, the one thing here that is not a
+per-block value. The elongation moves about 12° in a day (14.3° at its fastest),
+under a third of the 45° each glyph covers, so a date's two halves are the same
+phase but for the odd boundary — and an emoji's advance is about twice a
+monospace character's, so it could not sit in the 1ch a block column is wide
+anyway. It is drawn for **local noon**, where the two blocks meet. It is a
+reminder, not an input: AstroScore docks the score for moon *altitude* and knows
+nothing of the phase, so the glyph is what tells a bright bar under a 🌕 from one
+under a 🌑. A full moon that has not risen costs nothing; the same moon 10° up
+costs everything.
+
+The phase comes from the **moon–sun elongation in ecliptic longitude**, which
+both `sunPosition()` and `moonPosition()` already compute — so it costs nothing,
+and the page still has no `moonIllumination()`. The glyph is the elongation's
+45° octant, rounded rather than floored, so 🌕 means "within a day and a bit of
+full" rather than "somewhere past full". The tooltip names the phase in
+`milkyway.py`'s own vocabulary (新月/眉月/上弦/盈凸/滿月/虧凸/下弦/殘月); note that
+`moon_phase_name()` reaches those names from the illuminated fraction plus a
+waxing test rather than from the octant, so the two can differ by one step within
+a degree or so of a boundary. Neither is more correct — a phase name is a label
+on a continuum — and nothing computes from the answer. The glyphs are the
+**Northern Hemisphere's** view (🌒 lit on the right), which is right for every
+spot in `places.js` and would be mirrored south of the equator.
+
+### Verification
+
+There is no test command; this was checked the mechanical way the other pages in
+this repo are. Slicing the inline `<script>` from `"use strict";` down to the
+`* Presentation` banner gives the DOM-free half, and adding a ~40-line DOM stub
+(`createElement`/`classList`/`appendChild`/`insertRow`) gets the rest under
+`node`. **397 assertions**, against live Open-Meteo responses:
+
+- **moon (19)** — octant boundaries at 22.5°/90°/180°/270°, wrap for negative and
+  multi-turn angles, seven published new/full/quarter instants in 2026 landing in
+  the right octant, one full synodic month advancing `0,1,2,3,4,5,6,7,0` in order
+  with no skips, and a 400-day sweep putting the maximum 24-hour elongation drift
+  at 14.32°.
+- **visibility (266)** — every block's `dark`, `gcNight` and `m42Night` at
+  龍磐公園 and 大武崙砲台 re-derived by brute force straight off the hour list; the
+  day record's elongation confirmed to be local noon's; and the marks observed
+  standing under blank bars (23 and 27 blocks) and under a no-forecast `·`.
+- **rendering (112)** — every stack's rows in the order
+  `bar,under,under,mark,mark` with A* above M42, exactly one moon glyph per cell
+  and it the cell's last child, the marks taking their hue from CSS rather than
+  an inline style, each mark agreeing with its block's data across the whole
+  grid, and a whole table building with two stacks per cell and two marks per
+  stack.
 
 ## `milkyway.py`
 

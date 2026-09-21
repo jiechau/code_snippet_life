@@ -15,7 +15,7 @@ what it does and how to run it.
 - **One folder per snippet.** Keep everything a snippet needs inside its folder. Do not
   introduce cross-snippet imports or a shared root package. **There is exactly one
   sanctioned exception:** root `places.js`, the saved stargazing spots shared by all
-  eleven of the thirteen demo pages (see below). Do not widen it — nothing else moves to
+  twelve of the fourteen demo pages (see below). Do not widen it — nothing else moves to
   the root.
 - **Each snippet folder gets its own `README.md`**, and the new snippet must be added as a
   row to the table in the root `README.md`.
@@ -369,8 +369,8 @@ rather than into the result area, leaving whatever is on screen alone.
 
 ## What is duplicated across the demo pages
 
-There are **thirteen demo pages** (ignoring `google_news_url`, which shares nothing),
-four of them built on one Open-Meteo request core, two that fetch a binary tile
+There are **fourteen demo pages** (ignoring `google_news_url`, which shares nothing),
+five of them built on one Open-Meteo request core, two that fetch a binary tile
 from somewhere else, two that call a keyed API, four that issue no request at all,
 and no shared file except
 `places.js` — by the one-folder-per-snippet rule, keeping them in step is a manual
@@ -379,7 +379,8 @@ in no row below: it is a static list of outbound links — no form, no request, 
 `places.js`, none of the chrome — so nothing there has to be kept in step with
 anything. They are `open_meteo/open-meteo.html`,
 `open_meteo/open-meteo_readable.html`, `astro_score/astro-score_readable.html`,
-`astro_score/astro-score_daily.html`, `bigdatacloud/reverse-geocode.html`,
+`astro_score/astro-score_daily.html`, `astro_score/astro-score_daily_full.html`,
+`bigdatacloud/reverse-geocode.html`,
 `light_pollution/binary-tile.html`, `light_pollution/light_pollution_map.html`, the four
 `pure_math/{galactic_center,orion_nebula_m42,sun_phase,moon_phase}.html` and the two
 `cwa_opendata/cwa_{sunrise,moonrise}.html`. The `pure_math/` four copy
@@ -391,28 +392,28 @@ two copy the chrome and the request *shape* but are the only pages addressed by
 
 | Block | Copies |
 | --- | --- |
-| Request core (`buildUrl`, `fetchForecast`, `FORECAST_URL`) | the 4 Open-Meteo pages + `open_meteo/open-meteo.py`; `bigdatacloud/` and both `cwa_opendata/` pages have the same `buildUrl` shape against their own endpoint (the `cwa` copies add `maskUrl()`, which blanks the key out of the URL before it goes on screen — the credential travels in the query string, so the request URL *is* the credential). **No `pure_math/` page has one** — there is no URL to build |
-| `paramsFromForm()` | the 3 pages with a location box **and** a single request to make, plus both `cwa_opendata/` pages — same name, same "throw on anything the API would silently answer with nothing" policy, but reading key/county/date instead of a coordinate. `astro-score_daily.html` splits it in two — `paramsFor(lat, lon)` for the fields (called once per row) and `inputPlaceFromForm()` for the box, which names one row rather than one request. The `pure_math/` pages split it the same way into `placeFromForm()` → `{lat, lon}`: same parse and same error text, but there are no request params to return |
+| Request core (`buildUrl`, `fetchForecast`, `FORECAST_URL`) | the 5 Open-Meteo pages + `open_meteo/open-meteo.py`; `bigdatacloud/` and both `cwa_opendata/` pages have the same `buildUrl` shape against their own endpoint (the `cwa` copies add `maskUrl()`, which blanks the key out of the URL before it goes on screen — the credential travels in the query string, so the request URL *is* the credential). **No `pure_math/` page has one** — there is no URL to build |
+| `paramsFromForm()` | the 3 pages with a location box **and** a single request to make, plus both `cwa_opendata/` pages — same name, same "throw on anything the API would silently answer with nothing" policy, but reading key/county/date instead of a coordinate. The two `astro-score_daily*.html` split it in two — `paramsFor(lat, lon)` for the fields (called once per row) and `inputPlaceFromForm()` for the box, which names one row rather than one request. The `pure_math/` pages split it the same way into `placeFromForm()` → `{lat, lon}`: same parse and same error text, but there are no request params to return |
 | Page chrome (whole `<style>` block, `show()`, submit handler) | `open_meteo/open-meteo.html` + `bigdatacloud/reverse-geocode.html` + the 4 `pure_math/` pages + the 2 `cwa_opendata/` pages. The `cwa` two are `reverse-geocode.html` with the location field swapped for key/date/county, a `.keyrow` + 顯示金鑰 toggle added, and an `.out` block above the `.url` pane holding the two lines the script prints; `cwa_moonrise.html` adds a `.window` table under it. `reverse-geocode.html` is `open-meteo.html` with the form cut to one field; the `pure_math/` four are `reverse-geocode.html` with a time field added, `Fetch` renamed `Compute`, the `.url`/`<pre>` panes swapped for `.card`/step-table CSS, and `show()` taking `{cards, rows}` instead of `{url, json}`. The submit handler loses its `async`, its `try/finally` and the button disabling — nothing is in flight — but keeps the policy of *displaying* a bad input rather than throwing |
-| `.locrow` CSS | all 13 pages, verbatim (2 lines) — on the `cwa_opendata/` two it wraps the **county** box, not a coordinate one. Both `astro-score_*.html` add a third for `.locname` — the `輸入:` label in front of the box, a second `<label for="location">` naming what the box writes to (`PLACES[0]`: the first pill on one page, the top grid row on the other). The other 8 pages do not have it |
-| `.place`/`.places` CSS, `buildPlaces()` / `markActivePlace()` | 10 pages, verbatim (`light_pollution/light_pollution_map.html` is the tenth, where a pill flies the map there and reads it), plus the 2 `cwa_opendata/` pages, which take the **CSS verbatim** but rename the functions `buildCounties()` / `markActiveCounty()` and drive them from a local `COUNTIES` list rather than `PLACES` — 22 county names, ours in that order, not the API's. That is the point of the pills there: the API spells it 臺北市 and answers a typed 台北市 with an empty HTTP 200. Not on `astro-score_daily.html`: its rows *are* the saved spots, so pills repeating them would say it twice. Its location box therefore stands alone beside 使用目前位置, and nothing there is ever "pressed" |
-| `useCurrentPosition()` + the 使用目前位置 button and its `.geonote` | 11 of the 13 — **not** the `cwa_opendata/` two, which have no coordinate to fill: fill the box, note the accuracy, resubmit. The 10 pill pages also `setInputPlace()` + `buildPlaces()` so the 輸入 pill follows; `astro-score_daily.html` has no pills and lets its submit handler do the `setInputPlace()`, so its copy is four lines shorter. `setInputPlace()`/`currentPosition()`/`GEO_ERRORS` are **not** duplicated: root `places.js` |
-| `pickFromMap()` + the 在地圖上點選 button | 10 of the 13, and always **beside** that button — the two travel together, since it is the **same write minus the accuracy**. **Byte-identical across 9 pill pages** (box + `setInputPlace()` + `buildPlaces()` + `markActivePlace()` + resubmit), with `astro-score_daily.html` the one shorter copy, just the box, exactly as its geo copy is shorter. `light_pollution/light_pollution_map.html` is the eleventh location-box page and has **no** copy: clicking its own map is the same write, so a dialog holding a second map over the first would be the button asking the page to do what the page already is. All 10 clear the `.geonote`, since a leftover `±12 m` would describe a coordinate the box no longer holds, and all 10 return silently on `null` (取消). The map itself — `pickOnMap()`, `mapStyle()`, the Mercator four — is **not** duplicated: root `places.js`. Adding it to a twelfth page is four edits: the button, the hint, the function, the listener |
+| `.locrow` CSS | all 14 pages, verbatim (2 lines) — on the `cwa_opendata/` two it wraps the **county** box, not a coordinate one. All three `astro-score_*.html` add a third for `.locname` — the `輸入:` label in front of the box, a second `<label for="location">` naming what the box writes to (`PLACES[0]`: the first pill on the readable page, the top grid row on the two daily ones). The other 8 pages do not have it |
+| `.place`/`.places` CSS, `buildPlaces()` / `markActivePlace()` | 10 pages, verbatim (`light_pollution/light_pollution_map.html` is the tenth, where a pill flies the map there and reads it), plus the 2 `cwa_opendata/` pages, which take the **CSS verbatim** but rename the functions `buildCounties()` / `markActiveCounty()` and drive them from a local `COUNTIES` list rather than `PLACES` — 22 county names, ours in that order, not the API's. That is the point of the pills there: the API spells it 臺北市 and answers a typed 台北市 with an empty HTTP 200. Not on either `astro-score_daily*.html`: their rows *are* the saved spots, so pills repeating them would say it twice. Their location box therefore stands alone beside 使用目前位置, and nothing there is ever "pressed" |
+| `useCurrentPosition()` + the 使用目前位置 button and its `.geonote` | 12 of the 14 — **not** the `cwa_opendata/` two, which have no coordinate to fill: fill the box, note the accuracy, resubmit. The 10 pill pages also `setInputPlace()` + `buildPlaces()` so the 輸入 pill follows; the two `astro-score_daily*.html` have no pills and let their submit handler do the `setInputPlace()`, so those copies are four lines shorter. `setInputPlace()`/`currentPosition()`/`GEO_ERRORS` are **not** duplicated: root `places.js` |
+| `pickFromMap()` + the 在地圖上點選 button | 11 of the 14, and always **beside** that button — the two travel together, since it is the **same write minus the accuracy**. **Byte-identical across 9 pill pages** (box + `setInputPlace()` + `buildPlaces()` + `markActivePlace()` + resubmit), with the two `astro-score_daily*.html` the shorter copies, just the box, exactly as their geo copies are shorter. `light_pollution/light_pollution_map.html` is the twelfth location-box page and has **no** copy: clicking its own map is the same write, so a dialog holding a second map over the first would be the button asking the page to do what the page already is. All 11 clear the `.geonote`, since a leftover `±12 m` would describe a coordinate the box no longer holds, and all 11 return silently on `null` (取消). The map itself — `pickOnMap()`, `mapStyle()`, the Mercator four — is **not** duplicated: root `places.js`. Adding it to a thirteenth page is four edits: the button, the hint, the function, the listener |
 | The slippy map (Web Mercator + a grid of `<img>` tiles) | **`places.js` holds the geometry, and it is imported, not copied**: `mapWorldX`/`mapWorldY`/`mapLatAt`/`mapLonAt`, `mapClamp`, `mapWrapLon` and the `MAP_*` constants are used as-is by `light_pollution/light_pollution_map.html`, which is the only page that draws a map of its own. What it does **not** share is the tile loop: `pickOnMap()` renders one 256px layer into a dialog, the map page's `TileGrid` class renders **two stacked layers** at a tile size of `256 · 2^(map zoom − tile zoom)`, which is what lets a 1024px atlas tile and a 256px basemap tile sit on one grid. The pan/pinch/wheel handlers are the same shape in both and are **not** byte-identical: the map page's tap moves the marker instead of recentring, since sliding the map out from under your finger would answer about a different pixel. Change the Mercator four and both follow; change a handler and check the other by eye |
-| `PLACES` | **not duplicated** — root `places.js`, loaded by 11 of the 13 pages (not the `cwa_opendata/` two, which are addressed by county). `DEFAULT_LAT`/`DEFAULT_LON` are every page's empty-box fallback, `astro-score_daily.html` included |
-| The `countryName/principalSubdivision/city/locality` join | all 11 pages with a location box: `reverseGeocode()` on 10 of them, `placeName()` on `bigdatacloud/reverse-geocode.html`, which demos the endpoint head-on |
-| `reverseGeocode()` (the *deferred, never-awaited* lookup) | 10 pages — both `astro_score/`, both `open_meteo/`, the 4 `pure_math/` and both `light_pollution/` — **byte-identical in code**, with only four doc comments reworded where a page has no forecast and no grid point to disclaim. `bigdatacloud/reverse-geocode.html` is the eleventh and the odd one: it awaits its own `placeName()` inline, because there the name *is* the result. Only the `cwa_opendata/` two have none, having no coordinate. Every copy is fired after the page's own result is on screen, given the **requested** coordinates, and guarded on the meta line not having changed. What differs is how the name reaches the screen: `astro-score_readable.html` appends it to the meta element (`appendPlaceName()`, guarded on the line not having changed), `astro-score_daily.html` stores it in `inputPlaceName` and lets `setMeta()` redraw it (`loadInputPlaceName()`, guarded on `PLACES[0]` still being that coordinate) — because a tab click there rewrites the meta line, which would wipe an appended node |
+| `PLACES` | **not duplicated** — root `places.js`, loaded by 12 of the 14 pages (not the `cwa_opendata/` two, which are addressed by county). `DEFAULT_LAT`/`DEFAULT_LON` are every page's empty-box fallback, both `astro-score_daily*.html` included |
+| The `countryName/principalSubdivision/city/locality` join | all 12 pages with a location box: `reverseGeocode()` on 11 of them, `placeName()` on `bigdatacloud/reverse-geocode.html`, which demos the endpoint head-on |
+| `reverseGeocode()` (the *deferred, never-awaited* lookup) | 11 pages — all 3 `astro_score/` demos, both `open_meteo/`, the 4 `pure_math/` and both `light_pollution/` — **byte-identical in code**, with only four doc comments reworded where a page has no forecast and no grid point to disclaim. `bigdatacloud/reverse-geocode.html` is the twelfth and the odd one: it awaits its own `placeName()` inline, because there the name *is* the result. Only the `cwa_opendata/` two have none, having no coordinate. Every copy is fired after the page's own result is on screen, given the **requested** coordinates, and guarded on the meta line not having changed. What differs is how the name reaches the screen: `astro-score_readable.html` appends it to the meta element (`appendPlaceName()`, guarded on the line not having changed), the two `astro-score_daily*.html` store it in `inputPlaceName` and let `setMeta()` redraw it (`loadInputPlaceName()`, guarded on `PLACES[0]` still being that coordinate) — because a tab click there rewrites the meta line, which would wipe an appended node |
 | Light-pollution atlas (`lpRatio`, `lpSqm`, `lpBortle`, `lpZone`, `LP_ZONES`, `LP_BORTLE`, tile geometry, the `DecompressionStream` read) | `astro_score/astro-score_readable.html` + both `light_pollution/` pages — the only third-party binary format in the repo, and the one block copied three times. The *deferred, never-awaited* wrapper (`lightPollution()`, `loadLightPollution()`) is `astro_score`'s alone; `binary-tile.html` awaits its fetch, because there the tile **is** the result, and `light_pollution_map.html` awaits it per click, guarded by a `readToken` so a slow tile cannot overwrite the answer to a point clicked after it. `LP_ZONE_COLORS` — the atlas's 15 swatches, sampled out of Lorenz's published colour bar — is the **map page's alone**: it is the only page that draws the banding rather than naming one band |
-| Meeus solar/lunar series | both `astro_score/astro-score_*.html` pages + `astro_score/milkyway.py` + the 4 `pure_math/` pages — never in `open_meteo/`. Every copy carries **only what it draws**: `astro-score_daily.html` has no `moonIllumination()` (it has `GC_RA`/`GC_DEC` + `M42_RA`/`M42_DEC`, which its two strips need); `pure_math/galactic_center.html` has no `obliquity()`/`eclipticToEquatorial()` at all (A* is already equatorial), and `pure_math/orion_nebula_m42.html` is that same file with M42's RA/Dec — the two are the only pair in this row that are byte-identical apart from one pair of constants; `pure_math/sun_phase.html` has nothing lunar; `pure_math/moon_phase.html` carries `sunPosition()` too, because the illuminated fraction needs the moon–sun elongation |
-| `GC_RA`/`GC_DEC` **and** `M42_RA`/`M42_DEC` (the two fixed equatorial targets) | both `astro_score/astro-score_*.html` pages carry both pairs; `astro_score/milkyway.py` carries **only** the `GC_` pair (it has no M42 anything, and is not the place to add one — the score does not read either); `pure_math/galactic_center.html` carries only `GC_`, `pure_math/orion_nebula_m42.html` only `M42_`. `gcMaxAlt()` and `m42MaxAlt()` are deliberately **two functions, not one `maxAlt(lat, dec)`** — they are read as the pair of constants they are, and it keeps each `pure_math/` page line-for-line comparable with the block it was lifted from. Both targets are **display only everywhere**: `astroScore()` reads neither, so a subject below the horizon never lowers a score |
-| `DARK_SUN_ALT`, `MOON_KILL_ALT`, `moonPenalty()`, `astroScore()` | both `astro_score/astro-score_*.html` pages, verbatim. Split across `pure_math/`: `sun_phase.html` takes `DARK_SUN_ALT`, `moon_phase.html` takes `MOON_KILL_ALT` + `moonPenalty()`. **`astroScore()` is in neither** — a pure-math page has no cloud figure to score |
-| `LABELS`, `API_SHORT`, `UNIT_SHORT`, `tint()`, `SCALES`, hour-grid rendering | the 2 hour-by-hour grid pages only — `astro-score_daily.html` draws days as bars, not variables as tinted cells, and has none of them; `open-meteo.html`/`reverse-geocode.html`/the `pure_math/` four draw no grid at all |
-| `MODELS` (the four ids, in order) | all 4 Open-Meteo pages + `milkyway.py` + `open-meteo.py` — every one of them, in the same order, since it is the order rows and tabs appear in |
-| `seriesKey(hourly, name, model, multi)`, `modelsFromParams()`, `renderTabs()`/`.tab` CSS | all 4 Open-Meteo pages, verbatim apart from what the tab click re-renders. `astro-score_daily.html`'s tabs pick which model is *scored*, not merely shown; `astro-score_readable.html`'s do both, and deliberately leave the meta line alone (`appendPlaceName()` has already appended to it) |
-| `HOURLY_VARS`, `DEFAULT_LAT`/`DEFAULT_LON` | `open-meteo*.html` only — both `astro-score_*.html` pages deliberately override these |
+| Meeus solar/lunar series | all 3 `astro_score/astro-score_*.html` pages + `astro_score/milkyway.py` + the 4 `pure_math/` pages — never in `open_meteo/`. Every copy carries **only what it draws**: neither `astro-score_daily*.html` has `moonIllumination()` (they have `GC_RA`/`GC_DEC` + `M42_RA`/`M42_DEC`, which their two strips need, and `astro-score_daily_full.html` adds `moonElong` to `astroAt()` — the moon-sun elongation in ecliptic longitude, which its phase glyph needs and which is **not** the illuminated fraction: see `moonOctant()`); `pure_math/galactic_center.html` has no `obliquity()`/`eclipticToEquatorial()` at all (A* is already equatorial), and `pure_math/orion_nebula_m42.html` is that same file with M42's RA/Dec — the two are the only pair in this row that are byte-identical apart from one pair of constants; `pure_math/sun_phase.html` has nothing lunar; `pure_math/moon_phase.html` carries `sunPosition()` too, because the illuminated fraction needs the moon–sun elongation |
+| `GC_RA`/`GC_DEC` **and** `M42_RA`/`M42_DEC` (the two fixed equatorial targets) | all 3 `astro_score/astro-score_*.html` pages carry both pairs; `astro_score/milkyway.py` carries **only** the `GC_` pair (it has no M42 anything, and is not the place to add one — the score does not read either); `pure_math/galactic_center.html` carries only `GC_`, `pure_math/orion_nebula_m42.html` only `M42_`. `gcMaxAlt()` and `m42MaxAlt()` are deliberately **two functions, not one `maxAlt(lat, dec)`** — they are read as the pair of constants they are, and it keeps each `pure_math/` page line-for-line comparable with the block it was lifted from. Both targets are **display only everywhere**: `astroScore()` reads neither, so a subject below the horizon never lowers a score |
+| `DARK_SUN_ALT`, `MOON_KILL_ALT`, `moonPenalty()`, `astroScore()` | all 3 `astro_score/astro-score_*.html` pages, verbatim. `astro-score_daily_full.html` adds a **fourth** threshold beside them, `TARGET_UP_ALT` (10°), which is its alone — nothing else in the repo draws a visibility mark. Split across `pure_math/`: `sun_phase.html` takes `DARK_SUN_ALT`, `moon_phase.html` takes `MOON_KILL_ALT` + `moonPenalty()`. **`astroScore()` is in neither** — a pure-math page has no cloud figure to score |
+| `LABELS`, `API_SHORT`, `UNIT_SHORT`, `tint()`, `SCALES`, hour-grid rendering | the 2 hour-by-hour grid pages only — the two `astro-score_daily*.html` draw days as bars, not variables as tinted cells, and have none of them; `open-meteo.html`/`reverse-geocode.html`/the `pure_math/` four draw no grid at all |
+| `MODELS` (the four ids, in order) | all 5 Open-Meteo pages + `milkyway.py` + `open-meteo.py` — every one of them, in the same order, since it is the order rows and tabs appear in |
+| `seriesKey(hourly, name, model, multi)`, `modelsFromParams()`, `renderTabs()`/`.tab` CSS | all 5 Open-Meteo pages, verbatim apart from what the tab click re-renders. The two `astro-score_daily*.html` tabs pick which model is *scored*, not merely shown; `astro-score_readable.html`'s do both, and deliberately leave the meta line alone (`appendPlaceName()` has already appended to it) |
+| `HOURLY_VARS`, `DEFAULT_LAT`/`DEFAULT_LON` | `open-meteo*.html` only — all 3 `astro-score_*.html` pages deliberately override these |
 | 記住 (the opt-in `localStorage` credential box): `note()`, the load/store pair, the `change` + `input` wiring, and the `.keyrow`/`.toggle`/`.geonote` CSS | both `cwa_opendata/` pages (`loadStoredKey`/`storeKey`, one API key as a bare string) + `google_news_url/google_new_url.html` (`loadStoredProxy`/`storeProxy`, three fields as one JSON entry, and no `.keyrow input` rule — its row holds only the checkbox). Same policy in all three: unticked by default, unticking deletes immediately, editing while ticked keeps the store in step, every access wrapped in `try`/`catch`. **No other page stores anything** |
-| `<details class="explain">` (the folded notes above the form) | both `astro_score/` pages + both `cwa_opendata/` pages, same CSS and same reason: worth reading once, in the way every time after. Only the `<summary>` and the `.rule` blocks differ |
-| The extra-params box + its `key=value` parse loop | all 4 Open-Meteo pages, the loop verbatim; no `pure_math/` page has one, having no request to add params to. `DEFAULT_EXTRA` is **not** shared: `open-meteo*.html` prefill `daily=...` **and** `past_days=7`, both `astro-score_*.html` prefill `past_days=7` alone (nothing there reads `daily=`) |
+| `<details class="explain">` (the folded notes above the form) | all 3 `astro_score/` demo pages + both `cwa_opendata/` pages, same CSS and same reason: worth reading once, in the way every time after. Only the `<summary>` and the `.rule` blocks differ |
+| The extra-params box + its `key=value` parse loop | all 5 Open-Meteo pages, the loop verbatim; no `pure_math/` page has one, having no request to add params to. `DEFAULT_EXTRA` is **not** shared: `open-meteo*.html` prefill `daily=...` **and** `past_days=7`, all three `astro-score_*.html` prefill `past_days=7` alone (nothing there reads `daily=`) |
 
 **Edit one and you must edit the others in its row.**
 
@@ -420,12 +421,20 @@ The Meeus row is the strictest: the JavaScript is **verified to agree with `milk
 to four decimal places**, so changing the astronomy in any copy means re-checking all of
 them. `julianDay()` uses the Unix epoch (JD 2440587.5) instead of the Python's
 Gregorian calendar arithmetic; the two are exactly equivalent. Every function in that
-row is **byte-identical** across the six HTML copies, with two deliberate exceptions,
-both in `pure_math/moon_phase.html` and both documented there: `moonPosition()` returns
+row is **byte-identical** across the seven HTML copies, with three deliberate exceptions,
+two in `pure_math/moon_phase.html` and both documented there: `moonPosition()` returns
 five extra fields (`lp`/`d`/`m`/`mp`/`f` and `eclLat`) so the page can draw the
 fundamental arguments — every computed term is unchanged — and `moonPhaseName()` /
 `MOON_PHASE_NAMES` are ported from `milkyway.py`'s `moon_phase_name()`, which no other
-page has, making those two the pair to keep in step.
+page has, making those two the pair to keep in step. The third is
+`astro-score_daily_full.html`'s `astroAt()`, which returns one extra field,
+`moonElong` = `mod360(moon.eclLon - sun.eclLon)`, for its phase glyph. `astroAt()`
+is page-level assembly rather than a Meeus series and every series function under
+it is untouched, so the row's byte-identity claim still holds where it matters —
+but note the page's `MOON_NAMES` reach `milkyway.py`'s eight names from the
+elongation octant, not from `moon_phase_name()`'s illumination-plus-waxing test,
+so the two can differ by one step within a degree of a boundary. Nothing computes
+from either.
 
 `astro-score_daily.html` asks the same question about **`輸入` alone** and prints
 `輸入: 中華民國/新北市/烏來區` as a second meta line. Only that row: every other row is
@@ -451,9 +460,10 @@ four-field join is the one thing the two pages share.
 
 ## astro_score specifics
 
-Stargazing and Milky Way scoring: `milkyway.py` and two demo pages,
-`astro-score_readable.html` (listed as **AstroScore readable**) and
-`astro-score_daily.html` (**AstroScore daily**). The first was `milkyway_readable.html`
+Stargazing and Milky Way scoring: `milkyway.py` and three demo pages,
+`astro-score_readable.html` (listed as **AstroScore readable**),
+`astro-score_daily.html` (**AstroScore daily**) and
+`astro-score_daily_full.html` (**AstroScore daily full**). The first was `milkyway_readable.html`
 until the folder was renamed; two carried-over forks of the `open_meteo/` pages were
 deleted at the same time. Both are named after the folder rather than a script because
 they are forks of `open_meteo/open-meteo_readable.html`, not ports of one script. See the
@@ -473,10 +483,12 @@ form, no request and no script; adding a link is one `<li>`, and the small host 
 under each is what tells the two 光害地圖 entries apart. Nothing in the duplication
 table applies to it.
 
-The two answer different questions and that is the whole reason both exist:
+They answer different questions and that is the whole reason each exists:
 `astro-score_readable.html` is **which hour tonight, at one place**;
-`astro-score_daily.html` is **which place, which night**. Don't merge them, and don't
-add hour detail to the daily page — the readable page is one click away and is where
+`astro-score_daily.html` is **which place, which night**; and
+`astro-score_daily_full.html` is that last one again with **when is the season**
+under it. Don't merge them, and don't
+add hour detail to either daily page — the readable page is one click away and is where
 hour detail belongs.
 
 **Its user-facing vocabulary is 觀星 / AstroScore, not 銀河 / milky way** — the score row
@@ -860,6 +872,84 @@ the next day; **today** gets a 2px rule down the full height — the same `.dayb
 forecast. That heavier rule is only applied when a past column actually precedes today,
 i.e. when 從今天開始 is unticked; as the first column it would just double the label
 column's own border.
+
+### astro-score_daily_full.html
+
+`astro-score_daily.html` with **three more rows under every bar**, and everything the
+daily section above says still applies — same request per place, same `FETCH_POOL`,
+same tabs, same 從今天開始, same one-night-across-two-cells reading. A stack is now
+**five** fixed 1em rows (bar, MilkyScore strip, OrionScore strip, A* mark, M42 mark)
+rather than three, and the cell carries **one more child after both stacks**: the moon
+glyph. Keep the two pages in step on everything else in the duplication table; the three
+new rows are this page's alone.
+
+**The three are geometry, with no weather in them, and that is the whole point.** The
+strips weigh the sky and the subject together and so go blank on a cloudy night; a mark
+asks only whether the subject cleared `TARGET_UP_ALT` while the sun was below
+`DARK_SUN_ALT`, which is as certain at day 16 as at day 1. So `blocksByDate()` takes the
+visibility maxima **before** the `score === null` guard, deliberately — a mark standing
+under a no-forecast `·` at the far right of the grid is the correct answer, not a bug:
+the forecast ran out, the sky did not. The cells worth looking at are the ones with a
+mark and no strip. Don't "fix" this by moving the two `Math.max` calls below the guard.
+
+- **`TARGET_UP_ALT` (10°)** is a fourth threshold beside `DARK_SUN_ALT` and
+  `MOON_KILL_ALT`, and it is **the same number as `MOON_KILL_ALT` by coincidence, not for
+  the same reason** — that one is where moonlight is treated as having ruined the sky,
+  this one is where a subject becomes worth pointing at. Retune either without touching
+  the other. It has no counterpart on `astro-score_readable.html` or in `milkyway.py`.
+- The altitude behind a mark is the block's max **while dark**, not the transit ceiling
+  `gcMaxAlt()` reports: in late September A* transits ~+39° at 龍磐公園 but in twilight,
+  so the marks read +29° to +36°. A target whose whole passage falls in daylight is
+  correctly unmarked however high it climbs.
+- **The two marks almost never light in the same block**, which is the strips' seasonal
+  argument again and sharper: over a live 16-day response at 龍磐公園 all 32 blocks
+  carried exactly one mark and none carried both — M42 at +61° to +63° in the small hours
+  with A* below the horizon, A* at +29° to +36° in the evening with M42 at −9° to +5°.
+  Orange under a day's **left** glyph, purple under its **right**.
+
+**The moon glyph is per cell, not per block** — the only thing a cell draws that is not a
+per-block value, which is why `blocksByDate()` now returns a **day record**
+`{blocks, elong}` rather than a bare array, and why `blocksCell()` takes that record.
+Two reasons, the layout one weaker: an emoji's advance is about twice a monospace
+character's, so it cannot sit in the `1ch` a `.stack` is wide without overlapping its
+neighbour, while the cell it spans is `2ch` and holds it. The real reason is that there
+is nothing to say twice — the elongation moves ~12.2°/day on average and at most 14.3°
+near perigee (swept over 400 days), under a third of the 45° each glyph covers. It is
+drawn for **local noon**, where the two blocks meet, so neither half of the date is
+favoured. It is a reminder, not an input: `astroScore()` docks the score for moon
+**altitude** and knows nothing of phase, so the glyph is what tells a bright bar under a
+🌕 from one under a 🌑.
+
+The phase comes from `astroAt()`'s new `moonElong` — `mod360(moon.eclLon - sun.eclLon)`,
+free because both longitudes were already computed — and **not** from
+`moonIllumination()`, which this page still does not have. `moonOctant()` rounds rather
+than floors, so each glyph is centred on its phase and covers ±22.5°: 🌕 means "within a
+day and a bit of full", not "somewhere past full". `MOON_NAMES` is `milkyway.py`'s own
+eight-name vocabulary, but reached from the octant rather than from
+`moon_phase_name()`'s illumination-plus-waxing test, so the two can disagree by one step
+within a degree of a boundary — expected, and nothing computes from either. The glyphs
+are the **Northern Hemisphere's** view (🌒 lit on the right), right for every `places.js`
+spot and mirrored south of the equator; nothing flips them.
+
+The marks take their hue from CSS (`.mark.gc` → `--milky`, `.mark.m42` → `--orion`),
+never an inline style — unlike the strips, whose colour *is* their value. A mark is a
+yes or a no, so one fixed hue each and presence rather than depth is the entire signal.
+`.mark` and `.moon` both carry a fixed height for the same reason `.bar` and `.under` do:
+an unmarked block is an empty span, and an empty block box generates no line box, which
+would shorten one stack and pull its neighbours' floor out of line.
+
+There is no test command, so this was checked the mechanical way: slice the inline
+`<script>` from `"use strict";` to the `* Presentation` banner for the DOM-free half,
+add a ~40-line DOM stub (`createElement`/`classList`/`appendChild`/`insertRow`) to reach
+`blocksCell()`/`buildTable()`, and `node` both against live Open-Meteo responses.
+**397 assertions**: octant boundaries and wrap, seven published 2026 new/full/quarter
+instants landing in the right octant, one synodic month advancing `0..7` with no skips,
+the 14.32° drift figure above; every block's `dark`/`gcNight`/`m42Night` at 龍磐公園 and
+大武崙砲台 re-derived by brute force off the hour list, the day record's elongation
+confirmed to be local noon's, and marks observed under blank bars and under a `·`; and
+each stack's rows in the order `bar,under,under,mark,mark` with A* above M42, exactly one
+moon glyph per cell as the cell's last child, and two marks per stack across a whole
+built table. Re-run it when touching either page.
 
 `milkyway.py` scores each upcoming hour for Milky Way astrophotography at a `lat,lon`.
 No API key — Open-Meteo's free tier is keyless (10,000 calls/day), so there is nothing to

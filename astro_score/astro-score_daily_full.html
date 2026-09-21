@@ -1,0 +1,2025 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex, nocache">
+    <title>AstroScore daily full &mdash; astro_score</title>
+    <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+    <style>
+        :root {
+            --fg: #333;
+            --muted: #777;
+            --line: #e3e6ea;
+            --accent: #2196F3;
+            --err: #c0392b;
+            --ok: #1e8449;
+            /* Fainter than --line: these rule every column, so at --line's weight
+               they read as a cage around the glyphs rather than a guide to them. */
+            --grid: #eef1f4;
+            /* The MilkyScore accent: the middle step of MILKY_BANDS, used for the
+               legend section that explains the strip. */
+            --milky: #8e44ad;
+            /* The OrionScore accent, the same way: the middle step of
+               ORION_BANDS, for its own legend section. */
+            --orion: #e2711d;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            color: var(--fg);
+            margin: 0;
+            padding: 24px 12px 60px;
+        }
+        .container {
+            background: white;
+            padding: 28px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+        h1 { margin: 0 0 4px; font-size: 1.6rem; }
+        p.sub { margin: 0 0 22px; color: var(--muted); font-size: 0.9rem; }
+        p.sub a { color: var(--accent); }
+        p.sub code { background: #f0f2f5; padding: 1px 5px; border-radius: 4px; }
+        a.back { color: var(--accent); text-decoration: none; font-size: 0.9rem; }
+        a.back:hover { text-decoration: underline; }
+
+        /* The reading key. Four glyphs in a cell is a notation, not a number, so
+           the page has to teach it before the grid is any use. */
+        /* The three legend sections stack tight, so they read as one legend split
+           by subject rather than as three unrelated boxes; only the last one keeps
+           the full gap down to the form. */
+        .rule {
+            margin: 0 0 6px;
+            padding: 12px 16px;
+            border-left: 3px solid var(--ok);
+            border-radius: 0 8px 8px 0;
+            background: #f2f8f5;
+            font-size: 0.85rem;
+            color: var(--fg);
+        }
+        .rule .formula {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--ok);
+            display: block;
+            margin-bottom: 4px;
+        }
+        .rule .formula .gloss {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-weight: 400;
+            color: var(--muted);
+        }
+        .rule .example {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.78rem;
+            color: var(--muted);
+            margin-top: 10px;
+            border-top: 1px dashed #cfe0d6;
+            padding-top: 8px;
+            overflow-x: auto;
+        }
+        .rule .example div { white-space: pre; margin: 2px 0; }
+        .rule .example b { color: var(--ok); font-weight: 700; font-size: 1.05em; }
+        .rule ul { margin: 8px 0 0; padding-left: 20px; color: var(--muted); }
+        .rule li { margin: 3px 0; }
+        /* One legend section per thing a cell draws, each in that thing's own
+           colour: green for the 觀星 bar, purple for the MilkyScore strip, orange
+           for the OrionScore one, and a neutral dark bar for the notes, which
+           belong to none of them. */
+        .rule.milky {
+            border-left-color: var(--milky);
+            background: #f8f4fb;
+        }
+        .rule.milky .formula { color: var(--milky); }
+        .rule.milky .example { border-top-color: #e2d3ec; }
+        .rule.orion {
+            border-left-color: var(--orion);
+            background: #fdf6f0;
+        }
+        .rule.orion .formula { color: #b1480a; }
+        .rule.orion .example { border-top-color: #f0dbc8; }
+        /* The three rows under the strips -- the two visibility marks and the moon
+           glyph -- share one section, so it carries no single colour of its own:
+           it explains a purple mark, an orange one and a glyph that is neither.
+           A neutral slate bar, lighter than the notes block's, says "this belongs
+           to no one row" without inventing a fourth hue. */
+        .rule.vis {
+            border-left-color: #7a8a99;
+            background: #f5f7f9;
+        }
+        .rule.vis .formula { color: #4f6070; }
+        .rule.vis .example { border-top-color: #dde3e8; }
+        .rule.notes {
+            border-left-color: #333;
+            background: #f7f8f9;
+            margin-bottom: 22px;
+        }
+
+        /* The legends and notes above the form, folded away by default. They are
+           worth reading once and in the way every time after that -- the same
+           bargain as the raw JSON panel under the grid, and the same <details>
+           idiom. Open, the blocks keep their own 6px/22px spacing; closed, the
+           form is the first thing under the intro. */
+        details.explain { margin: 0 0 22px; }
+        details.explain > summary { font-weight: 600; }
+        details.explain[open] > summary { margin-bottom: 10px; }
+        details.explain .rule:last-child { margin-bottom: 0; }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+            gap: 14px;
+        }
+        .field { display: flex; flex-direction: column; }
+        .field.wide { grid-column: 1 / -1; }
+        label { font-size: 0.8rem; font-weight: 600; margin-bottom: 5px; }
+        label .hint { font-weight: 400; color: var(--muted); }
+        input, textarea {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.85rem;
+            padding: 8px 10px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: #fbfcfd;
+            color: var(--fg);
+            resize: vertical;
+        }
+        input:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+        /* location: the same narrow box the other pages use, with 使用目前位置
+           beside it -- but no .places/.place row, because the saved spots are the
+           grid's rows already and buttons repeating them would say it twice. */
+        .locrow { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+        .locrow input { width: 200px; flex: 0 0 auto; }
+        /* "輸入:" in front of the box, naming what the box writes to: PLACES[0],
+           which is the top row of this grid, and the first pill on
+           astro-score_readable.html. A second <label for="location"> rather than a
+           span, so it focuses the box like the one above it; the label margin is
+           dropped because .locrow centres its children. */
+        .locrow .locname { margin-bottom: 0; white-space: nowrap; }
+
+        .actions { margin-top: 18px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        button {
+            font: inherit;
+            font-weight: 600;
+            padding: 9px 22px;
+            border-radius: 8px;
+            border: 2px solid var(--accent);
+            background: var(--accent);
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        button:hover:not(:disabled) { background: #1976d2; border-color: #1976d2; }
+        button:disabled { opacity: 0.55; cursor: default; }
+        button.secondary { background: white; color: var(--accent); }
+        button.secondary:hover:not(:disabled) { background: var(--accent); color: white; }
+        .check { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; color: var(--muted); }
+        .check input { width: auto; }
+        /* 使用目前位置's message -- the coordinates it found, or why it failed.
+           Beside the button, not in the meta line, which belongs to the response.
+           The other eight pages carry the same span beside their location box. */
+        .geonote { font-size: 0.8rem; color: var(--muted); }
+        .geonote.error { color: var(--err); }
+
+        .result { margin-top: 26px; border-top: 1px solid var(--line); padding-top: 20px; }
+        .meta {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.8rem;
+            color: var(--muted);
+            margin-bottom: 12px;
+        }
+        .meta.error { color: var(--err); }
+
+        /* Model tabs -- one per entry in the models parameter. Unlike the other
+           pages' tabs these do not change what is *shown* so much as what is
+           *scored*: the bars are recomputed from the picked model's cloud cover,
+           with no refetch, since every model came back in the same response. */
+        .tabrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+        .tablabel { font-size: 0.78rem; font-weight: 600; color: var(--muted); }
+        .tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+        .tab {
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+            padding: 7px 14px;
+            border-radius: 999px;
+            border: 1px solid var(--line);
+            background: #f7f9fb;
+            color: var(--muted);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .tab:hover { border-color: var(--accent); color: var(--accent); background: #f7f9fb; }
+        .tab[aria-selected="true"] {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
+
+        /* Far fewer columns than the hourly grid -- 16 days scroll where 384 hours
+           would not -- but
+           forecast_days goes to 16, so keep the same pinned label column. */
+        .scroller {
+            overflow-x: auto;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            background: #fbfcfd;
+        }
+        table { border-collapse: separate; border-spacing: 0; font-size: 0.8rem; }
+        th, td {
+            padding: 6px 4px;
+            text-align: center;
+            white-space: nowrap;
+            border-bottom: 1px solid var(--line);
+            /* No min-width: with two glyphs a column is ~31px of content, and a
+               floor wider than that would reintroduce as dead space exactly the
+               gap the tight packing is meant to remove. What sets the width now is
+               the wider of the two glyphs and the MM/DD header, which is why the
+               header is set small below. */
+        }
+        tr:last-child th, tr:last-child td { border-bottom: none; }
+        /* Column rules. Four glyphs sitting in open space give the eye nothing to
+           say where one day ends, so a good evening at one place bleeds into the
+           next day's cell; these bound each cell without competing with the bars.
+           The last column is left open so the grid does not end in a stray line. */
+        td, thead th.day { border-right: 1px solid var(--grid); }
+        tr > *:last-child { border-right: none; }
+        /* Today gets the heavier rule down the full height -- the same idiom as
+           astro-score_readable.html's .daybreak, and the one division on this grid
+           worth more than a hairline: left of it is what happened, right of it is
+           what is forecast. Only drawn when there is a past column to divide from. */
+        td.todaybreak, th.todaybreak { border-left: 2px solid #b9c2cc; }
+        th.label {
+            position: sticky;
+            left: 0;
+            z-index: 2;
+            background: #f2f5f8;
+            text-align: right;
+            padding: 6px 8px 6px 10px;
+            border-right: 1px solid var(--line);
+            min-width: 84px;
+        }
+        th.label .name { font-weight: 700; }
+        th.label .api {
+            display: block;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.65rem;
+            font-weight: 400;
+            color: var(--muted);
+        }
+        /* The date stacks -- 08 over 18, not 08/18 -- so the header is two characters
+           wide like the two glyphs under it, and every column in the grid is a
+           2-character column. Before this the header was the widest thing in the
+           column and it, not the bars, set the width. Monospace so the digits line
+           up down the header row as well as across it. */
+        thead th.day {
+            background: #eef2f6;
+            font-weight: 700;
+            color: var(--muted);
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            /* Matches the table's own font-size. The bars are what set the column
+               width now (two 1.5rem mono cells, ~29px); the header sits centred
+               and narrower inside that. Raising this to 1.5rem would make the two
+               digits span the bars exactly, at the cost of a heavy header row. */
+            font-size: 0.8rem;
+            line-height: 1.2;
+            padding: 5px 2px;
+        }
+        thead th.day span { display: block; }
+        thead th.day.today { background: var(--accent); color: white; }
+
+        /* Zero horizontal padding, so the two glyphs fill the cell edge to edge and
+           the only thing between one day's bars and the next day's is the 1px
+           column rule. font-size: 0 kills any stray inline gap; .bar sets its own
+           size back in rem, which is absolute and so unaffected. */
+        td.blocks { padding: 5px 0; font-size: 0; }
+        /* One block glyph. A fixed-width span rather than a run of text: a blank
+           block is an empty span, and an empty string would collapse and shift the
+           glyph beside it. */
+        .bar {
+            display: inline-block;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 1.5rem;
+            line-height: 1;
+            /* Exactly one character cell wide. In a monospace face every glyph
+               shares that advance, so the block characters tile with no seam --
+               where the old 0.62em was a guess at it and left a hairline gap.
+               letter-spacing is zeroed in case the page font stack ever sets it. */
+            width: 1ch;
+            letter-spacing: 0;
+            /* No hour in the block carried a cloud figure: not a bad night, no
+           forecast. Faint and small so it reads as an absence rather than as a
+           fifth, shortest bar -- see NO_DATA_GLYPH. */
+        .bar.nodata { color: #c3ccd5; font-size: 1rem; }
+        /* The glyphs sit on the text baseline, so they grow upwards out of a
+               common floor and read as a bar chart rather than as letters. */
+            vertical-align: baseline;
+            /* One green for every bar, at every height. Height already encodes the
+               score, so grading the colour by the same number said it twice -- and
+               said it worse: the green-to-red sweep this used to use turned a short
+               bar brown, which read as a different *kind* of thing rather than as
+               less of the same one. Now only height varies and the eye compares
+               bars instead of decoding hues. */
+            color: var(--ok);
+        }
+        /* One half-day column: the bar, and the purple strip under it. An
+           inline-block 1ch wide so the two half-days still tile edge to edge --
+           the width that used to be on .bar alone. Both children are blocks, of
+           the same font-size and line-height, so every column is the same height
+           and the bars keep their common floor. */
+        .stack {
+            display: inline-block;
+            /* 1ch resolves against this element's own font, so the size has to be
+               set here as well as on the children: td.blocks zeroes font-size to
+               kill stray inline gaps, and 1ch of a 0px font is 0px. */
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 1.5rem;
+            width: 1ch;
+            letter-spacing: 0;
+            /* NOT baseline. An inline-block's baseline is that of its last in-flow
+               *line box*, and a strip below the lowest band has no text, so it
+               makes no line box however much height it is given -- the stack would
+               fall back to the bar's baseline and hang lower than its neighbours,
+               which is exactly the misalignment this replaced. Every stack is the
+               same height (three fixed 1em rows), so aligning them by their tops
+               puts the bars and both strips on one line, unconditionally. */
+            vertical-align: top;
+        }
+        /* Fixed height, not just line-height: a blank bar (peak <= the lowest band)
+           has no text, and a block box with no content generates no line box at
+           all -- so without this the empty ones collapsed to nothing and pulled
+           their purple strip up level with the neighbouring bars' floor. 1em of
+           .bar's own 1.5rem is exactly the line box a glyph makes, so the drawn
+           bars do not move. */
+        .stack .bar { display: block; width: auto; height: 1em; }
+        /* The two strips: MilkyScore, then OrionScore under it. U+2580 UPPER HALF
+           BLOCK: its ink fills the top half of the character cell, so each lands
+           directly under what is above it and the empty lower half of each line
+           box reads as the spacing that keeps the two readable as separate bands
+           rather than one two-tone block. Their colours are set per cell
+           (MILKY_BANDS / ORION_BANDS), the only place on this page a value picks
+           a colour -- the bars, whose height is already their value, are one
+           fixed green. Fixed height for the same reason as .bar: below its lowest
+           band a strip is left empty, and an empty block box makes no line box,
+           which would shorten the stack under one cell only. One class for both,
+           since they are the same geometry twice. */
+        .under {
+            display: block;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 1.5rem;
+            line-height: 1;
+            height: 1em;
+            letter-spacing: 0;
+        }
+        /* The two visibility marks, under the two strips: a purple * for A* and an
+           orange one for M42, in that order for the same reason the strips are in
+           that order. They answer a different question from the strips and so
+           deliberately carry no shade -- a strip says "how good would it be",
+           weighing the sky and the subject together, while a mark says only "was
+           the subject up in the dark at all", which is true or it is not. One
+           fixed hue each, matching its own strip, and presence rather than depth
+           is the entire signal. Fixed height for the same reason as .bar and
+           .under: an unmarked block is an empty span, and an empty block box
+           generates no line box, which would shorten one stack and pull its
+           neighbours' floor out of line. Centred, because an asterisk's advance
+           is narrower than the 1ch a stack is wide and the bars fill edge to
+           edge. */
+        .mark {
+            display: block;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 1rem;
+            line-height: 1;
+            height: 1em;
+            letter-spacing: 0;
+            text-align: center;
+        }
+        .mark.gc { color: var(--milky); }
+        .mark.m42 { color: var(--orion); }
+        /* The moon phase: one glyph for the whole cell, not one per block, and the
+           only thing a cell draws that is not per-block. Two reasons, the layout
+           one being the weaker: an emoji's advance is about twice a monospace
+           character's, so it cannot sit inside the 1ch a stack is wide without
+           overlapping the stack beside it, while the cell it spans is 2ch and
+           holds it comfortably. The real reason is that there would be nothing to
+           say twice -- the moon's elongation moves ~12.2 deg in a day on average
+           and at most 14.3 deg near perigee (swept over 400 days), under a third
+           of the 45 deg each glyph covers, so a date's two halves are the same
+           phase but for the odd boundary. Drawn for local noon, which is exactly
+           where the two blocks meet. A child of the cell
+           rather than of a stack, so it needs its own font-size: td.blocks zeroes
+           font-size to kill stray inline gaps. */
+        td.blocks .moon {
+            display: block;
+            font-size: 1rem;
+            line-height: 1.15;
+            text-align: center;
+        }
+
+        td.na { color: #bbb; }
+        td.err { color: var(--err); font-size: 0.72rem; }
+
+        details { margin-top: 18px; }
+        summary { cursor: pointer; font-size: 0.85rem; color: var(--muted); }
+        summary:hover { color: var(--accent); }
+        .url {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.78rem;
+            word-break: break-all;
+            background: #f7f9fb;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin: 10px 0;
+        }
+        .url a { color: var(--accent); text-decoration: none; }
+        .url a:hover { text-decoration: underline; }
+        .url .who { color: var(--fg); font-weight: 700; display: block; margin-bottom: 2px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a class="back" href="index.html">&larr; astro_score</a>
+        <h1>AstroScore <span style="color:#777;font-weight:400;">daily full</span></h1>
+        <p class="sub">
+            <a href="astro-score_daily.html">astro-score_daily.html</a> with the sky's own calendar
+            under it. The next 16 days for every saved spot at once: a row per place, a column per
+            day, and each cell two block glyphs, one per half-day. Same
+            <strong style="color:#1e8449;">AstroScore</strong> (觀星 score) as
+            <a href="astro-score_readable.html">astro-score_readable.html</a> &mdash; this page just
+            asks it of every place in the list at once (<span id="placeCount">10</span> rows) and
+            folds each day's 24 hours into two half-day blocks. <b>What the daily grid adds here</b>
+            is three rows of pure geometry under each bar: a purple <b style="color:#8e44ad;">*</b>
+            when <b>A*</b> (銀心) got 10&deg; up in the dark that half-day, an orange
+            <b style="color:#e2711d;">*</b> when <b>M42</b> did, and the moon phase
+            (🌑 &hellip; 🌕 &hellip; 🌘) under the cell. None of the three depends on the forecast, so
+            they stay true to the far end of the grid where the cloud models have given out. The first
+            row, 輸入, is the one that
+            is not a saved spot: it follows the location box below, which 使用目前位置 fills from
+            the device and 在地圖上點選 from a map. Read it to pick
+            <em>where and when</em>, then open the readable grid for the hour-by-hour detail. Four forecast models come back in every request;
+            the tabs pick which one the bars are scored from. No API key needed.
+        </p>
+
+        <details class="explain">
+            <summary>how to read a cell (說明)</summary>
+
+            <div class="rule">
+                <span class="formula">each cell (每格) = 2 blocks &mdash; 00&ndash;11 &middot; 12&ndash;23
+                    <span class="gloss">&nbsp; local time; left = after midnight, right = this evening</span></span>
+                <span class="formula">block = max AstroScore (觀星) over its 12 hours
+                    <span class="gloss">&nbsp; the best single hour in it, 0&ndash;100</span></span>
+                <div class="example">
+                    <div><b>█</b>  &gt; 90   drop everything and drive</div>
+                    <div><b>▆</b>  &gt; 70</div>
+                    <div><b>▄</b>  &gt; 50</div>
+                    <div><b>▂</b>  &gt; 30</div>
+                    <div>   &le; 30   blank &mdash; nothing worth the trip</div>
+                    <div><b style="color:#c3ccd5;">&middot;</b>         no forecast &mdash; this model does not reach that far</div>
+                </div>
+            </div>
+
+            <div class="rule milky">
+                <span class="formula">strip = max (A* alt&deg; &times; AstroScore/100) over the same 12 hours
+                    <span class="gloss">&nbsp; MilkyScore &mdash; the sky (觀星) <em>and</em> the subject (銀心)</span></span>
+                <div class="example">
+                    <div><b style="color:#3d0f6b;">▀</b>  &gt; 50</div>
+                    <div><b style="color:#5b21a3;">▀</b>  &gt; 40</div>
+                    <div><b style="color:#8e44ad;">▀</b>  &gt; 30</div>
+                    <div><b style="color:#bd8fd6;">▀</b>  &gt; 20</div>
+                    <div>   &le; 20   blank &mdash; core too low, or the sky too poor</div>
+                </div>
+                <ul>
+                    <li>AstroScore (觀星) says the sky is dark, moonless and clear but knows nothing about where
+                        <b>A*</b> is; the core's altitude says the subject is up but knows nothing about
+                        the sky. Only both at once colour the strip, so a green bar with no purple under
+                        it is a fine night with the core down.</li>
+                    <li>It is in <b>degrees</b>, so its ceiling is the core's own transit altitude
+                        &mdash; ~35.8&deg; at the northernmost saved spot (大武崙砲台) to ~39.1&deg; at the
+                        southernmost (龍磐公園) over Taiwan. The top two shades
+                        belong to lower latitudes.</li>
+                </ul>
+            </div>
+
+            <div class="rule orion">
+                <span class="formula">strip = max (M42 alt&deg; &times; AstroScore/100) over the same 12 hours
+                    <span class="gloss">&nbsp; OrionScore &mdash; the same again for the <em>winter</em> subject</span></span>
+                <div class="example">
+                    <div><b style="color:#7a3000;">&#9600;</b>  &gt; 50</div>
+                    <div><b style="color:#b1480a;">&#9600;</b>  &gt; 40</div>
+                    <div><b style="color:#e2711d;">&#9600;</b>  &gt; 30</div>
+                    <div><b style="color:#f5b271;">&#9600;</b>  &gt; 20</div>
+                    <div>   &le; 20   blank &mdash; M42 too low, or the sky too poor</div>
+                </div>
+                <ul>
+                    <li>The lower strip is the <b>Orion Nebula (M42)</b> read exactly as the purple one
+                        reads <b>Sgr A* (銀心)</b>, on the <b>same ladder</b>, so the two can be compared
+                        directly: whichever is deeper tonight is the target to point at.</li>
+                    <li><b>They rarely paint together</b>, which is the point of having both, and the
+                        grid shows it twice over. Across the year: A* (RA 17h45m) is a summer object from
+                        Taiwan and M42 (RA 05h35m) a winter one, so for half the year the purple strip is
+                        blank on every row and a clear night has nothing under it &mdash; the orange strip
+                        is what that half looks like. And within a single autumn night the two fall in
+                        <em>opposite halves</em>: the core is up in the evening and gone by the small
+                        hours, M42 the other way about. So the purple tends to sit under a day's
+                        <b>right</b> glyph and the orange under the next day's <b>left</b> one &mdash; the
+                        same one-night-across-two-cells reading as the bars, now saying which target each
+                        half of the night belongs to.</li>
+                    <li>At Dec &minus;5&deg; rather than &minus;29&deg;, M42 rides far higher here
+                        &mdash; transiting about +59&deg; to +63&deg; over Taiwan &mdash; so unlike the
+                        purple ramp, the <b>deepest orange is reachable</b> from these spots. A saturated
+                        orange strip is a genuinely excellent M42 night, not a scale running out.</li>
+                </ul>
+            </div>
+
+            <div class="rule vis">
+                <span class="formula">mark = subject above 10&deg; while the sun is below &minus;10&deg;
+                    <span class="gloss">&nbsp; visibility (可見) &mdash; was it up in the dark at all, that block</span></span>
+                <span class="formula">moon = phase at that date's local noon
+                    <span class="gloss">&nbsp; 月相 &mdash; one glyph per cell, not one per block</span></span>
+                <div class="example">
+                    <div><b style="color:#8e44ad;">*</b>  <b style="color:#8e44ad;">A*</b> (銀心) cleared 10&deg; during the block's dark hours</div>
+                    <div><b style="color:#e2711d;">*</b>  <b style="color:#e2711d;">M42</b> (獵戶座大星雲) did, on the row under it</div>
+                    <div>   blank &mdash; never 10&deg; up while it was dark</div>
+                    <div>🌑 🌒 🌓 🌔  new &rarr; waxing crescent &rarr; first quarter &rarr; waxing gibbous</div>
+                    <div>🌕 🌖 🌗 🌘  full &rarr; waning gibbous &rarr; last quarter &rarr; waning crescent</div>
+                </div>
+                <ul>
+                    <li><b>The marks are geometry, with no weather in them.</b> The strips above weigh the
+                        sky and the subject together, so they go blank on a cloudy night; a mark asks only
+                        whether the subject got 10&deg; up while the sun was down, which is as certain at day
+                        16 as at day 1. So a mark can stand under a blank bar &mdash; the subject was up,
+                        the sky was hopeless &mdash; or under a no-forecast
+                        <b style="color:#c3ccd5;">&middot;</b>, and that is exactly what they are for:
+                        <em>when is the season</em>, read separately from <em>which night is clear</em>.
+                        Where a strip is coloured its mark is lit too; the interesting cells are the ones
+                        with a mark and no strip.</li>
+                    <li><b>10&deg;</b> rather than the horizon, because below that you are looking through
+                        more than five atmospheres of haze and most real horizons have a ridge or a tree
+                        line in them. It is the same number as MoonPenalty (月亮扣分) tops out at, by
+                        coincidence and not for the same reason.</li>
+                    <li><b>Dark</b> is the page's own &minus;10&deg; sun threshold &mdash; the one
+                        <strong style="color:#1e8449;">AstroScore</strong> zeroes the score above &mdash; so
+                        a mark and the bar over it agree about when the night starts.</li>
+                    <li>The altitude behind a mark (hover for it) is the highest the subject got
+                        <em>while it was dark</em>, which is not its transit altitude: in late September
+                        <b>A*</b> transits at 龍磐公園 around +39&deg; but in twilight, so the marks report
+                        +29&deg; to +36&deg;. A target whose whole passage falls in daylight is correctly
+                        unmarked however high it climbs.</li>
+                    <li><b>The moon glyph is per day, not per half-day</b>, unlike everything above it: the
+                        elongation moves about 12&deg; in 24 hours &mdash; 14.3&deg; at its fastest &mdash;
+                        which is under a third of the 45&deg; each glyph covers, so the two halves of a date
+                        are the same phase but for the odd boundary. It is drawn for <b>local noon</b>,
+                        where the two blocks meet.</li>
+                    <li>It is a reminder rather than an input: <strong style="color:#1e8449;">AstroScore</strong>
+                        already docks the score for moon <em>altitude</em> and knows nothing of the phase, so
+                        the glyph is what tells a bright bar under a
+                        <b>🌕</b> from one under a <b>🌑</b>. A full moon that has not risen yet costs
+                        nothing; the same moon at 10&deg; costs everything. Hover a cell for the phase name
+                        and the elongation behind the glyph.</li>
+                </ul>
+            </div>
+
+            <div class="rule notes">
+                <ul>
+                    <li>Each block is half a day, so each holds exactly one dark stretch: the small hours
+                        fall in 00&ndash;11 and the evening in 12&ndash;23, while their daylight halves
+                        score 0 and cannot touch a maximum.</li>
+                    <li><b>A night straddles midnight, so it reads across two cells</b> &mdash; the right
+                        glyph of one day (that evening) and the left glyph of the next (its small hours).
+                        <b>█</b> on the right of 08/18 next to <b>█</b> on the left of 08/19 is
+                        <em>one</em> clear night. A single cell showing <b>██</b> is instead the tail of
+                        the night just gone beside the head of the one coming.</li>
+                    <li>The <b>best</b> hour, not a total or an average &mdash; one clear hour is worth
+                        the drive even when the rest of the night clouds over, and a sum would average it
+                        away. It also means a bar says nothing about <em>how long</em> the window lasts:
+                        open the readable grid for that.</li>
+                    <li><b>Hide past days (從今天開始)</b> is <b>on</b> to start with, so the page opens on
+                        today and the days ahead. Untick it to bring back the week
+                        <code>past_days</code> asked for: a forecast beside what the sky actually did,
+                        with a heavier rule marking today. It drops whole days only, and never shortens a day it
+                        shows &mdash; today's column always covers the full 24 hours, hours already gone
+                        included, so a block does not shrink as the afternoon wears on. Hover any cell for the
+                        exact sums.</li>
+                    <li>The score itself is <code>(100 &minus; Cloud) &times; (100 &minus; MoonPenalty) / 100</code>,
+                        zeroed while the sun is above &minus;10&deg;, MoonPenalty (月亮扣分) ramping 0 &rarr; 100 as the
+                        moon climbs 0&deg; &rarr; 10&deg;. Sun and moon are computed in the page. See
+                        <a href="astro-score_readable.html">astro-score_readable.html</a> for the worked
+                        examples.</li>
+                    <li><b>The models do not all reach 16 days out</b>, and here that reads as a blank,
+                        not a dash: <code>icon_global</code> stops after about 7.5 days,
+                        <code>jma_seamless</code> after 11 and <code>ecmwf_ifs025</code> after 15, while
+                        <code>gfs_global</code> fills all 16. Beyond its own horizon a model returns
+                        nothing and no hour is scored, which is <em>not</em> the same answer as a
+                        hopeless night &mdash; so those blocks draw a faint <b>&middot;</b> rather than
+                        the blank a washed-out sky gets. Expect a field of them at the right end of the
+                        grid; hover for the <code>(0/12 hr)</code> count behind it.</li>
+                    <li><b>Cloud (雲量) comes from one model at a time</b>, picked with the cloud source
+                        (雲量來源) tabs above the
+                        grid. All four are fetched in the same request, so switching is instant and costs
+                        nothing &mdash; and disagreement between them <em>is</em> information: where
+                        <code>jma</code> and <code>icon</code> tell the same story the forecast is worth
+                        trusting, and where they do not, it is not. The default is
+                        <code>ecmwf_ifs025</code>; <code>jma_seamless</code> is the one to switch to for a
+                        spot in the Central Range, being the only one of the four with a ~5 km regional
+                        nest over Taiwan rather than an 11&ndash;25 km global grid.</li>
+                </ul>
+            </div>
+        </details>
+
+        <form id="form">
+            <div class="grid">
+                <div class="field">
+                    <label for="forecast_days">forecast_days <span class="hint">1&ndash;16</span></label>
+                    <input id="forecast_days" name="forecast_days" value="16" spellcheck="false">
+                </div>
+                <div class="field wide">
+                    <label for="extra">extra params <span class="hint">one <code>key=value</code> per line; empty value drops a parameter. <code>past_days</code> adds columns to the <em>left</em> of today &mdash; untick 從今天開始 to see them. It takes 0&ndash;93, but the models only keep about 61 days of history</span></label>
+                    <textarea id="extra" name="extra" rows="2" spellcheck="false" placeholder="forecast_hours=24"></textarea>
+                </div>
+                <div class="field wide">
+                    <label for="location">location <span class="hint">lat,lon &mdash; the <strong>輸入</strong> row only; every other row is a saved spot. 使用目前位置 fills it from the device, 在地圖上點選 from a map</span></label>
+                    <div class="locrow">
+                        <label class="locname" for="location">輸入:</label>
+                        <input id="location" name="location" spellcheck="false">
+                        <button type="button" class="secondary" id="geo" title="device GPS → the 輸入 row">📍 使用目前位置</button>
+                        <button type="button" class="secondary" id="mappick" title="OpenStreetMap → the 輸入 row">🗺️ 在地圖上點選</button>
+                        <span class="geonote" id="geonote"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="actions">
+                <button type="submit" id="submit">Fetch</button>
+                <button type="button" class="secondary" id="reset">Reset defaults</button>
+                <label class="check"><input type="checkbox" id="hidePast" checked> 從今天開始 (hide past days)</label>
+            </div>
+        </form>
+
+        <div class="result" id="result" hidden>
+            <div class="meta" id="meta"></div>
+            <div class="tabrow">
+                <span class="tablabel">cloud source (雲量來源)</span>
+                <div id="tabs" class="tabs"></div>
+            </div>
+            <div class="scroller" id="scroller"></div>
+            <details id="raw" hidden>
+                <summary>request URLs</summary>
+                <div class="url" id="url"></div>
+            </details>
+        </div>
+    </div>
+
+<script src="../places.js"></script>
+<script>
+"use strict";
+
+/* ------------------------------------------------------------------ *
+ * Request core -- identical to astro-score_readable.html and both
+ * open_meteo/ pages, which are the browser ports of
+ * open_meteo/open-meteo.py. buildUrl/fetchForecast are byte-for-byte
+ * the same functions; any divergence there is a bug.
+ *
+ * What is new here is that the page issues one request PER SAVED SPOT
+ * rather than one for the location in a box -- the rows of this grid are
+ * the places, so there is no location field and no paramsFromForm().
+ * ------------------------------------------------------------------ */
+
+const FORECAST_URL = "https://api.open-meteo.com/v1/forecast";
+
+// PLACES -- the saved spots -- comes from ../places.js, loaded just above. On the
+// other pages it fills buttons beside a location box; here it IS the row list, so
+// adding a spot there adds a row here. PLACES[0] is 輸入, the one entry that is
+// not a saved spot: it is the single row this page's location box edits, and what
+// 使用目前位置 points at the device. DEFAULT_LAT/DEFAULT_LON are what that box
+// falls back to when it is empty -- there are no place buttons here, because the
+// rows are the places already.
+// 16 days: Open-Meteo's maximum, matching astro-score_readable.html. It is a
+// column per day here, so 16 is the width of the grid rather than a scroll depth.
+//
+// The models do not all reach that far, and on this page that shows up as a
+// SILENCE rather than a dash: at 16 days icon_global stops after ~7.5 (177 of
+// 384 hours), jma_seamless ~11 (266) and ecmwf_ifs025 ~15 (359), while only
+// gfs_global fills all 384. blocksByDate() scores no hour it has no cloud figure
+// for, so those days leave peak 0 and draw a blank bar -- the same blank a
+// hopeless night draws. The cell title is what tells them apart, reporting
+// "(0/12 hr)" where a bar is missing for want of data.
+const DEFAULT_DAYS = 16;
+
+// cloud_cover alone. astroScore() reads nothing else, and this page shows no
+// numbers a human reads directly -- 降雨/氣溫, which astro-score_readable.html
+// carries for exactly that reason, would be one response per place of data nothing
+// on screen draws. One variable puts a response at ~9.0 KB / 384 hours for a single
+// model and ~12.9 KB for all four; with the prefilled past_days=7 that is ~18.4 KB
+// a place, so a round of the fifteen rows places.js holds is ~276 KB.
+const HOURLY_VARS = ["cloud_cover"];
+
+// All four models, as milkyway.py and the open_meteo/ pages ask for -- keep the
+// list and its order in step across all of them. Two or more models makes
+// Open-Meteo suffix every series key with the model name
+// (cloud_cover_jma_seamless), which is what seriesKey() below resolves.
+//
+// The grid scores ONE of them at a time, picked by the tabs above it; the other
+// three are fetched so the comparison costs no extra round trip, and so a future
+// formula can average them or read their spread as confidence the way
+// milkyway.py's 信心 column does. Four models of one variable is ~12.9 KB a place
+// against ~9.0 KB for one -- the timestamps dominate either way -- which is why
+// fetching all four to show one is cheap enough to be the default.
+const MODELS = ["ecmwf_ifs025", "gfs_global", "jma_seamless", "icon_global"];
+
+// Which model the score comes from until a tab is clicked: ecmwf_ifs025, i.e.
+// MODELS[0], so the tab order and the opening view agree.
+//
+// jma_seamless is the finer grid over Taiwan (MSM, 0.05 deg ~ 5 km, against
+// ~11-25 km for the globals, falling back to GSM outside MSM's ~22.4N/120E
+// domain rather than dropping the key), so it is the tab to reach for when a
+// spot sits in the Central Range. It is one click away, and all four models are
+// already in the response -- switching is a re-render, not a refetch.
+const DEFAULT_MODEL = "ecmwf_ifs025";
+
+// Prefilled into the "extra params" box rather than added to defaultParams(). One
+// key=value per line; clear a line to drop that parameter. Applied to every request
+// alike, so a typo here costs one call per saved place rather than one call.
+//
+// past_days= extends the series backwards, which on this grid means extra columns
+// to the LEFT of today -- the week just gone, for checking a forecast against what
+// the sky actually did. 從今天開始 starts TICKED, so they are fetched but not drawn
+// until it is unticked, and this line shows up in the response size before it shows
+// up in the grid: each past day is another ~770 bytes per place across four models,
+// taking a fifteen-row round from ~194 KB to ~276 KB.
+const DEFAULT_EXTRA = [
+    "past_days=7",
+].join("\n");
+
+/** The request for one spot, as a plain object. */
+function defaultParams(lat, lon, days = DEFAULT_DAYS) {
+    return {
+        latitude: lat,
+        longitude: lon,
+        hourly: HOURLY_VARS.join(","),
+        models: MODELS.join(","),
+        // Resolved by the API from latitude/longitude, which is why this is a
+        // constant and not a field: every row already carries its own coordinates.
+        // It has to be sent -- without it hourly.time comes back in GMT, and the
+        // half-day split, localToday() and the whole date axis read local wall
+        // time. Still overridable from the extra params box, which is how a
+        // hand-typed timezone= moves the today column (see visibleDates).
+        timezone: "auto",
+        forecast_days: days,
+    };
+}
+
+/**
+ * The full GET URL for a parameter object.
+ *
+ * Commas are left literal so the hourly/models lists stay readable and match
+ * Open-Meteo's own documented examples; encodeURIComponent would otherwise
+ * turn them into %2C. Spaces become "+" to match Python's urlencode.
+ */
+function buildUrl(params) {
+    const query = Object.entries(params)
+        .map(([key, value]) => {
+            const enc = (s) => encodeURIComponent(String(s))
+                .replace(/%2C/g, ",")
+                .replace(/%20/g, "+");
+            return `${enc(key)}=${enc(value)}`;
+        })
+        .join("&");
+    return `${FORECAST_URL}?${query}`;
+}
+
+/**
+ * Call the API and return {body, url, status, ok, bytes, seconds}.
+ *
+ * Errors are returned rather than thrown: Open-Meteo answers a bad request
+ * with HTTP 400 and a JSON body like
+ * {"error": true, "reason": "Latitude must be in range of -90 to 90°..."},
+ * which is far more useful to see than a stack trace.
+ */
+async function fetchForecast(params, timeoutMs = 30000) {
+    const url = buildUrl(params);
+    const started = performance.now();
+    const resp = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+    const text = await resp.text();
+    const seconds = (performance.now() - started) / 1000;
+
+    let body;
+    try {
+        body = JSON.parse(text);
+    } catch {
+        body = { error: true, reason: "response was not JSON", text: text };
+    }
+    body.get_para = url;
+
+    return {
+        body,
+        url,
+        status: resp.status,
+        ok: resp.ok,
+        contentType: resp.headers.get("Content-Type"),
+        bytes: new TextEncoder().encode(text).length,
+        seconds,
+    };
+}
+
+/** BigDataCloud's reverse geocoder: keyless, CORS-enabled, free client-side. */
+const GEOCODE_URL = "https://api.bigdatacloud.net/data/reverse-geocode-client";
+const geocodeCache = new Map();
+
+/**
+ * Turn a lat,lon into a readable place name for the meta line, e.g.
+ * 中華民國/宜蘭縣/南澳鄉/蘇澳鎮 -- countryName, principalSubdivision, city and
+ * locality, in that order. Byte-for-byte the same function as
+ * astro-score_readable.html's; change one and change the other.
+ *
+ * The coordinates are the requested ones, not the response's: Open-Meteo answers
+ * with the nearest grid point (24.625, 121.75 for a spot at 24.5145, 121.8277),
+ * which is up to ~6 km away and can sit in a different township. Sparse areas
+ * and open water leave some of the four fields empty, and the last two can
+ * repeat each other, so blanks and duplicates are dropped rather than shown.
+ *
+ * This is a label, never data: any failure resolves to "" and the meta line is
+ * left exactly as the forecast wrote it.
+ */
+async function reverseGeocode(lat, lon, timeoutMs = 10000) {
+    const key = `${lat},${lon}`;
+    if (geocodeCache.has(key)) return geocodeCache.get(key);
+
+    const url = `${GEOCODE_URL}?latitude=${encodeURIComponent(lat)}` +
+        `&longitude=${encodeURIComponent(lon)}&localityLanguage=zh`;
+    let name = "";
+    try {
+        const resp = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+        if (resp.ok) {
+            const body = await resp.json();
+            name = [body.countryName, body.principalSubdivision, body.city, body.locality]
+                .filter((part, i, all) => part && all.indexOf(part) === i)
+                .join("/");
+        }
+    } catch {
+        // Timed out or offline. The forecast itself is unaffected, so stay quiet.
+    }
+    geocodeCache.set(key, name);
+    return name;
+}
+
+/**
+ * Name the 輸入 row, and only that row: the saved spots carry names already, and
+ * a lookup per row would spend all but one of them relabelling rows that carry a
+ * third-party service.
+ *
+ * Deferred and never awaited, like astro-score_readable.html's appendPlaceName()
+ * and like loadLightPollution() there -- a grid of forecasts must not wait on a label.
+ * Where that page appends to the meta line, this one stores the name and re-renders
+ * it: setMeta() runs again on every tab click, which would wipe an appended node.
+ * The guard is the same idea as the light-pollution one: a lookup for a coordinate
+ * that is no longer 輸入 is dropped rather than shown under a newer one.
+ */
+function loadInputPlaceName(lat, lon) {
+    reverseGeocode(lat, lon).then((name) => {
+        if (!name || PLACES[0][1] !== lat || PLACES[0][2] !== lon) return;
+        inputPlaceName = name;
+        setMeta();
+    });
+}
+
+// How many of the per-place requests may be in flight at once.
+//
+// Open-Meteo answers a burst with HTTP 429 and the body {"reason": "Too many
+// concurrent requests"}. Firing every place at once survives a cold limiter but
+// not a warm one -- a dozen places x four models, a second Fetch click, or a page
+// already refreshed a few times, and rows start coming back 429 instead of
+// forecast. A pool of four costs nothing measurable (twelve rows in ~1.4s against
+// ~0.4s unbounded) and takes the failure mode off the table.
+const FETCH_POOL = 4;
+
+/**
+ * Promise.allSettled with a concurrency limit.
+ *
+ * Same return shape as allSettled -- {status: "fulfilled", value} or
+ * {status: "rejected", reason} per item, in input order, never rejecting -- so
+ * one place failing still costs exactly one row.
+ */
+async function settledPool(items, limit, fn) {
+    const out = new Array(items.length);
+    let next = 0;
+    const worker = async () => {
+        while (true) {
+            const i = next;
+            next += 1;
+            if (i >= items.length) return;
+            out[i] = await fn(items[i], i).then(
+                (value) => ({ status: "fulfilled", value }),
+                (reason) => ({ status: "rejected", reason }),
+            );
+        }
+    };
+    await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+    return out;
+}
+
+/**
+ * The location box, which on this page edits exactly one row: 輸入, PLACES[0],
+ * the one entry that is not a saved spot. Same parse and same message as the
+ * other pages' paramsFromForm(), but it returns coordinates rather than request
+ * parameters -- there is a request per row here, and this names one of them.
+ *
+ * Empty falls back to what places.js says, like everywhere else.
+ */
+function inputPlaceFromForm() {
+    const loc = document.getElementById("location").value.trim();
+    if (!loc) return [DEFAULT_LAT, DEFAULT_LON];
+    const [latS, lonS] = loc.split(",");
+    const lat = Number(latS), lon = Number(lonS);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+        throw new Error(`Bad location "${loc}": expected "lat,lon"`);
+    }
+    return [lat, lon];
+}
+
+/**
+ * The form fields other than the location, applied to one spot's parameters.
+ *
+ * The other pages parse a location in here as well and return one request; this
+ * page draws a row per PLACES entry, so lat/lon are arguments and the box is read
+ * once, separately, by inputPlaceFromForm(). An empty field drops the key entirely
+ * and lets the API default it, as elsewhere.
+ */
+function paramsFor(lat, lon) {
+    const overrides = {};
+    overrides.forecast_days = document.getElementById("forecast_days").value.trim();
+
+    // The same key=value loop the open_meteo/ pages run, and it throws the same
+    // way. Thrown from inside the per-place map, so the submit handler catches it
+    // before any request goes out rather than after six of them have.
+    for (const line of document.getElementById("extra").value.split("\n")) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        if (!trimmed.includes("=")) {
+            throw new Error(`Bad extra param "${trimmed}": expected "key=value"`);
+        }
+        const idx = trimmed.indexOf("=");
+        overrides[trimmed.slice(0, idx).trim()] = trimmed.slice(idx + 1).trim();
+    }
+
+    const params = defaultParams(lat, lon);
+    for (const [key, value] of Object.entries(overrides)) {
+        if (value === "") delete params[key];
+        else params[key] = value;
+    }
+    return params;
+}
+
+/* ------------------------------------------------------------------ *
+ * Astronomy: low-precision solar/lunar positions (Meeus, "Astronomical
+ * Algorithms"), ported from milkyway.py -- same series, same terms, so
+ * the two agree to well under a degree. Sun is good to ~0.01 deg, moon
+ * to ~0.3 deg in longitude: far more than enough to say "is it dark"
+ * and "is the moon up", which is exactly what the score asks.
+ *
+ * Verbatim from astro-score_readable.html apart from the galactic core,
+ * which this page has no row for. Open-Meteo offers only sunrise/sunset
+ * and daily=moon_phase, so these angles are computed locally.
+ * ------------------------------------------------------------------ */
+
+const DEG = Math.PI / 180;
+const sin = (d) => Math.sin(d * DEG);
+const cos = (d) => Math.cos(d * DEG);
+const clamp1 = (x) => Math.min(1, Math.max(-1, x));
+const mod360 = (x) => ((x % 360) + 360) % 360;
+
+// Galactic center, J2000: RA 17h45m40.04s, Dec -29deg00'28" -- the same pair
+// milkyway.py uses, and for the same reason: precession since J2000 moves it by
+// well under a degree, far below the accuracy of the moon series below. Fixed
+// equatorial coordinates, so only the sidereal time makes its altitude move.
+const GC_RA = 266.41683;
+const GC_DEC = -29.00781;
+
+// Orion Nebula (M42, NGC 1976), J2000: RA 05h35m17.3s, Dec -05deg23'28" -- the
+// winter counterpart to the core above, and the subject of the orange strip.
+// Same treatment for the same reason: a fixed equatorial pair, precession since
+// J2000 far below the accuracy of everything around it, so only the sidereal
+// time moves it. pure_math/orion_nebula_m42.html prints every step.
+const M42_RA = 83.82208;
+const M42_DEC = -5.39111;
+
+/**
+ * Julian Day from a UTC timestamp in milliseconds.
+ *
+ * The Unix epoch is JD 2440587.5 by definition, which makes this exactly
+ * equivalent to milkyway.py's calendar-based julian_day() without repeating
+ * the Gregorian bookkeeping.
+ */
+function julianDay(utcMs) {
+    return utcMs / 86400000 + 2440587.5;
+}
+
+/** Mean obliquity of the ecliptic, in degrees. */
+function obliquity(jd) {
+    return 23.439291 - 0.0130042 * ((jd - 2451545.0) / 36525);
+}
+
+/** Ecliptic (lon, lat) in degrees -> {ra, dec} in degrees. */
+function eclipticToEquatorial(lon, lat, eps) {
+    const x = cos(lat) * cos(lon);
+    const y = cos(eps) * cos(lat) * sin(lon) - sin(eps) * sin(lat);
+    const z = sin(eps) * cos(lat) * sin(lon) + cos(eps) * sin(lat);
+    return {
+        ra: mod360(Math.atan2(y, x) / DEG),
+        dec: Math.asin(clamp1(z)) / DEG,
+    };
+}
+
+/** Solar right ascension, declination and ecliptic longitude, in degrees. */
+function sunPosition(jd) {
+    const n = jd - 2451545.0;
+    const meanLon = mod360(280.460 + 0.9856474 * n);
+    const meanAnom = mod360(357.528 + 0.9856003 * n);
+    const eclLon = mod360(
+        meanLon + 1.915 * sin(meanAnom) + 0.020 * sin(2 * meanAnom),
+    );
+    const { ra, dec } = eclipticToEquatorial(eclLon, 0.0, obliquity(jd));
+    return { ra, dec, eclLon };
+}
+
+/** Lunar right ascension, declination, distance (km) and ecliptic longitude. */
+function moonPosition(jd) {
+    const t = (jd - 2451545.0) / 36525;
+    const lp = mod360(218.3164477 + 481267.88123421 * t);   // mean longitude
+    const d = mod360(297.8501921 + 445267.1114034 * t);     // elongation
+    const m = mod360(357.5291092 + 35999.0502909 * t);      // sun anomaly
+    const mp = mod360(134.9633964 + 477198.8675055 * t);    // moon anomaly
+    const f = mod360(93.2720950 + 483202.0175233 * t);      // arg of latitude
+
+    const eclLon = mod360(
+        lp
+        + 6.289 * sin(mp)
+        + 1.274 * sin(2 * d - mp)
+        + 0.658 * sin(2 * d)
+        + 0.214 * sin(2 * mp)
+        - 0.186 * sin(m)
+        - 0.114 * sin(2 * f)
+        + 0.059 * sin(2 * d - 2 * mp)
+        + 0.057 * sin(2 * d - m - mp)
+        + 0.053 * sin(2 * d + mp)
+        + 0.046 * sin(2 * d - m)
+        - 0.041 * sin(m - mp)
+        - 0.035 * sin(d)
+        - 0.031 * sin(m + mp),
+    );
+    const eclLat =
+        5.128 * sin(f)
+        + 0.281 * sin(mp + f)
+        - 0.278 * sin(f - mp)
+        - 0.173 * sin(2 * d - f)
+        + 0.055 * sin(2 * d + f - mp)
+        - 0.046 * sin(2 * d - f - mp)
+        + 0.033 * sin(2 * d + f)
+        + 0.017 * sin(2 * mp + f);
+    const dist =
+        385000.56
+        - 20905.355 * cos(mp)
+        - 3699.111 * cos(2 * d - mp)
+        - 2955.968 * cos(2 * d)
+        - 569.925 * cos(2 * mp);
+
+    const { ra, dec } = eclipticToEquatorial(eclLon, eclLat, obliquity(jd));
+    return { ra, dec, dist, eclLon };
+}
+
+/** Local apparent sidereal time in degrees. */
+function localSiderealTime(jd, lonDeg) {
+    const t = (jd - 2451545.0) / 36525;
+    const gmst =
+        280.46061837
+        + 360.98564736629 * (jd - 2451545.0)
+        + 0.000387933 * t * t;
+    return mod360(gmst + lonDeg);
+}
+
+/** Equatorial (ra, dec) -> {alt, az} in degrees, azimuth measured from north. */
+function altAz(ra, dec, lat, lst) {
+    const ha = mod360(lst - ra);
+    const sinAlt = sin(lat) * sin(dec) + cos(lat) * cos(dec) * cos(ha);
+    const alt = Math.asin(clamp1(sinAlt)) / DEG;
+    const az = mod360(
+        Math.atan2(
+            -cos(dec) * sin(ha),
+            sin(dec) * cos(lat) - sin(lat) * cos(dec) * cos(ha),
+        ) / DEG,
+    );
+    return { alt, az };
+}
+
+/**
+ * Sun, moon, galactic core and M42 altitude for one hour, at the grid point the
+ * forecast is for.
+ *
+ * Both deep-sky targets are display-only on astro-score_readable.html --
+ * astroScore() does not read them there and does not here either. They are in
+ * this page because the two strips under each bar multiply them by the score (see
+ * milkyScore / orionScore), so a clear moonless night with both below the horizon
+ * still scores 觀星 100 with no colour under it at all.
+ *
+ * Both are fixed points, so the second one costs one altAz() call an hour and no
+ * new series: the sidereal time is already computed.
+ *
+ * It also returns the moon-sun elongation, for the phase glyph under each cell.
+ * That is the one thing here astro-score_daily.html has no use for, and it is
+ * still *not* astro-score_readable.html's moonIllumination(): see moonGlyph().
+ *
+ * The lunar illuminated fraction itself stays uncomputed, as on the sibling page
+ * -- there is no 月相 row to put a percentage in, and the glyph does not need one.
+ */
+function astroAt(utcMs, lat, lon) {
+    const jd = julianDay(utcMs);
+    const lst = localSiderealTime(jd, lon);
+    const sun = sunPosition(jd);
+    const moon = moonPosition(jd);
+    return {
+        sunAlt: altAz(sun.ra, sun.dec, lat, lst).alt,
+        moonAlt: altAz(moon.ra, moon.dec, lat, lst).alt,
+        gcAlt: altAz(GC_RA, GC_DEC, lat, lst).alt,
+        m42Alt: altAz(M42_RA, M42_DEC, lat, lst).alt,
+        // Elongation in ecliptic longitude, 0..360: 0 new, 90 first quarter, 180
+        // full, 270 last quarter. Free -- both longitudes were computed for the
+        // positions above -- and it is the whole of what a phase glyph needs,
+        // carrying waxing/waning in the same number as the fraction lit.
+        moonElong: mod360(moon.eclLon - sun.eclLon),
+    };
+}
+
+/* ------------------------------------------------------------------ *
+ * The score -- identical to astro-score_readable.html.
+ * ------------------------------------------------------------------ */
+
+// Sun this far below the horizon or lower counts as dark. -10° is well into
+// nautical twilight: the sky is not yet fully dark at -10, so this is generous
+// on purpose, and the hour either side of it is the one to distrust.
+const DARK_SUN_ALT = -10;
+
+// Moon altitude at which its glow is treated as ruining the sky outright.
+// Below it the penalty ramps in linearly rather than switching on at the
+// horizon: a moon 2° up is nothing like a moon 10° up, and rounding both to
+// "moon is up, score 0" threw away the best hour of many nights.
+const MOON_KILL_ALT = 10;
+
+/**
+ * How much the moon spoils the sky, 0..100.
+ *
+ * 0 with the moon at or below the horizon, 100 from MOON_KILL_ALT up, linear in
+ * between. Altitude alone -- a thin crescent and a full moon at the same height
+ * are penalised the same.
+ */
+function moonPenalty(moonAlt) {
+    if (moonAlt <= 0) return 0;
+    return Math.min(100, (moonAlt / MOON_KILL_ALT) * 100);
+}
+
+// How high a fixed target has to get, during a block's dark hours, for that
+// block to earn its visibility mark. Not the horizon: at 10° you are already
+// looking through more than five atmospheres of haze, and real horizons have a
+// ridge or a tree line in them, so a target that never clears it was not
+// observable whatever the sky did.
+//
+// It is the same number as MOON_KILL_ALT by coincidence and not for the same
+// reason -- that one is where moonlight is treated as having ruined the sky,
+// this one is where a subject becomes worth pointing at. Retune either without
+// touching the other.
+//
+// Unlike DARK_SUN_ALT and MOON_KILL_ALT this has no counterpart on
+// astro-score_readable.html or in milkyway.py: neither draws a visibility mark,
+// and astroScore() reads none of the three targets' altitudes anyway.
+const TARGET_UP_ALT = 10;
+
+/**
+ * 觀星, 0..100 -- deliberately much simpler than milkyway.py's sky_quality().
+ *
+ * Daylight or twilight is out flat; what is left is the clear fraction of the
+ * sky, scaled down by how high the moon is. Null cloud cover scores nothing
+ * rather than 100.
+ */
+function astroScore(sunAlt, moonAlt, cover) {
+    if (cover === null || cover === undefined) return null;
+    if (sunAlt > DARK_SUN_ALT) return 0;
+    return (100 - Number(cover)) * (100 - moonPenalty(moonAlt)) / 100;
+}
+
+/* ------------------------------------------------------------------ *
+ * Folding hours into blocks
+ * ------------------------------------------------------------------ */
+
+// Two twelve-hour blocks per day, in the order they are drawn in a cell. They
+// split the day at noon, which on a stargazing grid splits the *night*: 00-11
+// holds the small hours of this date (its daylight half scores 0 and cannot
+// affect a maximum), 12-23 holds the evening. So the left glyph is "after
+// midnight" and the right one is "this evening".
+const BLOCK_HOURS = 12;
+const BLOCKS = 24 / BLOCK_HOURS;
+const BLOCK_LABELS = ["00-11", "12-23"];
+
+// Block peak -> glyph. Highest threshold first, so the first match wins; a peak
+// at or below the last threshold has no glyph and the cell shows a gap. Bands are
+// on the 觀星 scale directly (0..100), because the block's value is the best
+// single hour in it rather than a total. Strictly greater, as specified: a peak of
+// exactly 90 draws ▆, not █.
+const BARS = [
+    [90, "█"],   // FULL BLOCK
+    [70, "▆"],   // LOWER THREE QUARTERS BLOCK
+    [50, "▄"],   // LOWER HALF BLOCK
+    [30, "▂"],   // LOWER ONE QUARTER BLOCK
+];
+
+// Drawn under every half-day bar whose MilkyScore -- or OrionScore -- clears its
+// lowest band. One glyph for both strips: they are the same measurement of two
+// different subjects, so they differ in hue and in nothing else.
+const UNDER_GLYPH = "▀";   // UPPER HALF BLOCK
+
+// Drawn where a block scored no hour at all -- past a model's horizon Open-Meteo
+// returns nulls, and blocksByDate() declines to score them, so the block keeps
+// peak 0 and would otherwise draw the same blank as a hopeless night. A missing
+// forecast and a washed-out sky are not the same answer, and at the 16-day
+// default the last column of the ecmwf_ifs025 grid -- and most of the right half
+// of the icon_global one -- is the first kind. One faint middle dot says
+// "nothing to score" without competing with the bars; the cell title still
+// carries the (0/12 hr) count behind it.
+const NO_DATA_GLYPH = "·";   // MIDDLE DOT
+
+// Drawn on a block's own row under the two strips when that target cleared
+// TARGET_UP_ALT while the block was dark. One glyph for both marks, exactly as
+// UNDER_GLYPH serves both strips: the same measurement of two different
+// subjects, differing in hue and in nothing else.
+const UP_GLYPH = "*";   // ASTERISK
+
+// The eight phase glyphs in elongation order, one 45° octant each, starting at
+// new moon. They are the Northern Hemisphere's view -- 🌒 is lit on the right --
+// which is the right way round for every spot in places.js and would be mirrored
+// south of the equator. Nothing here flips them; a southern user reads the phase
+// correctly and the lit limb on the wrong side.
+const MOON_GLYPHS = ["🌑", "🌒", "🌓", "🌔", "🌕", "🌖", "🌗", "🌘"];
+
+// The same eight as names, in milkyway.py's vocabulary (its MOON_PHASE_NAMES,
+// which pure_math/moon_phase.html ports) so the tooltip and that page say the
+// same words. They are reached differently, though, and can disagree by one step
+// within a degree or two of a boundary: moon_phase_name() picks from the
+// illuminated fraction plus a waxing test, this indexes the elongation octant
+// directly. Neither is more correct -- a phase name is a label on a continuum --
+// and nothing on either page computes from the answer.
+const MOON_NAMES = ["新月", "眉月", "上弦", "盈凸", "滿月", "虧凸", "下弦", "殘月"];
+
+/**
+ * Phase octant for a moon-sun elongation: 0 new, 2 first quarter, 4 full, 6 last.
+ *
+ * Rounded rather than floored, so each glyph is centred on its phase and covers
+ * ±22.5° of elongation either side -- 🌕 means "within a day and a bit of full",
+ * not "somewhere past full".
+ *
+ * Elongation in ecliptic *longitude*, which is the conventional phase angle and
+ * not astro-score_readable.html's moonIllumination(), whose angularSeparation()
+ * is the true one including the moon's ecliptic latitude. The two differ by at
+ * most that latitude, ±5.1°, which is a ninth of one octant: it can only matter
+ * within hours of a boundary, where the glyph either side is equally true.
+ */
+function moonOctant(elong) {
+    return Math.floor(mod360(elong) / 45 + 0.5) % 8;
+}
+
+/** The phase glyph for an elongation. */
+function moonGlyph(elong) {
+    return MOON_GLYPHS[moonOctant(elong)];
+}
+
+/**
+ * MilkyScore for one hour: 觀星 as a fraction, times the galactic core's
+ * altitude in degrees.
+ *
+ * The two things the bar cannot say together. 觀星 is "is the sky any good"
+ * (dark, moonless, clear) and knows nothing about where A* is; the core's
+ * altitude is "is the subject even up" and knows nothing about the sky. A
+ * perfect sky with the core below the horizon is 0, a core at 30 deg under
+ * total cloud is 0, and only both at once scores. Below the horizon the
+ * altitude is clamped to 0 rather than allowed to go negative -- a core 20 deg
+ * down is no more useful than one on the horizon.
+ *
+ * Degrees, not a percentage: the ceiling is the core's own transit altitude,
+ * 90 - |lat - GC_DEC| (gcMaxAlt on astro-score_readable.html), which over
+ * Taiwan is ~35.8 deg (大武崙砲台) to ~39.1 deg (龍磐公園). So a perfect night at a
+ * Taiwanese spot tops out near 39 and MILKY_BANDS' upper steps are headroom for
+ * lower latitudes rather than shades anyone here will see.
+ */
+function milkyScore(score, gcAlt) {
+    return (score / 100) * Math.max(0, gcAlt);
+}
+
+// Block peak MilkyScore -> the purple it is drawn in, deepest first and highest
+// threshold first, so the first match wins. Strictly greater, like BARS: a peak
+// of exactly 20 draws nothing. One ramp of one hue -- the strip says how good
+// the Milky Way is and nothing else, so it varies only in depth, and it is
+// purple rather than a second green so it is never read as a very short bar.
+const MILKY_BANDS = [
+    [50, "#3d0f6b"],
+    [40, "#5b21a3"],
+    [30, "#8e44ad"],
+    [20, "#bd8fd6"],
+];
+
+/** The purple for a block's peak MilkyScore, or null below the lowest band. */
+function milkyColor(peak) {
+    for (const [threshold, color] of MILKY_BANDS) {
+        if (peak > threshold) return color;
+    }
+    return null;
+}
+
+/**
+ * OrionScore for one hour: the same product again, for M42 instead of A*.
+ *
+ * Deliberately a second function rather than a dec argument threaded through
+ * milkyScore(): the two are read as separate answers to "is tonight worth it",
+ * and keeping them apart is what lets either ramp be retuned without touching
+ * the other.
+ *
+ * Why a second strip at all: the two targets are in opposite seasons. A* is a
+ * summer object from Taiwan and M42 a winter one, so through half the year the
+ * purple strip is blank on every row of the grid and the page has nothing to say
+ * beyond "the sky is clear". The orange strip is what that half of the year looks
+ * like. Where they overlap -- autumn evenings -- the deeper of the two is the
+ * target to point at.
+ */
+function orionScore(score, m42Alt) {
+    return (score / 100) * Math.max(0, m42Alt);
+}
+
+// Block peak OrionScore -> the orange it is drawn in. Same thresholds as
+// MILKY_BANDS on purpose: the two strips answer the same question about
+// different subjects, so a shared ladder is what makes "the orange is deeper
+// than the purple tonight" mean "M42 is the better target" rather than "these
+// are two differently stretched pictures".
+//
+// One consequence worth knowing, and the reverse of the note on MILKY_BANDS: at
+// dec −5° rather than −29°, M42 transits ~59° (大武崙砲台) to ~63° (龍磐公園) over
+// Taiwan, so the deepest orange **is** reachable here where the deepest purple
+// is not. A saturated orange strip is a genuinely excellent M42 night, not a
+// clipped scale.
+//
+// Orange rather than a second purple or a second green: it has to be read
+// against both at a glance, and it is the one hue that is neither.
+const ORION_BANDS = [
+    [50, "#7a3000"],
+    [40, "#b1480a"],
+    [30, "#e2711d"],
+    [20, "#f5b271"],
+];
+
+/** The orange for a block's peak OrionScore, or null below the lowest band. */
+function orionColor(peak) {
+    for (const [threshold, color] of ORION_BANDS) {
+        if (peak > threshold) return color;
+    }
+    return null;
+}
+
+/** The glyph for a block's peak 觀星, or "" below the lowest band. */
+function barFor(peak) {
+    for (const [threshold, glyph] of BARS) {
+        if (peak > threshold) return glyph;
+    }
+    return "";
+}
+
+/**
+ * One spot's response -> Map of "YYYY-MM-DD" -> one day record.
+ *
+ * A day record is {blocks, elong}: the array of BLOCKS block records that the
+ * cell's stacks are drawn from, and the moon-sun elongation at that date's local
+ * noon, which is a property of the *day* rather than of either block and so
+ * hangs here rather than in both of them. Noon is the instant the two blocks
+ * meet, so neither half of the date is favoured; see td.blocks .moon for why the
+ * glyph is not drawn per block.
+ *
+ * Each block record is {peak, milky, orion, gcNight, m42Night, hours, dark,
+ * scored}: the best 觀星 in the block, the best MilkyScore and OrionScore in it,
+ * how high A* and M42 got while it was dark, how many of the twelve hours the
+ * response actually carried, how many of those were dark, and how many carried a
+ * cloud figure rather than a null. A block short on either count can peak low for
+ * a reason that is not "cloudy", which the cell title spells out.
+ *
+ * A maximum, not a total: the question this grid answers is "is there an hour
+ * worth going out for", and one excellent hour is worth the drive even when the
+ * rest of the night is clouded in. A sum would average that hour away.
+ *
+ * Cloud comes from one model, the one the tabs have selected. A model that the
+ * response does not carry yields no key and so an empty map, which draws as a row
+ * of dashes rather than as a clear sky.
+ *
+ * Every hour present is scored, including hours already gone. This page hides
+ * past *days* rather than past hours (see visibleDates), so today's column is
+ * always a whole 24 hours and its blocks do not shrink through the day -- a
+ * column that is drawn is a column that is complete.
+ *
+ * hourly.time is local wall time (timezone=auto), so utc_offset_seconds turns it
+ * back into the UTC instant the astronomy expects, and the date/hour can be read
+ * straight off the string. Latitude/longitude come from the response, i.e. the
+ * grid point actually forecast rather than the point that was asked for.
+ */
+function blocksByDate(body, model, multi) {
+    const hourly = body.hourly;
+    const key = seriesKey(hourly, "cloud_cover", model, multi);
+    const days = new Map();
+    if (!key) return days;
+
+    const offset = Number(body.utc_offset_seconds) || 0;
+    const lat = Number(body.latitude);
+    const lon = Number(body.longitude);
+
+    hourly.time.forEach((t, i) => {
+        const date = t.slice(0, 10);
+        if (!days.has(date)) {
+            days.set(date, {
+                blocks: Array.from(
+                    { length: BLOCKS },
+                    // gcNight/m42Night start below any real altitude rather than
+                    // at null, so the running maximum needs no first-value case;
+                    // `dark` is what says whether either was ever written to.
+                    () => ({
+                        peak: 0, milky: 0, orion: 0,
+                        gcNight: -90, m42Night: -90,
+                        hours: 0, dark: 0, scored: 0,
+                    }),
+                ),
+                elong: astroAt(
+                    Date.parse(`${date}T12:00:00Z`) - offset * 1000, lat, lon,
+                ).moonElong,
+            });
+        }
+        const block = days.get(date).blocks[Math.floor(Number(t.slice(11, 13)) / BLOCK_HOURS)];
+        block.hours += 1;
+        const utcMs = Date.parse(`${t}:00Z`) - offset * 1000;
+        const { sunAlt, moonAlt, gcAlt, m42Alt } = astroAt(utcMs, lat, lon);
+        // Visibility is taken before the cloud guard below, and deliberately so:
+        // whether a target was up in the dark is geometry, known for every hour
+        // the response carries whether or not that hour came with a cloud figure.
+        // So a mark can stand under a no-forecast dot at the far end of the grid,
+        // which is the correct answer -- the forecast ran out, the sky did not.
+        if (sunAlt <= DARK_SUN_ALT) {
+            block.dark += 1;
+            block.gcNight = Math.max(block.gcNight, gcAlt);
+            block.m42Night = Math.max(block.m42Night, m42Alt);
+        }
+        const score = astroScore(sunAlt, moonAlt, hourly[key][i]);
+        if (score === null) return;   // null cloud cover: no data, not a zero
+        block.peak = Math.max(block.peak, score);
+        // Maximum of the product, not the product of the maxima: the two peaks
+        // can fall in different hours, and an hour that was never good is not
+        // made good by another hour's core altitude.
+        block.milky = Math.max(block.milky, milkyScore(score, gcAlt));
+        block.orion = Math.max(block.orion, orionScore(score, m42Alt));
+        block.scored += 1;
+    });
+    return days;
+}
+
+/**
+ * The key a variable lives under for a given model, or null if absent.
+ *
+ * Verbatim from the other three Open-Meteo pages. Open-Meteo suffixes series keys
+ * with the model name only when two or more models are asked for; with one it
+ * returns a bare key, so both spellings have to be accepted -- clearing the
+ * models line in the extra params drops straight back to bare keys.
+ */
+function seriesKey(hourly, name, model, multi) {
+    if (multi && Object.hasOwn(hourly, `${name}_${model}`)) return `${name}_${model}`;
+    if (Object.hasOwn(hourly, name)) return name;
+    return null;
+}
+
+/**
+ * Which models the response carries, read back off the request rather than from
+ * MODELS -- the extra-params box can override models=, and reading the constant
+ * would then resolve the wrong keys.
+ */
+function modelsFromParams(params) {
+    const raw = String(params.models || "").trim();
+    return raw ? raw.split(",").map((m) => m.trim()).filter(Boolean) : [];
+}
+
+/* ------------------------------------------------------------------ *
+ * Presentation
+ * ------------------------------------------------------------------ */
+
+/** "2026-08-17" -> "08/17". Used for the cell tooltip, which has room for a slash. */
+function formatDate(date) {
+    return `${date.slice(5, 7)}/${date.slice(8, 10)}`;
+}
+
+/** "2026-08-17" -> ["08", "17"], the two stacked lines of a column header. */
+function dateLines(date) {
+    return [date.slice(5, 7), date.slice(8, 10)];
+}
+
+/**
+ * Today's date at the forecast location, as "YYYY-MM-DD".
+ *
+ * Taken from the response's utc_offset_seconds rather than the browser clock, so
+ * a spot in another zone -- or a hand-typed timezone= in the extra params -- puts
+ * the "today" column where the forecast thinks today is, not where the laptop
+ * does.
+ */
+function localToday(body) {
+    const offset = Number(body.utc_offset_seconds) || 0;
+    return new Date(Date.now() + offset * 1000).toISOString().slice(0, 10);
+}
+
+/**
+ * The day columns to draw, oldest first.
+ *
+ * With 從今天開始 ticked, days wholly in the past are dropped -- the same idea as
+ * astro-score_readable.html's 從現在開始, moved up from hours to days because a
+ * column here is a day. Dropping rather than zeroing matters once past_days is
+ * set: a hidden day takes no width, where a zeroed one drew as blank glyphs and
+ * pushed today off the right of a phone screen. ISO dates compare correctly as
+ * plain strings.
+ */
+function visibleDates(dates, today, hidePast) {
+    return hidePast ? dates.filter((d) => d >= today) : dates;
+}
+
+// No tint() here, unlike the other three Open-Meteo pages: this grid draws bars,
+// not tinted number cells, and a bar's height is already its value, so the green
+// is fixed in CSS (.bar). The values that do pick a colour are the two strips
+// under each bar -- neither has a height to vary, so depth of hue is all they
+// have (milkyColor / MILKY_BANDS and orionColor / ORION_BANDS above).
+
+/**
+ * One day at one place, as a table cell.
+ *
+ * Two stacks side by side, one per half-day, each five rows tall: the 觀星 bar,
+ * the MilkyScore strip, the OrionScore strip, then A*'s visibility mark and
+ * M42's. Under both stacks, spanning the cell, one moon phase glyph -- the only
+ * thing here that is a property of the date rather than of a block.
+ *
+ * The three lower rows are geometry and the two upper ones are forecast, which is
+ * the division to keep in mind reading a cell: a mark and a phase are as certain
+ * at day 16 as at day 1, while the bar above them is a cloud model's guess.
+ */
+function blocksCell(place, date, day) {
+    const { blocks, elong } = day;
+    const td = document.createElement("td");
+    td.className = "blocks";
+    const detail = [];
+    for (let b = 0; b < BLOCKS; b += 1) {
+        const { peak, milky, orion, gcNight, m42Night, hours, dark, scored } = blocks[b];
+        const stack = document.createElement("span");
+        stack.className = "stack";
+        const span = document.createElement("span");
+        span.className = scored ? "bar" : "bar nodata";
+        span.textContent = scored ? barFor(peak) : NO_DATA_GLYPH;
+        stack.appendChild(span);
+        // The MilkyScore strip, then the OrionScore one under it -- A* above M42
+        // because the purple came first and moving it would silently re-read every
+        // grid anyone has looked at. Both spans are appended whatever the value,
+        // so the stack keeps its height and the bars keep a common floor; below
+        // its lowest band a strip is simply left empty and unpainted.
+        for (const paint of [milkyColor(milky), orionColor(orion)]) {
+            const under = document.createElement("span");
+            under.className = "under";
+            if (paint) {
+                under.textContent = UNDER_GLYPH;
+                under.style.color = paint;
+            }
+            stack.appendChild(under);
+        }
+        // Then the two visibility marks, A* above M42 -- the same order as the
+        // strips, so a column of the stack reads as one subject all the way down.
+        // Appended whatever the answer, for the height reason above; an unmarked
+        // block is simply an empty span. A block with no dark hour at all (only
+        // possible on a response that stopped mid-day) is unmarked rather than
+        // marked on a daylight altitude.
+        for (const [cls, night] of [["gc", gcNight], ["m42", m42Night]]) {
+            const mark = document.createElement("span");
+            mark.className = `mark ${cls}`;
+            if (dark && night > TARGET_UP_ALT) mark.textContent = UP_GLYPH;
+            stack.appendChild(mark);
+        }
+        // No text node between the stacks: appended straight onto the cell, they
+        // have no whitespace to collapse into a gap, so the glyphs tile.
+        td.appendChild(stack);
+        // A block short of twelve scored hours can peak low for a reason that is
+        // not "cloudy" -- a null cloud figure, or a response that stopped early --
+        // so say so rather than letting a missing bar be misread.
+        const short = scored < BLOCK_HOURS ? ` (${scored}/${hours || BLOCK_HOURS} hr)` : "";
+        // The two marks are a yes or a no on screen; the title gives the altitude
+        // behind each, so a block that just missed is distinguishable from one
+        // whose subject never came up. "--" is "no dark hour to look in".
+        const upText = (night) => (dark ? `${night.toFixed(0).padStart(3)}°` : "  --");
+        detail.push(
+            `${BLOCK_LABELS[b]}  peak ${String(Math.round(peak)).padStart(3)}`
+            + `  milky ${milky.toFixed(1).padStart(4)}`
+            + `  orion ${orion.toFixed(1).padStart(4)}`
+            + `  A* max ${upText(gcNight)}  M42 max ${upText(m42Night)}${short}`,
+        );
+    }
+    // One glyph for the cell, after both stacks and outside the loop.
+    const moon = document.createElement("span");
+    moon.className = "moon";
+    moon.textContent = moonGlyph(elong);
+    td.appendChild(moon);
+    td.title = `${place} — ${formatDate(date)}\n${detail.join("\n")}`
+        + `\n${moonGlyph(elong)} ${MOON_NAMES[moonOctant(elong)]}`
+        + `  (elongation ${elong.toFixed(0)}°, at local noon)`;
+    return td;
+}
+
+/**
+ * The grid: a header row of days, then one row per place.
+ *
+ * `results` is one entry per PLACES row, in order, each {place, lat, lon, body,
+ * error}. Rows whose fetch failed keep their place in the table and say so
+ * rather than vanishing -- with one independent request per place, one rate-limited
+ * response should not silently shorten the list.
+ */
+function buildTable(results, hidePast) {
+    // Every spot is in the same timezone, but the dates are taken as a union
+    // anyway: a place across a date line, or a response one day short, would
+    // otherwise shift a whole row sideways against the header.
+    const first = results.find((r) => r.body);
+    const models = modelsFromParams(first.params);
+    const multi = models.length >= 2;
+    const folded = results.map((r) => (r.body ? blocksByDate(r.body, activeModel, multi) : null));
+    const all = [...new Set(folded.flatMap((m) => (m ? [...m.keys()] : [])))].sort();
+    const today = localToday(first.body);
+    const dates = visibleDates(all, today, hidePast);
+
+    const table = document.createElement("table");
+    const thead = table.createTHead();
+    const headRow = thead.insertRow();
+    const corner = document.createElement("th");
+    corner.className = "label";
+    corner.scope = "col";
+    const cornerName = document.createElement("span");
+    cornerName.className = "name";
+    cornerName.textContent = "地點";
+    corner.appendChild(cornerName);
+    const cornerApi = document.createElement("span");
+    cornerApi.className = "api";
+    cornerApi.textContent = "00-11 12-23";
+    corner.appendChild(cornerApi);
+    headRow.appendChild(corner);
+
+    // The divider only means something with a past column to its left, which is
+    // exactly when 從今天開始 is unticked and past_days brought some back.
+    const breakAt = dates[0] !== today && dates.includes(today) ? today : null;
+    const markBreak = (cell, date) => {
+        if (date === breakAt) cell.classList.add("todaybreak");
+    };
+
+    for (const date of dates) {
+        const th = document.createElement("th");
+        th.scope = "col";
+        th.className = date === today ? "day today" : "day";
+        markBreak(th, date);
+        for (const line of dateLines(date)) {
+            const span = document.createElement("span");
+            span.textContent = line;
+            th.appendChild(span);
+        }
+        headRow.appendChild(th);
+    }
+
+    const tbody = table.createTBody();
+    results.forEach((r, index) => {
+        const tr = tbody.insertRow();
+        const th = document.createElement("th");
+        th.className = "label";
+        th.scope = "row";
+        const name = document.createElement("span");
+        name.className = "name";
+        name.textContent = r.place;
+        th.appendChild(name);
+        // Latitude and longitude on their own lines rather than "lat, lon" on
+        // one: the label column is position: sticky, so its width is subtracted
+        // from every scroll position, and one long coordinate line was setting
+        // that width. Three short lines cost a row of height once and buy the
+        // grid two more days on a phone. .api is display: block, so a span per
+        // number is all it takes.
+        for (const coord of [r.lat, r.lon]) {
+            const api = document.createElement("span");
+            api.className = "api";
+            api.textContent = String(coord);
+            th.appendChild(api);
+        }
+        tr.appendChild(th);
+
+        const days = folded[index];
+        if (!days) {
+            const td = tr.insertCell();
+            td.className = "err";
+            td.colSpan = Math.max(1, dates.length);
+            td.textContent = r.error;
+            return;
+        }
+        for (const date of dates) {
+            const day = days.get(date);
+            if (!day) {
+                const td = tr.insertCell();
+                td.className = "na";
+                td.textContent = "-";
+                markBreak(td, date);
+                continue;
+            }
+            const td = blocksCell(r.place, date, day);
+            markBreak(td, date);
+            tr.appendChild(td);
+        }
+    });
+
+    return table;
+}
+
+/* ------------------------------------------------------------------ *
+ * Wiring
+ * ------------------------------------------------------------------ */
+
+let lastResults = null;   // the array buildTable() takes, from the most recent fetch
+let lastStats = null;    // {seconds, bytes} of that fetch, for the meta line
+let activeModel = DEFAULT_MODEL;   // which model the bars are scored from
+let inputPlaceName = "";   // 輸入's reverse-geocoded name, "" until it lands (or fails)
+
+/**
+ * One tab per model in the response, switching which model the grid scores.
+ *
+ * No refetch: every model is already in hand, so this is a re-render. That is the
+ * whole reason all four are requested rather than just the one being shown.
+ */
+function renderTabs() {
+    const tabs = document.getElementById("tabs");
+    tabs.textContent = "";
+    if (!lastResults) return;
+    const first = lastResults.find((r) => r.body);
+    if (!first) return;
+    const models = modelsFromParams(first.params);
+    // With models= cleared the API returns its default single model under bare
+    // keys -- one tab, so the layout stays the same either way.
+    const names = models.length ? models : ["default"];
+    if (!names.includes(activeModel)) {
+        activeModel = names.includes(DEFAULT_MODEL) ? DEFAULT_MODEL : names[0];
+    }
+
+    for (const name of names) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "tab";
+        button.textContent = name.replace(/_.*$/, "");
+        button.title = name;
+        button.setAttribute("aria-selected", String(name === activeModel));
+        button.addEventListener("click", () => {
+            activeModel = name;
+            renderTabs();
+            renderGrid();
+            setMeta();
+        });
+        tabs.appendChild(button);
+    }
+}
+
+function renderGrid() {
+    const scroller = document.getElementById("scroller");
+    scroller.textContent = "";
+    if (!lastResults) return;
+    scroller.appendChild(buildTable(lastResults, document.getElementById("hidePast").checked));
+}
+
+/**
+ * The request summary, plus 輸入's place name under it once the lookup lands.
+ *
+ * Split out of the submit handler because a tab click changes which model is
+ * scored without refetching, and the line names it -- which is also why the name
+ * is re-rendered from inputPlaceName here rather than appended to the element the
+ * way astro-score_readable.html does it: an appended node would not survive the
+ * next tab click.
+ */
+function setMeta() {
+    if (!lastResults || !lastStats) return;
+    const ok = lastResults.filter((r) => r.body);
+    if (!ok.length) return;
+    const failed = lastResults.length - ok.length;
+    const meta = document.getElementById("meta");
+    meta.classList.remove("error");
+    meta.textContent =
+        `${ok.length}/${lastResults.length} places  ${lastStats.bytes} bytes  ` +
+        `${lastStats.seconds.toFixed(2)}s  ` +
+        `— ${ok[0].body.timezone} (${ok[0].body.timezone_abbreviation}), ` +
+        `scoring ${activeModel} of ${modelsFromParams(ok[0].params).length || 1}` +
+        (failed ? `  — ${failed} failed, see the rows` : "");
+    if (inputPlaceName) {
+        // A <br>, not a "\n": .meta wraps normally, so a newline character in the
+        // text would come out as an ordinary space.
+        meta.appendChild(document.createElement("br"));
+        meta.appendChild(document.createTextNode(`${PLACES[0][0]}: ${inputPlaceName}`));
+    }
+}
+
+function showError(message) {
+    document.getElementById("result").hidden = false;
+    const meta = document.getElementById("meta");
+    meta.textContent = message;
+    meta.classList.add("error");
+    document.getElementById("scroller").textContent = "";
+    document.getElementById("tabs").textContent = "";
+}
+
+/** One labelled link per request, so every URL stays inspectable. */
+function setUrls(results) {
+    const urlEl = document.getElementById("url");
+    urlEl.textContent = "";
+    for (const r of results) {
+        const who = document.createElement("span");
+        who.className = "who";
+        who.textContent = r.place;
+        urlEl.appendChild(who);
+        const a = document.createElement("a");
+        a.href = r.url;
+        a.target = "_blank";
+        a.rel = "noopener";
+        a.textContent = r.url;
+        urlEl.appendChild(a);
+        urlEl.appendChild(document.createElement("br"));
+    }
+    document.getElementById("raw").hidden = false;
+}
+
+function resetDefaults() {
+    document.getElementById("forecast_days").value = String(DEFAULT_DAYS);
+    document.getElementById("extra").value = DEFAULT_EXTRA;
+    document.getElementById("location").value = `${DEFAULT_LAT},${DEFAULT_LON}`;
+}
+
+/**
+ * 使用目前位置 (use current position): the device's own coordinates into the
+ * location box, then refetch -- the submit handler is what copies the box into
+ * 輸入 (PLACES[0], the one entry that is not a saved spot), so this writes in one
+ * place and the typed and located routes stay identical.
+ *
+ * The note keeps the accuracy the device claimed, which the box has no room for.
+ *
+ * Geolocation is a secure-context API, which makes this the one control here that
+ * cannot work over file://. It fails as an ordinary rejection, and the reason is
+ * printed beside the button rather than thrown, leaving the box and the grid alone.
+ */
+async function useCurrentPosition() {
+    const button = document.getElementById("geo");
+    const note = document.getElementById("geonote");
+    button.disabled = true;
+    note.classList.remove("error");
+    note.textContent = "定位中...";
+    try {
+        const { lat, lon, accuracy } = await currentPosition();
+        document.getElementById("location").value = `${lat},${lon}`;
+        note.textContent = `±${Math.round(accuracy)} m`;
+        document.getElementById("form").requestSubmit();
+    } catch (err) {
+        note.classList.add("error");
+        note.textContent = err.message;
+    } finally {
+        button.disabled = false;
+    }
+}
+
+/**
+ * 在地圖上點選 (pick on the map): the same write as 使用目前位置 -- the box, then
+ * a refetch -- from a real map rather than from the device. Like that button it
+ * only fills the box, leaving the submit handler to copy it into 輸入
+ * (PLACES[0]), so the typed, located and pointed-at routes stay one path.
+ *
+ * pickOnMap() (places.js) opens on whatever the box already holds, so the map
+ * starts at the row you are about to move; anything unparseable there falls
+ * back to places.js's default rather than reporting itself, since a half-typed
+ * coordinate is about to be replaced by the one you point at. It never rejects,
+ * and 取消 resolves null -- on which this leaves the box and the grid alone.
+ *
+ * Unlike the GPS route there is no accuracy to report, so the .geonote is
+ * cleared: a "±12 m" left over from an earlier fix would describe a coordinate
+ * the box no longer holds.
+ */
+async function pickFromMap() {
+    const button = document.getElementById("mappick");
+    const note = document.getElementById("geonote");
+    button.disabled = true;
+    try {
+        const [latS, lonS] = document.getElementById("location").value.trim().split(",");
+        const lat = Number(latS), lon = Number(lonS);
+        const picked = await pickOnMap(
+            Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon } : {},
+        );
+        if (!picked) return;   // 取消
+        document.getElementById("location").value = `${picked.lat},${picked.lon}`;
+        note.classList.remove("error");
+        note.textContent = "";
+        document.getElementById("form").requestSubmit();
+    } finally {
+        button.disabled = false;
+    }
+}
+
+document.getElementById("form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const button = document.getElementById("submit");
+
+    // Read the form once, not once per place: N identical reads of the same
+    // inputs, and a request whose URL is rebuilt from the boxes afterwards could
+    // disagree with the one actually sent. Built before the button is disabled, so
+    // a malformed extra param reports itself without any requests going out and
+    // leaves the button usable for the corrected retry.
+    let requests;
+    try {
+        // 輸入 is a row, so the box has to land in PLACES[0] before the rows are
+        // read -- and inside this try, so a malformed coordinate reports itself
+        // with nothing sent, exactly like a malformed extra param.
+        setInputPlace(...inputPlaceFromForm());
+        requests = PLACES.map(([, lat, lon]) => paramsFor(lat, lon));
+    } catch (err) {
+        showError(err.message);
+        return;
+    }
+
+    button.disabled = true;
+    document.getElementById("result").hidden = false;
+    document.getElementById("meta").textContent =
+        `fetching ${PLACES.length} places, ${FETCH_POOL} at a time...`;
+    document.getElementById("meta").classList.remove("error");
+
+    // The 輸入 label for the line the forecast is about to write. Fired here and
+    // never awaited: it is a third-party lookup for one row's name, and ten
+    // forecasts must not wait on it. Cleared first so a moved 輸入 never shows the
+    // old township while the new name is in flight.
+    inputPlaceName = "";
+    loadInputPlaceName(PLACES[0][1], PLACES[0][2]);
+
+    const started = performance.now();
+    // One independent GET per place against a keyless endpoint, FETCH_POOL of them
+    // in flight at a time. The grid cannot draw until the last lands anyway, so the
+    // pool costs nothing worth measuring and keeps the API from answering 429.
+    // Settled, not all-or-nothing: one failure costs one row rather than the table.
+    const settled = await settledPool(requests, FETCH_POOL, (p) => fetchForecast(p));
+    const seconds = (performance.now() - started) / 1000;
+
+    const results = PLACES.map(([place, lat, lon], i) => {
+        const outcome = settled[i];
+        if (outcome.status === "rejected") {
+            const err = outcome.reason;
+            return {
+                place, lat, lon, params: requests[i], url: buildUrl(requests[i]), bytes: 0, body: null,
+                error: `request failed: ${err.name === "TimeoutError" ? "timed out" : err.message}`,
+            };
+        }
+        const r = outcome.value;
+        if (!r.ok || !r.body.hourly) {
+            // Same policy as open_meteo/open-meteo.py: show the API's own reason.
+            return {
+                place, lat, lon, params: requests[i], url: r.url, bytes: r.bytes, body: null,
+                error: `HTTP ${r.status} — ${r.body.reason || "no hourly data in response"}`,
+            };
+        }
+        return { place, lat, lon, params: requests[i], url: r.url, bytes: r.bytes, body: r.body, error: null };
+    });
+
+    setUrls(results);
+
+    const ok = results.filter((r) => r.body);
+    if (!ok.length) {
+        showError(`all ${results.length} requests failed — ${results[0].error}`);
+        button.disabled = false;
+        return;
+    }
+
+    lastResults = results;
+    lastStats = { seconds, bytes: results.reduce((sum, r) => sum + r.bytes, 0) };
+    renderTabs();   // resolves activeModel against what actually came back
+    setMeta();
+    renderGrid();
+    button.disabled = false;
+});
+
+document.getElementById("reset").addEventListener("click", resetDefaults);
+document.getElementById("geo").addEventListener("click", useCurrentPosition);
+document.getElementById("mappick").addEventListener("click", pickFromMap);
+document.getElementById("hidePast").addEventListener("change", renderGrid);
+
+document.getElementById("placeCount").textContent = String(PLACES.length);
+resetDefaults();
+
+// Fetch once on load, so the page opens on the grid rather than on an empty
+// panel waiting for a click: every field already holds a usable default, and the
+// question this page answers ("which place, which night") has no per-visit input
+// to collect first. It costs one round -- one request per PLACES entry, pooled --
+// on every page load; the readable page does not do this, because there the
+// location box is the question and a default coordinate is only a guess at it.
+document.getElementById("form").requestSubmit();
+</script>
+</body>
+</html>
