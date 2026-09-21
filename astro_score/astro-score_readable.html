@@ -384,13 +384,24 @@
                         the core rides. It is a ceiling, <b>not</b> a forecast &mdash; the core reaches it
                         once a day whether or not the sun is down, so a whole night can pass with Sgr A*
                         well short of it.</li>
-                    <li>All five are <b>computed from the location</b> with this page's own astronomy, not
+                    <li><b>M42 (M42 (&deg;))</b> and <b>M42 max (M42 (max))</b> are that same pair for the
+                        <b>Orion Nebula</b> (M42, RA 05h35m, Dec &minus;5&deg;), read exactly the same way
+                        and on the same 25&deg; airmass scale, so the two can be compared straight down a
+                        column. They are there because the two targets are in opposite seasons: the months
+                        the core is up are the months Orion is not, so a night that is useless for one is
+                        often <i>the</i> night for the other. Being at Dec &minus;5&deg; instead of
+                        &minus;29&deg;, M42 also rides far higher here &mdash; about +59&deg; to +63&deg;
+                        over Taiwan against the core's +36&deg; to +39&deg; &mdash; which is why the
+                        two <b>max</b> rows are worth reading as a pair too. Like Sgr A* (銀心), neither
+                        enters the score.</li>
+                    <li>All seven are <b>computed from the location</b> with this page's own astronomy, not
                         read from the response &mdash; Open-Meteo returns only sunrise/sunset and a daily
                         <code>moon_phase</code>, neither of which is an hourly altitude. They are the same
                         Meeus series <code>milkyway.py</code> uses, and every intermediate step is printed
                         out on <a href="../pure_math/sun_phase.html">sun_phase</a>,
                         <a href="../pure_math/moon_phase.html">moon_phase</a> and
-                        <a href="../pure_math/galactic_center.html">galactic_center</a>, which exist to
+                        <a href="../pure_math/galactic_center.html">galactic_center</a> and
+                        <a href="../pure_math/orion_nebula_m42.html">orion_nebula_m42</a>, which exist to
                         check exactly these rows.</li>
                 </ul>
             </div>
@@ -742,6 +753,14 @@ const mod360 = (x) => ((x % 360) + 360) % 360;
 const GC_RA = 266.41683;
 const GC_DEC = -29.00781;
 
+// Orion Nebula (M42, NGC 1976), J2000: RA 05h35m17.3s, Dec -05deg23'28" -- the
+// sword of Orion, and the winter counterpart to the core above. Same treatment
+// for the same reason: a fixed equatorial pair, precession since J2000 far below
+// the accuracy of the series below it, so only the sidereal time moves it.
+// pure_math/orion_nebula_m42.html prints every step of this one.
+const M42_RA = 83.82208;
+const M42_DEC = -5.39111;
+
 /**
  * Julian Day from a UTC timestamp in milliseconds.
  *
@@ -886,15 +905,30 @@ function gcMaxAlt(lat) {
 }
 
 /**
- * Sun, moon and galactic core for one hour, at the grid point the forecast is for.
+ * The highest M42 ever gets at a latitude, in degrees.
  *
- * The core is a fixed point, so its altitude needs no ephemeris at all -- just
- * the same sidereal time the other two are converted with.
+ * Identical arithmetic to gcMaxAlt() with the other declination -- kept as its
+ * own function rather than a shared maxAlt(lat, dec) so the two read as the pair
+ * of constants they are, and so this page stays line-for-line comparable with
+ * pure_math/. At dec -5 rather than -29 the ceiling is far higher from Taiwan:
+ * roughly 59 deg (大武崙砲台) to 63 deg (龍磐公園), against the core's 36 to 39.
+ */
+function m42MaxAlt(lat) {
+    return 90 - Math.abs(lat - M42_DEC);
+}
+
+/**
+ * Sun, moon, galactic core and M42 for one hour, at the grid point the forecast
+ * is for.
  *
- * gcMaxAlt is a constant for the location rather than an hourly value, and is
- * repeated into every hour purely so the 銀心 (max) row draws through the same
- * drawAstroRow() as everything else instead of needing a special case. It costs
- * one subtraction an hour.
+ * Both deep-sky targets are fixed points, so their altitudes need no ephemeris at
+ * all -- just the same sidereal time the sun and moon are converted with, which is
+ * why adding the second one costs one altAz() call an hour and nothing else.
+ *
+ * gcMaxAlt/m42MaxAlt are constants for the location rather than hourly values, and
+ * are repeated into every hour purely so the 銀心 (max) and M42 (max) rows draw
+ * through the same drawAstroRow() as everything else instead of needing a special
+ * case. They cost one subtraction an hour each.
  */
 function astroAt(utcMs, lat, lon) {
     const jd = julianDay(utcMs);
@@ -906,6 +940,8 @@ function astroAt(utcMs, lat, lon) {
         moonAlt: altAz(moon.ra, moon.dec, lat, lst).alt,
         gcAlt: altAz(GC_RA, GC_DEC, lat, lst).alt,
         gcMaxAlt: gcMaxAlt(lat),
+        m42Alt: altAz(M42_RA, M42_DEC, lat, lst).alt,
+        m42MaxAlt: m42MaxAlt(lat),
         moonIllum: moonIllumination(sun.ra, sun.dec, moon.ra, moon.dec, moon.dist) * 100,
     };
 }
@@ -1213,6 +1249,25 @@ const GC_ROW = { key: "gcAlt", label: "銀心 (°)", api: "A* alt", scale: [0, 2
 // is to answer "is 銀心 22 tonight close to as good as it gets here, or half of
 // it" without the reader knowing the latitude.
 const GC_MAX_ROW = { key: "gcMaxAlt", label: "銀心 (max)", api: "A* max" };
+
+// M42 / M42 (max) -- the same pair again for the Orion Nebula, drawn directly
+// under the 銀心 two so the summer target and the winter one can be read against
+// each other in one glance. That is the whole reason for the second pair: the
+// months when the core is up are the months M42 is not, so a night that is
+// hopeless for one is often the good night for the other.
+//
+// Same [0, 25, false] scale as GC_ROW, deliberately. The 25° ramp is an *airmass*
+// argument, not a Sagittarius one -- below it any target is being shot through
+// too much atmosphere -- so sharing the scale is what makes the two rows directly
+// comparable rather than two differently-stretched pictures. And like 銀心 it is
+// display only: astroScore() reads neither, so M42 below the horizon does not
+// lower the score.
+const M42_ROW = { key: "m42Alt", label: "M42 (°)", api: "M42 alt", scale: [0, 25, false] };
+
+// M42 (max) -- the ceiling for the row above, untinted for exactly the reason
+// GC_MAX_ROW is. Worth reading beside 銀心 (max): at dec −5° rather than −29°,
+// M42 transits ~59°–63° over Taiwan where the core only reaches ~36°–39°.
+const M42_MAX_ROW = { key: "m42MaxAlt", label: "M42 (max)", api: "M42 max" };
 
 // Light pollution at the location: three views of one number, drawn under
 // 銀心 (max) because they are the same kind of thing -- fixed by where you are
@@ -1534,10 +1589,14 @@ function buildTable(body, params, fromNow) {
     for (const spec of ASTRO_ROWS) drawAstroRow(spec);
 
     // 銀心 and its ceiling, read as a pair: how high the core is against how high
-    // it can ever get here. Last block on the grid, with the light pollution rows
-    // below -- they are about the place rather than the night.
+    // it can ever get here. Then M42 and its ceiling, the same pair for the winter
+    // target, so the two can be compared column by column. Last block on the grid,
+    // with the light pollution rows below -- they are about the place rather than
+    // the night.
     drawAstroRow(GC_ROW);
     drawAstroRow(GC_MAX_ROW);
+    drawAstroRow(M42_ROW);
+    drawAstroRow(M42_MAX_ROW);
 
     // 光害 / Bortle / LP Zone -- fetched, not computed, and possibly not here yet.
     // undefined means the lookup is still in flight (drawn "…"), null means it

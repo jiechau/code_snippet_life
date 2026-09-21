@@ -20,6 +20,9 @@
             /* The MilkyScore accent: the middle step of MILKY_BANDS, used for the
                legend section that explains the strip. */
             --milky: #8e44ad;
+            /* The OrionScore accent, the same way: the middle step of
+               ORION_BANDS, for its own legend section. */
+            --orion: #e2711d;
         }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -84,14 +87,21 @@
         .rule ul { margin: 8px 0 0; padding-left: 20px; color: var(--muted); }
         .rule li { margin: 3px 0; }
         /* One legend section per thing a cell draws, each in that thing's own
-           colour: green for the 觀星 bar, purple for the MilkyScore strip, and a
-           neutral dark bar for the notes, which belong to neither. */
+           colour: green for the 觀星 bar, purple for the MilkyScore strip, orange
+           for the OrionScore one, and a neutral dark bar for the notes, which
+           belong to none of them. */
         .rule.milky {
             border-left-color: var(--milky);
             background: #f8f4fb;
         }
         .rule.milky .formula { color: var(--milky); }
         .rule.milky .example { border-top-color: #e2d3ec; }
+        .rule.orion {
+            border-left-color: var(--orion);
+            background: #fdf6f0;
+        }
+        .rule.orion .formula { color: #b1480a; }
+        .rule.orion .example { border-top-color: #f0dbc8; }
         .rule.notes {
             border-left-color: #333;
             background: #f7f8f9;
@@ -326,8 +336,8 @@
                makes no line box however much height it is given -- the stack would
                fall back to the bar's baseline and hang lower than its neighbours,
                which is exactly the misalignment this replaced. Every stack is the
-               same height (two fixed 1em rows), so aligning them by their tops
-               puts both the bars and the strips on one line, unconditionally. */
+               same height (three fixed 1em rows), so aligning them by their tops
+               puts the bars and both strips on one line, unconditionally. */
             vertical-align: top;
         }
         /* Fixed height, not just line-height: a blank bar (peak <= the lowest band)
@@ -337,14 +347,17 @@
            .bar's own 1.5rem is exactly the line box a glyph makes, so the drawn
            bars do not move. */
         .stack .bar { display: block; width: auto; height: 1em; }
-        /* The MilkyScore strip. U+2580 UPPER HALF BLOCK: its ink fills the top
-           half of the character cell, so it lands directly under the bar's floor
-           and the empty lower half of its line box reads as row spacing. Its
-           colour is set per cell (MILKY_BANDS), the one place on this page a
-           value picks a colour -- the bars, whose height is already their value,
-           are one fixed green. Fixed height for the same reason as .bar: below
-           the lowest band the span is left empty, and an empty block box makes
-           no line box, which would shorten the stack under one cell only. */
+        /* The two strips: MilkyScore, then OrionScore under it. U+2580 UPPER HALF
+           BLOCK: its ink fills the top half of the character cell, so each lands
+           directly under what is above it and the empty lower half of each line
+           box reads as the spacing that keeps the two readable as separate bands
+           rather than one two-tone block. Their colours are set per cell
+           (MILKY_BANDS / ORION_BANDS), the only place on this page a value picks
+           a colour -- the bars, whose height is already their value, are one
+           fixed green. Fixed height for the same reason as .bar: below its lowest
+           band a strip is left empty, and an empty block box makes no line box,
+           which would shorten the stack under one cell only. One class for both,
+           since they are the same geometry twice. */
         .under {
             display: block;
             font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -429,6 +442,37 @@
                         &mdash; ~35.8&deg; at the northernmost saved spot (大武崙砲台) to ~39.1&deg; at the
                         southernmost (龍磐公園) over Taiwan. The top two shades
                         belong to lower latitudes.</li>
+                </ul>
+            </div>
+
+            <div class="rule orion">
+                <span class="formula">strip = max (M42 alt&deg; &times; AstroScore/100) over the same 12 hours
+                    <span class="gloss">&nbsp; OrionScore &mdash; the same again for the <em>winter</em> subject</span></span>
+                <div class="example">
+                    <div><b style="color:#7a3000;">&#9600;</b>  &gt; 50</div>
+                    <div><b style="color:#b1480a;">&#9600;</b>  &gt; 40</div>
+                    <div><b style="color:#e2711d;">&#9600;</b>  &gt; 30</div>
+                    <div><b style="color:#f5b271;">&#9600;</b>  &gt; 20</div>
+                    <div>   &le; 20   blank &mdash; M42 too low, or the sky too poor</div>
+                </div>
+                <ul>
+                    <li>The lower strip is the <b>Orion Nebula (M42)</b> read exactly as the purple one
+                        reads <b>Sgr A* (銀心)</b>, on the <b>same ladder</b>, so the two can be compared
+                        directly: whichever is deeper tonight is the target to point at.</li>
+                    <li><b>They rarely paint together</b>, which is the point of having both, and the
+                        grid shows it twice over. Across the year: A* (RA 17h45m) is a summer object from
+                        Taiwan and M42 (RA 05h35m) a winter one, so for half the year the purple strip is
+                        blank on every row and a clear night has nothing under it &mdash; the orange strip
+                        is what that half looks like. And within a single autumn night the two fall in
+                        <em>opposite halves</em>: the core is up in the evening and gone by the small
+                        hours, M42 the other way about. So the purple tends to sit under a day's
+                        <b>right</b> glyph and the orange under the next day's <b>left</b> one &mdash; the
+                        same one-night-across-two-cells reading as the bars, now saying which target each
+                        half of the night belongs to.</li>
+                    <li>At Dec &minus;5&deg; rather than &minus;29&deg;, M42 rides far higher here
+                        &mdash; transiting about +59&deg; to +63&deg; over Taiwan &mdash; so unlike the
+                        purple ramp, the <b>deepest orange is reachable</b> from these spots. A saturated
+                        orange strip is a genuinely excellent M42 night, not a scale running out.</li>
                 </ul>
             </div>
 
@@ -847,6 +891,14 @@ const mod360 = (x) => ((x % 360) + 360) % 360;
 const GC_RA = 266.41683;
 const GC_DEC = -29.00781;
 
+// Orion Nebula (M42, NGC 1976), J2000: RA 05h35m17.3s, Dec -05deg23'28" -- the
+// winter counterpart to the core above, and the subject of the orange strip.
+// Same treatment for the same reason: a fixed equatorial pair, precession since
+// J2000 far below the accuracy of everything around it, so only the sidereal
+// time moves it. pure_math/orion_nebula_m42.html prints every step.
+const M42_RA = 83.82208;
+const M42_DEC = -5.39111;
+
 /**
  * Julian Day from a UTC timestamp in milliseconds.
  *
@@ -956,13 +1008,17 @@ function altAz(ra, dec, lat, lst) {
 }
 
 /**
- * Sun, moon and galactic core altitude for one hour, at the grid point the
+ * Sun, moon, galactic core and M42 altitude for one hour, at the grid point the
  * forecast is for.
  *
- * The core is display-only on astro-score_readable.html -- astroScore() does not
- * read it there and does not here either. It is in this page because the purple
- * strip under each bar multiplies it by the score (see milkyScore), so a clear
- * moonless night with A* below the horizon still scores 觀星 100 and no purple.
+ * Both deep-sky targets are display-only on astro-score_readable.html --
+ * astroScore() does not read them there and does not here either. They are in
+ * this page because the two strips under each bar multiply them by the score (see
+ * milkyScore / orionScore), so a clear moonless night with both below the horizon
+ * still scores 觀星 100 with no colour under it at all.
+ *
+ * Both are fixed points, so the second one costs one altAz() call an hour and no
+ * new series: the sidereal time is already computed.
  *
  * astro-score_readable.html also returns the lunar illuminated fraction, for a
  * 月相 row this page does not have, so that stays uncomputed.
@@ -976,6 +1032,7 @@ function astroAt(utcMs, lat, lon) {
         sunAlt: altAz(sun.ra, sun.dec, lat, lst).alt,
         moonAlt: altAz(moon.ra, moon.dec, lat, lst).alt,
         gcAlt: altAz(GC_RA, GC_DEC, lat, lst).alt,
+        m42Alt: altAz(M42_RA, M42_DEC, lat, lst).alt,
     };
 }
 
@@ -1044,7 +1101,9 @@ const BARS = [
     [30, "▂"],   // LOWER ONE QUARTER BLOCK
 ];
 
-// Drawn under every half-day bar whose MilkyScore clears the lowest band.
+// Drawn under every half-day bar whose MilkyScore -- or OrionScore -- clears its
+// lowest band. One glyph for both strips: they are the same measurement of two
+// different subjects, so they differ in hue and in nothing else.
 const UNDER_GLYPH = "▀";   // UPPER HALF BLOCK
 
 // Drawn where a block scored no hour at all -- past a model's horizon Open-Meteo
@@ -1099,6 +1158,54 @@ function milkyColor(peak) {
     return null;
 }
 
+/**
+ * OrionScore for one hour: the same product again, for M42 instead of A*.
+ *
+ * Deliberately a second function rather than a dec argument threaded through
+ * milkyScore(): the two are read as separate answers to "is tonight worth it",
+ * and keeping them apart is what lets either ramp be retuned without touching
+ * the other.
+ *
+ * Why a second strip at all: the two targets are in opposite seasons. A* is a
+ * summer object from Taiwan and M42 a winter one, so through half the year the
+ * purple strip is blank on every row of the grid and the page has nothing to say
+ * beyond "the sky is clear". The orange strip is what that half of the year looks
+ * like. Where they overlap -- autumn evenings -- the deeper of the two is the
+ * target to point at.
+ */
+function orionScore(score, m42Alt) {
+    return (score / 100) * Math.max(0, m42Alt);
+}
+
+// Block peak OrionScore -> the orange it is drawn in. Same thresholds as
+// MILKY_BANDS on purpose: the two strips answer the same question about
+// different subjects, so a shared ladder is what makes "the orange is deeper
+// than the purple tonight" mean "M42 is the better target" rather than "these
+// are two differently stretched pictures".
+//
+// One consequence worth knowing, and the reverse of the note on MILKY_BANDS: at
+// dec −5° rather than −29°, M42 transits ~59° (大武崙砲台) to ~63° (龍磐公園) over
+// Taiwan, so the deepest orange **is** reachable here where the deepest purple
+// is not. A saturated orange strip is a genuinely excellent M42 night, not a
+// clipped scale.
+//
+// Orange rather than a second purple or a second green: it has to be read
+// against both at a glance, and it is the one hue that is neither.
+const ORION_BANDS = [
+    [50, "#7a3000"],
+    [40, "#b1480a"],
+    [30, "#e2711d"],
+    [20, "#f5b271"],
+];
+
+/** The orange for a block's peak OrionScore, or null below the lowest band. */
+function orionColor(peak) {
+    for (const [threshold, color] of ORION_BANDS) {
+        if (peak > threshold) return color;
+    }
+    return null;
+}
+
 /** The glyph for a block's peak 觀星, or "" below the lowest band. */
 function barFor(peak) {
     for (const [threshold, glyph] of BARS) {
@@ -1110,8 +1217,8 @@ function barFor(peak) {
 /**
  * One spot's response -> Map of "YYYY-MM-DD" -> array of BLOCKS block records.
  *
- * Each record is {peak, milky, hours, scored}: the best 觀星 in the block, the
- * best MilkyScore in it, how many of the twelve hours the response actually
+ * Each record is {peak, milky, orion, hours, scored}: the best 觀星 in the block,
+ * the best MilkyScore and OrionScore in it, how many of the twelve hours the response actually
  * carried, and how many of those carried a cloud figure rather than a null. A block short on either count can peak low for
  * a reason that is not "cloudy", which the cell title spells out.
  *
@@ -1148,13 +1255,13 @@ function blocksByDate(body, model, multi) {
         if (!days.has(date)) {
             days.set(date, Array.from(
                 { length: BLOCKS },
-                () => ({ peak: 0, milky: 0, hours: 0, scored: 0 }),
+                () => ({ peak: 0, milky: 0, orion: 0, hours: 0, scored: 0 }),
             ));
         }
         const block = days.get(date)[Math.floor(Number(t.slice(11, 13)) / BLOCK_HOURS)];
         block.hours += 1;
         const utcMs = Date.parse(`${t}:00Z`) - offset * 1000;
-        const { sunAlt, moonAlt, gcAlt } = astroAt(utcMs, lat, lon);
+        const { sunAlt, moonAlt, gcAlt, m42Alt } = astroAt(utcMs, lat, lon);
         const score = astroScore(sunAlt, moonAlt, hourly[key][i]);
         if (score === null) return;   // null cloud cover: no data, not a zero
         block.peak = Math.max(block.peak, score);
@@ -1162,6 +1269,7 @@ function blocksByDate(body, model, multi) {
         // can fall in different hours, and an hour that was never good is not
         // made good by another hour's core altitude.
         block.milky = Math.max(block.milky, milkyScore(score, gcAlt));
+        block.orion = Math.max(block.orion, orionScore(score, m42Alt));
         block.scored += 1;
     });
     return days;
@@ -1234,9 +1342,9 @@ function visibleDates(dates, today, hidePast) {
 
 // No tint() here, unlike the other three Open-Meteo pages: this grid draws bars,
 // not tinted number cells, and a bar's height is already its value, so the green
-// is fixed in CSS (.bar). The one value that does pick a colour is the MilkyScore
-// strip under each bar -- it has no height to vary, so depth of purple is all it
-// has (milkyColor / MILKY_BANDS above).
+// is fixed in CSS (.bar). The values that do pick a colour are the two strips
+// under each bar -- neither has a height to vary, so depth of hue is all they
+// have (milkyColor / MILKY_BANDS and orionColor / ORION_BANDS above).
 
 /** The four glyphs for one day at one place, as a table cell. */
 function blocksCell(place, date, blocks) {
@@ -1244,24 +1352,27 @@ function blocksCell(place, date, blocks) {
     td.className = "blocks";
     const detail = [];
     for (let b = 0; b < BLOCKS; b += 1) {
-        const { peak, milky, hours, scored } = blocks[b];
+        const { peak, milky, orion, hours, scored } = blocks[b];
         const stack = document.createElement("span");
         stack.className = "stack";
         const span = document.createElement("span");
         span.className = scored ? "bar" : "bar nodata";
         span.textContent = scored ? barFor(peak) : NO_DATA_GLYPH;
         stack.appendChild(span);
-        // The MilkyScore strip. Its span is appended whatever the value, so the
-        // stack keeps its height and the bars keep a common floor; below the
-        // lowest band it is simply left empty and unpainted.
-        const under = document.createElement("span");
-        under.className = "under";
-        const color = milkyColor(milky);
-        if (color) {
-            under.textContent = UNDER_GLYPH;
-            under.style.color = color;
+        // The MilkyScore strip, then the OrionScore one under it -- A* above M42
+        // because the purple came first and moving it would silently re-read every
+        // grid anyone has looked at. Both spans are appended whatever the value,
+        // so the stack keeps its height and the bars keep a common floor; below
+        // its lowest band a strip is simply left empty and unpainted.
+        for (const paint of [milkyColor(milky), orionColor(orion)]) {
+            const under = document.createElement("span");
+            under.className = "under";
+            if (paint) {
+                under.textContent = UNDER_GLYPH;
+                under.style.color = paint;
+            }
+            stack.appendChild(under);
         }
-        stack.appendChild(under);
         // No text node between the stacks: appended straight onto the cell, they
         // have no whitespace to collapse into a gap, so the glyphs tile.
         td.appendChild(stack);
@@ -1271,7 +1382,8 @@ function blocksCell(place, date, blocks) {
         const short = scored < BLOCK_HOURS ? ` (${scored}/${hours || BLOCK_HOURS} hr)` : "";
         detail.push(
             `${BLOCK_LABELS[b]}  peak ${String(Math.round(peak)).padStart(3)}`
-            + `  milky ${milky.toFixed(1).padStart(4)}${short}`,
+            + `  milky ${milky.toFixed(1).padStart(4)}`
+            + `  orion ${orion.toFixed(1).padStart(4)}${short}`,
         );
     }
     td.title = `${place} — ${formatDate(date)}\n${detail.join("\n")}`;

@@ -27,11 +27,13 @@ here mainly when changing those constants; the adjustable form is
 
 - [AstroScore readable](https://jiechau.github.io/code_snippet_life/astro_score/astro-score_readable.html)
   — an hour-by-hour grid with a 觀星 score per hour, plus 太陽/月亮/月相/銀心 rows,
-  the fixed 銀心 (max) ceiling, and the site's 光害 (SQM) / Bortle / LP Zone; the
+  the fixed 銀心 (max) ceiling, the same altitude pair again for the Orion Nebula
+  (M42 (°) / M42 (max)), and the site's 光害 (SQM) / Bortle / LP Zone; the
   雲量來源 tabs pick which of the four models it is drawn from.
 - [AstroScore daily](https://jiechau.github.io/code_snippet_life/astro_score/astro-score_daily.html)
   — the same score folded into a week-at-a-glance grid: a row per place, a
-  column per day, two block glyphs per cell, each over a purple MilkyScore strip.
+  column per day, two block glyphs per cell, each over a purple MilkyScore strip
+  and an orange OrionScore one.
   The first row is 輸入, which 使用目前位置 points at wherever you are standing
   and 在地圖上點選 at wherever you can find on a map.
 
@@ -130,6 +132,25 @@ It is in **degrees**, so its ceiling is the core's own transit altitude,
 `90 − |lat − dec|` — ~35.8° at 大武崙砲台 to ~39.1° at 龍磐公園. Over Taiwan the top two
 shades are therefore unreachable and belong to lower latitudes; retune
 `MILKY_BANDS` in the page if you want the range spread across the local ceiling.
+
+Under *that* is a second strip in **orange: the OrionScore**, the identical product
+for the **Orion Nebula (M42)** — `M42 altitude° × 觀星 / 100`, same four thresholds,
+read the same way. It uses `MILKY_BANDS`' ladder deliberately, so the two strips are
+directly comparable: whichever is deeper tonight is the target to point at.
+
+**The two rarely paint together, which is why both are there.** Across the year they
+are opposite seasons — A\* (RA 17h45m) is a summer object from Taiwan, M42
+(RA 05h35m) a winter one — so for half the year the purple strip is blank on every
+row and a clear night has nothing under it. Within a single autumn night they fall in
+opposite *halves*: the core is up in the evening, M42 in the small hours. So the
+purple tends to sit under a day's **right** glyph and the orange under the next day's
+**left** one — the same one-night-across-two-cells reading as the bars, now saying
+which target each half of the night belongs to.
+
+The one place the ladder behaves differently: at Dec −5° rather than −29°, M42
+transits ~59° (大武崙砲台) to ~63° (龍磐公園) over Taiwan, so unlike the purple ramp the
+**deepest orange is reachable** from these spots. A saturated orange strip is a
+genuinely excellent M42 night, not a scale running out.
 
 Max rather than sum or average is the point: the grid answers *is there an hour
 worth going out for*, and one excellent hour justifies the drive even when the
@@ -323,6 +344,17 @@ does not feed it removed.
   大武崙砲台 to 39.1° at 龍磐公園 — the further south, the higher the core rides. It is a
   ceiling, not a forecast: the core reaches it once a day whether or not the sun is
   down, so a whole night can pass with 銀心 well short of it.
+- **The M42 (°) and M42 (max) rows** are that same pair once more, for the **Orion
+  Nebula** (J2000 RA 05h35m17.3s, Dec −05°23′28″), drawn directly under the 銀心 two
+  and read exactly the same way — on the **same 25° scale**, because that ramp is an
+  *airmass* argument rather than a Sagittarius one, which is what lets the two be
+  compared straight down a column. They are there because the two targets are in
+  opposite seasons: the months the core is up are the months Orion is not, so a night
+  that is useless for one is often *the* night for the other. At Dec −5° instead of
+  −29° M42 also rides far higher here — transiting about +59° at 大武崙砲台 to +63° at
+  龍磐公園, against the core's +36° to +39° — which is why both **(max)** rows earn
+  their place. Like 銀心, neither enters the score. Every step of this one is printed
+  out on [`pure_math/orion_nebula_m42.html`](../pure_math/orion_nebula_m42.html).
 
 It talks to Open-Meteo **straight from the browser**; Pages is static hosting and
 cannot run the Python. That works only because Open-Meteo needs no API key (a key

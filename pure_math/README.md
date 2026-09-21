@@ -17,11 +17,19 @@ and shows it on its own, with every intermediate value printed instead of folded
 into a grid cell. When that page draws 太陽 −6.6° for an hour, this is where you
 can see the eight lines of arithmetic that produced the number.
 
+`orion_nebula_m42.html` extracts the same way, and is also the clearest statement of
+what these extractions are worth: it is `galactic_center.html` with **one pair of
+constants changed** and nothing else. A fixed equatorial position needs no ephemeris,
+so the coordinate pair *is* the whole difference between one catalogue object and the
+next. The two are parallel implementations — change the astronomy in either and
+change it in the other.
+
 **Live demo:** https://jiechau.github.io/code_snippet_life/pure_math/
 
 | Page | Answers | Lifted from |
 | --- | --- | --- |
 | [galactic_center.html](galactic_center.html) | How high is the Milky Way core? | the `銀心` and `銀心 (max)` rows |
+| [orion_nebula_m42.html](orion_nebula_m42.html) | How high is the Orion Nebula? | the `M42 (°)` and `M42 (max)` rows, and the orange strip on the daily grid |
 | [sun_phase.html](sun_phase.html) | Is it dark yet? | the `太陽` row, and the gate that zeroes 觀星 |
 | [moon_phase.html](moon_phase.html) | Is the moon up, and how bright? | the `月亮` and `月相` rows, plus 月亮扣分 |
 
@@ -84,7 +92,10 @@ up", which is all the score asks. Do not read these pages as an ephemeris.
 Per the one-folder-per-snippet rule, nothing is imported: each page carries its
 own copy of the functions it needs, and **only** the ones it draws.
 `galactic_center.html` has no ecliptic conversion at all (Sagittarius A* is a
-fixed equatorial position), and only `moon_phase.html` carries the lunar series —
+fixed equatorial position), `orion_nebula_m42.html` is the same file with M42's
+RA and Dec in place of A*'s — the two are parallel implementations, so a change to
+the astronomy in one belongs in the other — and only `moon_phase.html` carries the
+lunar series —
 along with `sunPosition()`, because the illuminated fraction is a function of the
 moon–sun elongation and so cannot be had without the sun.
 
