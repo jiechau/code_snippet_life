@@ -23,6 +23,14 @@
             /* The OrionScore accent, the same way: the middle step of
                ORION_BANDS, for its own legend section. */
             --orion: #e2711d;
+            /* The moon-altitude mark. Not a band's middle step -- the moon has no
+               strip and no ramp -- but a fourth hue chosen to be neither of the
+               two target ones, because it means the opposite of what they mean: a
+               high digit under A* or M42 is a reason to go out, a high digit here
+               is the reason not to. Cool and dark rather than warm: it reads as
+               moonlight, it is 6.1:1 on white so it survives at .mark's 0.65rem,
+               and it cannot be mistaken for the orange one row above it. */
+            --moon: #41607d;
         }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -377,23 +385,45 @@
             height: 1em;
             letter-spacing: 0;
         }
-        /* The two visibility marks, under the two strips: a purple * for A* and an
-           orange one for M42, in that order for the same reason the strips are in
-           that order. They answer a different question from the strips and so
-           deliberately carry no shade -- a strip says "how good would it be",
-           weighing the sky and the subject together, while a mark says only "was
-           the subject up in the dark at all", which is true or it is not. One
-           fixed hue each, matching its own strip, and presence rather than depth
-           is the entire signal. Fixed height for the same reason as .bar and
-           .under: an unmarked block is an empty span, and an empty block box
-           generates no line box, which would shorten one stack and pull its
-           neighbours' floor out of line. Centred, because an asterisk's advance
-           is narrower than the 1ch a stack is wide and the bars fill edge to
-           edge. */
+        /* The three altitude marks, under the two strips: a purple digit for A*,
+           an orange one for M42, a slate one for the moon, in that order -- the
+           two targets first and in the strips' own order, the moon last because it
+           is the one that is not a subject. Each is the tens digit of how high
+           that body got while the block was dark (see upMark) -- 6 for the sixties
+           -- or blank if it never cleared its gate, so the range is 1..9 and a
+           blank is unambiguous.
+
+           **The moon row means the opposite of the two above it.** Same mechanism,
+           inverted reading: a high digit under A* or M42 is a reason to drive out,
+           a high digit under the moon is the reason not to. Nothing in the code
+           distinguishes them -- that is the point of "functioning the same" -- so
+           the hue is what carries it, which is why the moon's is cool and dark
+           where the targets' are the two warm-ish band colours.
+
+           They answer a different question from the strips and so deliberately
+           carry no shade: a strip says "how good would it be", weighing the sky
+           and the subject together, and grades its hue to say it, while a mark is
+           pure geometry and says its own value in the digit. One fixed hue each,
+           so the colour identifies the body and the digit carries the number --
+           two channels, one job each, rather than hue doing both badly.
+
+           Fixed height for the same reason as .bar and .under: an unmarked block
+           is an empty span, and an empty block box generates no line box, which
+           would shorten one stack and pull its neighbours' floor out of line.
+           Centred because this row sets its own smaller font-size (th.label .api's,
+           see below), so its 1ch is much narrower than the stack's 1ch that the
+           bars fill edge to edge. */
         .mark {
             display: block;
             font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-            font-size: 1rem;
+            /* Matches th.label .api, the coordinate lines in the 地點 column, and
+               deliberately: both are secondary data read off the side of the thing
+               they annotate, and at the bar's own 1.5rem the digits competed with
+               the glyphs they sit under instead of qualifying them. It also keeps
+               the stack short -- height is 1em of this, so the two mark rows add
+               ~21px to a row rather than ~32px, which over fifteen places is most
+               of a phone screen. */
+            font-size: 0.65rem;
             line-height: 1;
             height: 1em;
             letter-spacing: 0;
@@ -401,6 +431,7 @@
         }
         .mark.gc { color: var(--milky); }
         .mark.m42 { color: var(--orion); }
+        .mark.moon { color: var(--moon); }
         /* The moon phase: one glyph for the whole cell, not one per block, and the
            only thing a cell draws that is not per-block. Two reasons, the layout
            one being the weaker: an emoji's advance is about twice a monospace
@@ -414,7 +445,7 @@
            where the two blocks meet. A child of the cell
            rather than of a stack, so it needs its own font-size: td.blocks zeroes
            font-size to kill stray inline gaps. */
-        td.blocks .moon {
+        td.blocks .phase {
             display: block;
             font-size: 1rem;
             line-height: 1.15;
@@ -454,10 +485,12 @@
             <a href="astro-score_readable.html">astro-score_readable.html</a> &mdash; this page just
             asks it of every place in the list at once (<span id="placeCount">10</span> rows) and
             folds each day's 24 hours into two half-day blocks. <b>What the daily grid adds here</b>
-            is three rows of pure geometry under each bar: a purple <b style="color:#8e44ad;">*</b>
-            when <b>A*</b> (銀心) got 10&deg; up in the dark that half-day, an orange
-            <b style="color:#e2711d;">*</b> when <b>M42</b> did, and the moon phase
-            (🌑 &hellip; 🌕 &hellip; 🌘) under the cell. None of the three depends on the forecast, so
+            is four rows of pure geometry under each bar: three digits giving how high a body
+            got in the dark that half-day, in tens of degrees &mdash; purple for
+            <b>A*</b> (銀心), orange for <b>M42</b>, slate for the <b>moon</b>
+            (<b style="color:#8e44ad;">6</b> = reached the sixties, blank = never cleared 10&deg;)
+            &mdash; and the moon phase (🌑 &hellip; 🌕 &hellip; 🌘) under the cell. The slate
+            digit is the one that means the <em>opposite</em> of the others: high is bad. None of the three depends on the forecast, so
             they stay true to the far end of the grid where the cloud models have given out. The first
             row, 輸入, is the one that
             is not a saved spot: it follows the location box below, which 使用目前位置 fills from
@@ -538,27 +571,53 @@
             </div>
 
             <div class="rule vis">
-                <span class="formula">mark = subject above 10&deg; while the sun is below &minus;10&deg;
-                    <span class="gloss">&nbsp; visibility (可見) &mdash; was it up in the dark at all, that block</span></span>
+                <span class="formula">digit = tens of that body's best altitude while the sun is below &minus;10&deg;
+                    <span class="gloss">&nbsp; visibility (可見) &mdash; how high it got in the dark, that block</span></span>
                 <span class="formula">moon = phase at that date's local noon
                     <span class="gloss">&nbsp; 月相 &mdash; one glyph per cell, not one per block</span></span>
                 <div class="example">
-                    <div><b style="color:#8e44ad;">*</b>  <b style="color:#8e44ad;">A*</b> (銀心) cleared 10&deg; during the block's dark hours</div>
-                    <div><b style="color:#e2711d;">*</b>  <b style="color:#e2711d;">M42</b> (獵戶座大星雲) did, on the row under it</div>
+                    <div><b style="color:#8e44ad;">3</b>  <b style="color:#8e44ad;">A*</b> (銀心) reached the <b>30s</b> during the block's dark hours</div>
+                    <div><b style="color:#e2711d;">6</b>  <b style="color:#e2711d;">M42</b> (獵戶座大星雲) reached the <b>60s</b>, on the row under it</div>
+                    <div><b style="color:#41607d;">8</b>  the <b style="color:#41607d;">moon</b> (月亮) reached the <b>80s</b> &mdash; <em>bad</em>, see below</div>
+                    <div><b>1</b>&hellip;<b>9</b>  10&ndash;19&deg; up to 90&deg; &mdash; never <b>0</b>, so a blank is unambiguous</div>
                     <div>   blank &mdash; never 10&deg; up while it was dark</div>
                     <div>🌑 🌒 🌓 🌔  new &rarr; waxing crescent &rarr; first quarter &rarr; waxing gibbous</div>
                     <div>🌕 🌖 🌗 🌘  full &rarr; waning gibbous &rarr; last quarter &rarr; waning crescent</div>
                 </div>
                 <ul>
                     <li><b>The marks are geometry, with no weather in them.</b> The strips above weigh the
-                        sky and the subject together, so they go blank on a cloudy night; a mark asks only
-                        whether the subject got 10&deg; up while the sun was down, which is as certain at day
-                        16 as at day 1. So a mark can stand under a blank bar &mdash; the subject was up,
+                        sky and the subject together, so they go blank on a cloudy night; a digit reports
+                        only how high the subject got while the sun was down, which is as certain at day
+                        16 as at day 1. So a digit can stand under a blank bar &mdash; the subject was up,
                         the sky was hopeless &mdash; or under a no-forecast
                         <b style="color:#c3ccd5;">&middot;</b>, and that is exactly what they are for:
                         <em>when is the season</em>, read separately from <em>which night is clear</em>.
-                        Where a strip is coloured its mark is lit too; the interesting cells are the ones
-                        with a mark and no strip.</li>
+                        Where a strip is coloured its digit is there too; the interesting cells are the ones
+                        with a digit and no strip.</li>
+                    <li><b style="color:#41607d;">The third digit is the moon, and it means the
+                        opposite of the two above it.</b> Same rule, same tens, inverted reading: a high
+                        <b style="color:#8e44ad;">purple</b> or <b style="color:#e2711d;">orange</b> digit
+                        is a reason to drive out, a high <b style="color:#41607d;">slate</b> one is the
+                        reason not to. Nothing in the code tells them apart &mdash; that is deliberate,
+                        they are the same measurement &mdash; so the <b>colour</b> is what carries it, cool
+                        and dark where the two targets are warm. Its gate is the same 10&deg;, which here
+                        is <em>also</em> where MoonPenalty (月亮扣分) tops out, so <b>any slate digit at all
+                        means at least one dark hour of that block scored zero on moonlight alone</b>.</li>
+                    <li><b>The moon digit is the block's worst, the bar is its best</b>, and both are true:
+                        a block can carry a slate <b>8</b> and still show a tall bar, when the good hour was
+                        one the moon had not risen for. That pairing is the useful one &mdash; it is a
+                        moonless window inside a moonlit night. The slate row emptying out while the digit
+                        above it stays high (the moon rising later each night until the evening half is
+                        clear of it) is the same story read along the row.</li>
+                    <li><b>Read them down a column as well as across a row.</b> A digit sliding
+                        <b>6&nbsp;6&nbsp;6&nbsp;5&nbsp;5&nbsp;4</b> along a row is a target going out of
+                        season week by week, which a plain presence mark could not show; and the rows
+                        separate at a glance, since over Taiwan <b style="color:#e2711d;">M42</b> marks in
+                        the 5s and 6s where <b style="color:#8e44ad;">A*</b> marks in the 2s and 3s.</li>
+                    <li><b>Tens only, never two digits</b> &mdash; the mark shares the one character the bar
+                        above it is wide, and 10&deg; of resolution is already finer than the question
+                        deserves: 61&deg; against 68&deg; changes no decision, 61&deg; against 21&deg;
+                        changes which target you point at. Hover a cell for all three exact altitudes.</li>
                     <li><b>10&deg;</b> rather than the horizon, because below that you are looking through
                         more than five atmospheres of haze and most real horizons have a ridge or a tree
                         line in them. It is the same number as MoonPenalty (月亮扣分) tops out at, by
@@ -566,11 +625,12 @@
                     <li><b>Dark</b> is the page's own &minus;10&deg; sun threshold &mdash; the one
                         <strong style="color:#1e8449;">AstroScore</strong> zeroes the score above &mdash; so
                         a mark and the bar over it agree about when the night starts.</li>
-                    <li>The altitude behind a mark (hover for it) is the highest the subject got
+                    <li>The altitude a digit rounds down is the highest the subject got
                         <em>while it was dark</em>, which is not its transit altitude: in late September
-                        <b>A*</b> transits at 龍磐公園 around +39&deg; but in twilight, so the marks report
-                        +29&deg; to +36&deg;. A target whose whole passage falls in daylight is correctly
-                        unmarked however high it climbs.</li>
+                        <b>A*</b> transits at 龍磐公園 around +39&deg; but does it in twilight, so the marks
+                        there read <b>2</b> and <b>3</b> for +29&deg; to +36&deg; rather than the
+                        <b>3</b> the ceiling alone would give every night. A target whose whole passage
+                        falls in daylight is correctly unmarked however high it climbs.</li>
                     <li><b>The moon glyph is per day, not per half-day</b>, unlike everything above it: the
                         elongation moves about 12&deg; in 24 hours &mdash; 14.3&deg; at its fastest &mdash;
                         which is under a third of the 45&deg; each glyph covers, so the two halves of a date
@@ -580,7 +640,10 @@
                         already docks the score for moon <em>altitude</em> and knows nothing of the phase, so
                         the glyph is what tells a bright bar under a
                         <b>🌕</b> from one under a <b>🌑</b>. A full moon that has not risen yet costs
-                        nothing; the same moon at 10&deg; costs everything. Hover a cell for the phase name
+                        nothing; the same moon at 10&deg; costs everything. <b>The phase and the slate digit
+                        are the two halves of that</b>: how bright the moon is, and how high it got &mdash;
+                        a <b>🌕</b> over a blank slate row is the good case, a <b>🌕</b> over a slate
+                        <b>8</b> the bad one. Hover a cell for the phase name
                         and the elongation behind the glyph.</li>
                 </ul>
             </div>
@@ -1250,11 +1313,36 @@ const UNDER_GLYPH = "▀";   // UPPER HALF BLOCK
 // carries the (0/12 hr) count behind it.
 const NO_DATA_GLYPH = "·";   // MIDDLE DOT
 
-// Drawn on a block's own row under the two strips when that target cleared
-// TARGET_UP_ALT while the block was dark. One glyph for both marks, exactly as
-// UNDER_GLYPH serves both strips: the same measurement of two different
-// subjects, differing in hue and in nothing else.
-const UP_GLYPH = "*";   // ASTERISK
+/**
+ * The mark drawn on a block's own row under the two strips: the **tens digit**
+ * of how high that target got while the block was dark, so 6 is "reached the
+ * sixties", 3 "reached the thirties".
+ *
+ * A digit rather than the bare presence mark this used to be, and it costs
+ * nothing: the altitude was already being measured to decide whether to draw
+ * anything at all, so printing its leading digit says *how well* in the same
+ * character that used to say only *yes*. It reads down a column as well as
+ * across one -- 6 6 6 5 5 4 is a target sinking week by week, which a row of
+ * asterisks could not show -- and it separates the two subjects at a glance,
+ * since over Taiwan M42 marks in the 5s and 6s where A* marks in the 2s and 3s.
+ *
+ * One digit and never two, hence the tens place alone: the mark shares the 1ch
+ * a block column is wide with the bar above it, and 10 degrees of resolution is
+ * already finer than the question deserves -- the difference between 61 and 68
+ * changes no decision, the difference between 61 and 21 changes the target.
+ *
+ * The range is 1..9 and never 0, because a block only earns a mark at all once
+ * the target is past TARGET_UP_ALT (10 deg); 90 deg would floor to 9. So a blank
+ * is unambiguous -- it means "never got 10 deg up in the dark", not "got up a
+ * little". The exact altitude behind a digit is in the cell's title.
+ *
+ * One function for both marks, exactly as UNDER_GLYPH serves both strips: the
+ * same measurement of two different subjects, differing in hue and in nothing
+ * else.
+ */
+function upMark(alt) {
+    return String(Math.floor(alt / 10));
+}
 
 // The eight phase glyphs in elongation order, one 45° octant each, starting at
 // new moon. They are the Northern Hemisphere's view -- 🌒 is lit on the right --
@@ -1399,14 +1487,14 @@ function barFor(peak) {
  * cell's stacks are drawn from, and the moon-sun elongation at that date's local
  * noon, which is a property of the *day* rather than of either block and so
  * hangs here rather than in both of them. Noon is the instant the two blocks
- * meet, so neither half of the date is favoured; see td.blocks .moon for why the
+ * meet, so neither half of the date is favoured; see td.blocks .phase for why the
  * glyph is not drawn per block.
  *
- * Each block record is {peak, milky, orion, gcNight, m42Night, hours, dark,
- * scored}: the best 觀星 in the block, the best MilkyScore and OrionScore in it,
- * how high A* and M42 got while it was dark, how many of the twelve hours the
- * response actually carried, how many of those were dark, and how many carried a
- * cloud figure rather than a null. A block short on either count can peak low for
+ * Each block record is {peak, milky, orion, gcNight, m42Night, moonNight, hours,
+ * dark, scored}: the best 觀星 in the block, the best MilkyScore and OrionScore in
+ * it, how high A*, M42 and the moon got while it was dark, how many of the twelve
+ * hours the response actually carried, how many of those were dark, and how many
+ * carried a cloud figure rather than a null. A block short on either count can peak low for
  * a reason that is not "cloudy", which the cell title spells out.
  *
  * A maximum, not a total: the question this grid answers is "is there an hour
@@ -1443,12 +1531,13 @@ function blocksByDate(body, model, multi) {
             days.set(date, {
                 blocks: Array.from(
                     { length: BLOCKS },
-                    // gcNight/m42Night start below any real altitude rather than
-                    // at null, so the running maximum needs no first-value case;
-                    // `dark` is what says whether either was ever written to.
+                    // The three *Night fields start below any real altitude
+                    // rather than at null, so the running maximum needs no
+                    // first-value case; `dark` is what says whether any of them
+                    // was ever written to.
                     () => ({
                         peak: 0, milky: 0, orion: 0,
-                        gcNight: -90, m42Night: -90,
+                        gcNight: -90, m42Night: -90, moonNight: -90,
                         hours: 0, dark: 0, scored: 0,
                     }),
                 ),
@@ -1470,6 +1559,15 @@ function blocksByDate(body, model, multi) {
             block.dark += 1;
             block.gcNight = Math.max(block.gcNight, gcAlt);
             block.m42Night = Math.max(block.m42Night, m42Alt);
+            // The moon is measured exactly like the two targets and means the
+            // reverse of them -- see the .mark comment. Note that this maximum is
+            // *not* what moonPenalty() saw: the penalty is applied per hour and
+            // the block's peak 觀星 is the best of those hours, so a block can
+            // carry a moon digit and still peak high, when the good hour was one
+            // the moon had not yet risen for. The digit says how bad the worst of
+            // the block was, and the bar says how good the best of it was; both
+            // are true and they are answering different questions.
+            block.moonNight = Math.max(block.moonNight, moonAlt);
         }
         const score = astroScore(sunAlt, moonAlt, hourly[key][i]);
         if (score === null) return;   // null cloud cover: no data, not a zero
@@ -1558,12 +1656,12 @@ function visibleDates(dates, today, hidePast) {
 /**
  * One day at one place, as a table cell.
  *
- * Two stacks side by side, one per half-day, each five rows tall: the 觀星 bar,
- * the MilkyScore strip, the OrionScore strip, then A*'s visibility mark and
- * M42's. Under both stacks, spanning the cell, one moon phase glyph -- the only
- * thing here that is a property of the date rather than of a block.
+ * Two stacks side by side, one per half-day, each six rows tall: the 觀星 bar,
+ * the MilkyScore strip, the OrionScore strip, then the altitude marks for A*, M42
+ * and the moon. Under both stacks, spanning the cell, one moon phase glyph -- the
+ * only thing here that is a property of the date rather than of a block.
  *
- * The three lower rows are geometry and the two upper ones are forecast, which is
+ * The four lower rows are geometry and the two upper ones are forecast, which is
  * the division to keep in mind reading a cell: a mark and a phase are as certain
  * at day 16 as at day 1, while the bar above them is a cloud model's guess.
  */
@@ -1573,7 +1671,9 @@ function blocksCell(place, date, day) {
     td.className = "blocks";
     const detail = [];
     for (let b = 0; b < BLOCKS; b += 1) {
-        const { peak, milky, orion, gcNight, m42Night, hours, dark, scored } = blocks[b];
+        const {
+            peak, milky, orion, gcNight, m42Night, moonNight, hours, dark, scored,
+        } = blocks[b];
         const stack = document.createElement("span");
         stack.className = "stack";
         const span = document.createElement("span");
@@ -1594,16 +1694,28 @@ function blocksCell(place, date, day) {
             }
             stack.appendChild(under);
         }
-        // Then the two visibility marks, A* above M42 -- the same order as the
-        // strips, so a column of the stack reads as one subject all the way down.
-        // Appended whatever the answer, for the height reason above; an unmarked
-        // block is simply an empty span. A block with no dark hour at all (only
-        // possible on a response that stopped mid-day) is unmarked rather than
-        // marked on a daylight altitude.
-        for (const [cls, night] of [["gc", gcNight], ["m42", m42Night]]) {
+        // Then the three altitude marks: A* above M42 -- the strips' own order, so
+        // a column of the stack reads as one body all the way down -- and the moon
+        // last, below both, because it is the one that is not a subject. Appended
+        // whatever the answer, for the height reason above; an unmarked block is
+        // simply an empty span. A block with no dark hour at all (only possible on
+        // a response that stopped mid-day) is unmarked rather than marked on a
+        // daylight altitude.
+        //
+        // Each carries its own gate, and they are the same number today: the two
+        // targets clear TARGET_UP_ALT, the moon MOON_KILL_ALT. Same rule, two
+        // constants, because they are about different things -- retune the moon
+        // penalty and the moon mark should follow it, not the targets' airmass
+        // floor. See the note on TARGET_UP_ALT.
+        const marks = [
+            ["gc", gcNight, TARGET_UP_ALT],
+            ["m42", m42Night, TARGET_UP_ALT],
+            ["moon", moonNight, MOON_KILL_ALT],
+        ];
+        for (const [cls, night, gate] of marks) {
             const mark = document.createElement("span");
             mark.className = `mark ${cls}`;
-            if (dark && night > TARGET_UP_ALT) mark.textContent = UP_GLYPH;
+            if (dark && night > gate) mark.textContent = upMark(night);
             stack.appendChild(mark);
         }
         // No text node between the stacks: appended straight onto the cell, they
@@ -1613,20 +1725,21 @@ function blocksCell(place, date, day) {
         // not "cloudy" -- a null cloud figure, or a response that stopped early --
         // so say so rather than letting a missing bar be misread.
         const short = scored < BLOCK_HOURS ? ` (${scored}/${hours || BLOCK_HOURS} hr)` : "";
-        // The two marks are a yes or a no on screen; the title gives the altitude
-        // behind each, so a block that just missed is distinguishable from one
-        // whose subject never came up. "--" is "no dark hour to look in".
+        // The marks are one rounded digit on screen; the title gives the altitude
+        // behind each, so a block that just missed its gate is distinguishable
+        // from one whose body never came up. "--" is "no dark hour to look in".
         const upText = (night) => (dark ? `${night.toFixed(0).padStart(3)}°` : "  --");
         detail.push(
             `${BLOCK_LABELS[b]}  peak ${String(Math.round(peak)).padStart(3)}`
             + `  milky ${milky.toFixed(1).padStart(4)}`
             + `  orion ${orion.toFixed(1).padStart(4)}`
-            + `  A* max ${upText(gcNight)}  M42 max ${upText(m42Night)}${short}`,
+            + `  A* max ${upText(gcNight)}  M42 max ${upText(m42Night)}`
+            + `  moon max ${upText(moonNight)}${short}`,
         );
     }
     // One glyph for the cell, after both stacks and outside the loop.
     const moon = document.createElement("span");
-    moon.className = "moon";
+    moon.className = "phase";
     moon.textContent = moonGlyph(elong);
     td.appendChild(moon);
     td.title = `${place} — ${formatDate(date)}\n${detail.join("\n")}`

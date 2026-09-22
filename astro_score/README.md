@@ -38,9 +38,11 @@ here mainly when changing those constants; the adjustable form is
   and 在地圖上點選 at wherever you can find on a map.
 - [AstroScore daily full](https://jiechau.github.io/code_snippet_life/astro_score/astro-score_daily_full.html)
   — that grid with three more rows under every bar, all three of them geometry
-  rather than forecast: a purple `*` when 銀心 (A*) cleared 10° during that
-  half-day's dark hours, an orange `*` when M42 did, and the moon phase
-  (🌑 🌒 🌓 🌔 🌕 🌖 🌗 🌘) once per cell. Because none of the three reads the
+  rather than forecast: three digits giving how high a body got during that
+  half-day's dark hours, in tens of degrees (`6` = reached the sixties, blank =
+  never cleared 10°) — purple for 銀心 (A*), orange for M42, slate for the moon —
+  and the moon phase (🌑 🌒 🌓 🌔 🌕 🌖 🌗 🌘) once per cell. The slate digit is
+  the one that means the opposite of the others: high is bad. Because none of the three reads the
   cloud model, they stay true at the right-hand end of the grid where the bars
   have given out — the page answers *when is the season* beside *which night is
   clear*.
@@ -505,18 +507,59 @@ what is new is that a cell now says something the forecast cannot take away.
 | `▂▄▆█` | best 觀星 hour in the half-day (as on the daily page) |
 | purple `▀` | best MilkyScore in it — sky × A* altitude |
 | orange `▀` | best OrionScore in it — sky × M42 altitude |
-| purple `*` | **A* got above 10° while it was dark**, that half-day |
-| orange `*` | **M42 did**, same test |
+| purple `1`–`9` | **tens of A\*'s best altitude while it was dark**, that half-day — blank below 10° |
+| orange `1`–`9` | **the same for M42**, same gate |
+| slate `1`–`9` | **the same for the moon** — same rule, opposite meaning: high is bad |
 | 🌑…🌘 | **moon phase** at that date's local noon — one per cell, not per block |
 
-The three new rows are **geometry, with no weather in them**. The strips weigh
-the sky and the subject together, so they go blank on a cloudy night; a mark asks
-only whether the subject was up in the dark, which is as certain at day 16 as at
-day 1. So a mark can stand under a blank bar — the subject was up, the sky was
-hopeless — or under a no-forecast `·` at the far right of the grid. That is the
-whole point of them: *when is the season* read separately from *which night is
-clear*. Where a strip is coloured its mark is lit too, so the cells worth looking
-at are the ones with a mark and no strip.
+The four new rows are **geometry, with no weather in them**. The strips weigh
+the sky and the subject together, so they go blank on a cloudy night; a digit
+reports only how high the subject got in the dark, which is as certain at day 16
+as at day 1. So a digit can stand under a blank bar — the subject was up, the sky
+was hopeless — or under a no-forecast `·` at the far right of the grid. That is
+the whole point of them: *when is the season* read separately from *which night
+is clear*. Where a strip is coloured its digit is there too, so the cells worth
+looking at are the ones with a digit and no strip.
+
+**The mark is a digit rather than a presence mark**, and it costs nothing: the
+altitude was already being measured to decide whether to draw anything at all, so
+printing its leading digit says *how well* in the same character that used to say
+only *yes*. It reads down a column as well as across one — a row sliding
+`3 3 3 … 2 2 2` is a target going out of season week by week, which an asterisk
+could not show — and it separates the two subjects at a glance, since over Taiwan
+M42 marks in the 5s and 6s where A\* marks in the 2s and 3s. **Tens only, never
+two digits**: the mark shares the one character the bar above it is wide, and 10°
+of resolution is already finer than the question deserves — 61° against 68°
+changes no decision, 61° against 21° changes which target you point at. The range
+is **1–9 and never 0**, since a block earns a mark only once the body is past
+10°, so a blank is unambiguous.
+
+**The third digit is the moon, and it means the opposite of the two above it.**
+Same rule, same tens, inverted reading: a high purple or orange digit is a reason
+to drive out, a high slate one is the reason not to. Nothing in the code tells
+them apart — deliberately, since they are the same measurement — so the colour is
+what carries it, cool and dark where the two targets are warm. Its gate is
+`MOON_KILL_ALT` rather than `TARGET_UP_ALT`: the same 10° today, but tied to the
+threshold it is actually about, so retuning the moon penalty moves the moon mark
+and not the targets' airmass floor. That gate is also where `moonPenalty()` tops
+out, which gives the row a second reading: **any slate digit at all means at least
+one dark hour of that block scored zero on moonlight alone** (verified — every
+moon digit over a live grid had `moonPenalty()` at 100).
+
+**The moon digit is the block's worst and the bar is its best**, and both are
+true: a block can carry a slate `8` and still show a tall bar, when the good hour
+was one the moon had not risen for. That pairing is the useful one — a moonless
+window inside a moonlit night — and it is why the moon mark is *not* redundant
+with the score that already penalises moon altitude. Read along a row it tells the
+same story: over a live 16-day response at 龍磐公園 the slate row ran
+`14 25 35 56 66 76 75 84 83 82 81 8· 7· 6· 4· 3·`, the moon climbing through full
+and then vacating the evening half entirely as it began rising after midnight —
+so the last five evenings were moonless while their small hours were washed out
+at 60°–80°, with M42 reading `6` in every one of them.
+
+The phase glyph and the slate digit are the two halves of one question: how
+bright the moon is, and how high it got. A 🌕 over a blank slate row is the good
+case, a 🌕 over a slate `8` the bad one.
 
 Two thresholds, both the page's own:
 
@@ -525,22 +568,23 @@ Two thresholds, both the page's own:
   tree line in them. It is the same number as `MOON_KILL_ALT` by coincidence, not
   for the same reason.
 - **dark** is the page's existing `DARK_SUN_ALT` (−10°), the threshold
-  AstroScore already zeroes the score above, so a mark and the bar over it agree
+  AstroScore already zeroes the score above, so a digit and the bar over it agree
   about when the night starts.
 
-The altitude behind a mark (hover a cell) is the highest the subject reached
-*while it was dark*, which is **not** its transit altitude: in late September A*
-transits around +39° at 龍磐公園 but does it in twilight, so the marks there
-report +29° to +36°. A target whose whole passage falls in daylight is correctly
-unmarked however high it climbs.
+The altitude a digit rounds down (hover a cell for the exact figure) is the
+highest the subject reached *while it was dark*, which is **not** its transit
+altitude: in late September A* transits around +39° at 龍磐公園 but does it in
+twilight, so the marks there read `2` and `3` for +29° to +36°, rather than the
+`3` the ceiling alone would give every night. A target whose whole passage falls
+in daylight is correctly unmarked however high it climbs.
 
 **The two marks rarely light in the same block**, for the same reason the two
 strips rarely paint together, and the effect is sharper: across a live 16-day
 response at 龍磐公園, all 32 blocks carried exactly one mark and none carried
-both — M42 at +61° to +63° in the small hours with A* below the horizon, A* at
-+29° to +36° in the evening with M42 at −9° to +5°. So the orange mark falls
-under a day's **left** glyph and the purple under its **right** one: the same
-one-night-across-two-cells reading as the bars.
+both — M42 reading `6` in the small hours with A* below the horizon, A* reading
+`3` (then `2`, as the season turns) in the evening with M42 at −9° to +5°. So the
+orange digit falls under a day's **left** glyph and the purple under its
+**right** one: the same one-night-across-two-cells reading as the bars.
 
 **The moon glyph is per cell, not per block**, the one thing here that is not a
 per-block value. The elongation moves about 12° in a day (14.3° at its fastest),
@@ -572,7 +616,7 @@ There is no test command; this was checked the mechanical way the other pages in
 this repo are. Slicing the inline `<script>` from `"use strict";` down to the
 `* Presentation` banner gives the DOM-free half, and adding a ~40-line DOM stub
 (`createElement`/`classList`/`appendChild`/`insertRow`) gets the rest under
-`node`. **397 assertions**, against live Open-Meteo responses:
+`node`. **594 assertions**, against live Open-Meteo responses:
 
 - **moon (19)** — octant boundaries at 22.5°/90°/180°/270°, wrap for negative and
   multi-turn angles, seven published new/full/quarter instants in 2026 landing in
@@ -583,12 +627,21 @@ this repo are. Slicing the inline `<script>` from `"use strict";` down to the
   龍磐公園 and 大武崙砲台 re-derived by brute force straight off the hour list; the
   day record's elongation confirmed to be local noon's; and the marks observed
   standing under blank bars (23 and 27 blocks) and under a no-forecast `·`.
-- **rendering (112)** — every stack's rows in the order
-  `bar,under,under,mark,mark` with A* above M42, exactly one moon glyph per cell
+- **rendering (144)** — every stack's rows in the order
+  `bar,under,under,mark,mark,mark` with A* above M42 above the moon, exactly one
+  phase glyph per cell
   and it the cell's last child, the marks taking their hue from CSS rather than
   an inline style, each mark agreeing with its block's data across the whole
-  grid, and a whole table building with two stacks per cell and two marks per
+  grid, and a whole table building with two stacks per cell and three marks per
   stack.
+- **the digit (165)** — the tens mapping at the gate (`10.01` → `1`), at each
+  boundary (`59.999` → `5`, `60` → `6`) and at the zenith (`90` → `9`); a sweep
+  of every markable altitude in 0.01° steps confirming one character, always
+  `1`–`9`, never `0`; across a live grid, every drawn digit equal to `upMark()` of
+  its block's own maximum with nothing at all drawn below its own gate
+  (`TARGET_UP_ALT` for the two targets, `MOON_KILL_ALT` for the moon); and every
+  moon digit confirmed to have `moonPenalty()` saturated at 100. With the moon row
+  in, the digits appearing at 龍磐公園 span `1` through `8`.
 
 ## `milkyway.py`
 
