@@ -111,6 +111,15 @@ Every shared function is **byte-identical** to
   names (新月 / 眉月 / 上弦 / 盈凸 / 滿月, and their waning counterparts) are ported
   straight from `milkyway.py`'s `moon_phase_name()`. Those two are now the pair
   to keep in step.
+- **A 月相圖示 card: the phase as an emoji, turned to face the sun.** The glyph is
+  the nearest of eight (`MOON_GLYPHS` / `moonOctant()`, copied from
+  `astro_score/astro-score_daily_full.html`), always the facing-south set (🌒 lit
+  on the right). `brightLimbAngle()` then works out where the lit limb really
+  points as you face the moon with the zenith up — the moon→sun direction
+  projected onto the sky — and the glyph is CSS-rotated to match, so an evening
+  crescent lies tipped towards the set sun instead of standing upright. For these
+  shapes a half-turn is a mirror, so the southern hemisphere needs no second set.
+  Display only; nothing computes from it.
 
 Verified across 24 (instant, place) combinations — Taiwan, Atacama, Reykjavík,
 1970 to 2099 — against `milkyway.py`: every angle agrees to within 1e-13°, and

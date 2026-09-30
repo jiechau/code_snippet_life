@@ -147,6 +147,7 @@
             margin-top: 5px;
             word-break: break-all;
         }
+        .card .v .glyph { display: inline-block; font-size: 1.8rem; line-height: 1; font-family: initial; }
         .card .n { font-size: 0.72rem; color: var(--muted); margin-top: 4px; }
         .card.good .v { color: var(--ok); }
         .card.bad .v { color: var(--err); }
@@ -443,6 +444,58 @@ function moonPenalty(moonAlt) {
     return Math.min(100, (moonAlt / MOON_KILL_ALT) * 100);
 }
 
+// The eight phase glyphs in elongation order, one 45° octant each, starting at
+// new moon -- copied from astro_score/astro-score_daily_full.html, which draws
+// one under every day. They are the view facing south (🌒 lit on the right),
+// used as-is wherever you are: the glyph only picks the *shape*, and
+// brightLimbAngle() below turns it so the lit side points at the sun. For these
+// shapes a half-turn is the same as a mirror, so a southern observer gets the
+// right picture from the rotation and nothing needs flipping.
+const MOON_GLYPHS = ["🌑", "🌒", "🌓", "🌔", "🌕", "🌖", "🌗", "🌘"];
+
+/** Phase octant for a moon-sun elongation: 0 new, 2 first quarter, 4 full, 6 last. */
+function moonOctant(elong) {
+    return Math.floor(mod360(elong) / 45 + 0.5) % 8;
+}
+
+/**
+ * Where the lit limb points, as you stand facing the moon with the zenith up:
+ * degrees clockwise from "up", so 90 is to your right and 180 straight down.
+ *
+ * The lit side faces the sun, so this is the direction from the moon towards
+ * the sun, projected onto the sky at the moon. Horizontal vectors are
+ * (east, north, up); `up` is the zenith with its moonward part removed and
+ * `right` is moon × up. Geocentric like the rest of the page, which moves it by
+ * well under a degree -- far finer than an emoji can show.
+ */
+function brightLimbAngle(moonAlt, moonAz, sunAlt, sunAz) {
+    const vec = (alt, az) => [cos(alt) * sin(az), cos(alt) * cos(az), sin(alt)];
+    const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    const m = vec(moonAlt, moonAz);
+    const s = vec(sunAlt, sunAz);
+    const up = [-m[2] * m[0], -m[2] * m[1], 1 - m[2] * m[2]];
+    const right = [
+        m[1] * up[2] - m[2] * up[1],
+        m[2] * up[0] - m[0] * up[2],
+        m[0] * up[1] - m[1] * up[0],
+    ];
+    const sm = dot(s, m);
+    const toSun = [s[0] - sm * m[0], s[1] - sm * m[1], s[2] - sm * m[2]];
+    return mod360(Math.atan2(dot(toSun, right), dot(toSun, up)) / DEG);
+}
+
+/**
+ * The CSS rotation (clockwise degrees) that turns a phase glyph so its lit side
+ * points along brightLimbAngle(). Waxing glyphs are drawn lit on the right (90°),
+ * waning ones on the left (270°); 🌑 and 🌕 have no lit side and are turned
+ * anyway, harmlessly.
+ */
+function glyphRotation(octant, limbAngle) {
+    const drawn = octant < 4 ? 90 : 270;
+    const r = mod360(limbAngle - drawn);
+    return r > 180 ? r - 360 : r;
+}
+
 /* ------------------------------------------------------------------ *
  * Formatting
  * ------------------------------------------------------------------ */
@@ -516,6 +569,10 @@ function working(utcMs, lat, lon, offsetHours) {
     const waxing = eclipticGap < 180;
     const name = moonPhaseName(illum, sun.eclLon, moon.eclLon);
     const penalty = moonPenalty(alt);
+    const sunHz = altAz(sun.ra, sun.dec, lat, lst);
+    const octant = moonOctant(eclipticGap);
+    const limb = brightLimbAngle(alt, az, sunHz.alt, sunHz.az);
+    const rotation = glyphRotation(octant, limb);
 
     // Signed, so it reads as a correction rather than as a second longitude.
     const lonCorrection = ((moon.eclLon - moon.lp + 540) % 360) - 180;
@@ -564,6 +621,12 @@ function working(utcMs, lat, lon, offsetHours) {
         { label: "黃經差", sym: "λ☾ − λ☉", val: deg(eclipticGap, 2), note: "under 180° = 盈 (waxing), over = 虧 (waning)" },
         { label: "月相", sym: "name", val: `${name} · ${waxing ? "盈" : "虧"}`, note: "k picks the band, the line above picks the column" },
 
+        { stage: "月相圖示 · the glyph, turned to the sun" },
+        { label: "圖示", sym: "octant", val: `${octant} ${MOON_GLYPHS[octant]}`, note: "round(黃經差 / 45) mod 8 — nearest of eight, drawn facing south" },
+        { label: "太陽高度/方位", sym: "h☉ A☉", val: `${deg(sunHz.alt, 2)} / ${deg(sunHz.az, 2)}`, note: "same altAz() as the moon's" },
+        { label: "亮邊方向", sym: "χ", val: deg(limb, 1), note: "moon→sun on the sky, clockwise from 天頂 as you face the moon; 90° = right" },
+        { label: "旋轉", sym: "rot", val: deg(rotation, 1), note: "χ − 90° (盈 glyph, lit right) or χ − 270° (虧 glyph, lit left)" },
+
         { stage: "扣分 · what the score does with it" },
         { label: "扣分門檻", sym: "MOON_KILL_ALT", val: deg(MOON_KILL_ALT, 0), note: "the altitude at which the moon is treated as ruining the sky outright" },
         { label: "月亮扣分", sym: "penalty", val: num(penalty, 1), note: "0 below the horizon, ramping to 100 at the threshold — altitude only, k is not read" },
@@ -578,6 +641,12 @@ function working(utcMs, lat, lon, offsetHours) {
             cls: alt > 0 ? "bad" : "good",
         },
         { k: "月相", v: name, n: waxing ? "盈 waxing" : "虧 waning" },
+        {
+            k: "月相圖示",
+            v: MOON_GLYPHS[octant],
+            n: `亮邊朝太陽 ${deg(limb, 0)} (面向月亮, 天頂 0°)`,
+            rot: rotation,
+        },
         { k: "照光比例", v: `${num(illum * 100, 1)}%`, n: `相位角 ${deg(phaseAngle, 1)}` },
         {
             k: "月亮扣分",
@@ -814,7 +883,16 @@ function show({ meta, isError, cards, rows }) {
             if (!text) continue;
             const line = document.createElement("div");
             line.className = cls;
-            line.textContent = text;
+            if (cls === "v" && card.rot !== undefined) {
+                // Wrapped so the glyph turns about its own centre, not the line's.
+                const glyph = document.createElement("span");
+                glyph.className = "glyph";
+                glyph.textContent = text;
+                glyph.style.transform = `rotate(${card.rot.toFixed(1)}deg)`;
+                line.appendChild(glyph);
+            } else {
+                line.textContent = text;
+            }
             div.appendChild(line);
         }
         out.appendChild(div);

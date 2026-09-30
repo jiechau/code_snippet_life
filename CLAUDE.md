@@ -1283,6 +1283,14 @@ the whole question to `DARK_SUN_ALT` (−10°), and `milkyway.py` ramps its dark
 term over −18°..−12° instead. Showing the standard bands next to the page's own
 threshold is the point; do not make the threshold *be* one of them.
 
+`moon_phase.html` also draws a **月相圖示** card: the nearest of the eight
+`MOON_GLYPHS` (`moonOctant()`, copied from `astro-score_daily_full.html` — keep
+the two in step), always the facing-south set, CSS-rotated by
+`glyphRotation()` so the lit side points along `brightLimbAngle()`, the moon→sun
+direction on the sky as seen facing the moon, zenith up. A half-turn of these
+shapes is a mirror, so that one rotation also covers the southern hemisphere —
+don't add a flipped set. Display only, like the page's other extras.
+
 `moon_phase.html` is the largest of the three because the phase needs the sun:
 `sunPosition()` is there for `moonIllumination()`'s elongation, not for anything on
 the horizon. It also prints 黃經修正 — the 14 periodic terms summed, up to about
