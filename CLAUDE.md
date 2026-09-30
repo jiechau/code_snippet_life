@@ -330,10 +330,11 @@ whatever `setInputPlace()` does). Because a pill bakes its coordinates into
 it, replacing the standalone load-time `buildPlaces()` those pages used to end with.
 
 `pickOnMap()` (also `places.js`, ~230 lines with its injected stylesheet) is the
-third way that box gets filled, offered by 9 of the 10 pages that have a location
-box &mdash; not the `cwa_opendata/` two, addressed by county, and not
-`light_pollution/light_pollution_map.html`, which **is** a map and so fills its box
-by a click on itself. It
+third way that box gets filled, offered by all 10 pages that have a location
+box &mdash; not the `cwa_opendata/` two, addressed by county.
+`light_pollution/light_pollution_map.html` has it too although a click on its own
+map does much the same write: the button is there so its location row matches
+every other page's. It
 opens a **dialog over the page** — not another tab: a second window would need
 either a map page of its own at the repo root, which the one-folder rule forbids,
 or a document written into `about:blank`, and would then have to hand a coordinate
@@ -398,7 +399,7 @@ two copy the chrome and the request *shape* but are the only pages addressed by
 | `.locrow` CSS | all 14 pages, verbatim (2 lines) — on the `cwa_opendata/` two it wraps the **county** box, not a coordinate one. All three `astro-score_*.html` add a third for `.locname` — the `輸入:` label in front of the box, a second `<label for="location">` naming what the box writes to (`PLACES[0]`: the first pill on the readable page, the top grid row on the two daily ones). The other 8 pages do not have it |
 | `.place`/`.places` CSS, `buildPlaces()` / `markActivePlace()` | 10 pages, verbatim (`light_pollution/light_pollution_map.html` is the tenth, where a pill flies the map there and reads it), plus the 2 `cwa_opendata/` pages, which take the **CSS verbatim** but rename the functions `buildCounties()` / `markActiveCounty()` and drive them from a local `COUNTIES` list rather than `PLACES` — 22 county names, ours in that order, not the API's. That is the point of the pills there: the API spells it 臺北市 and answers a typed 台北市 with an empty HTTP 200. Not on either `astro-score_daily*.html`: their rows *are* the saved spots, so pills repeating them would say it twice. Their location box therefore stands alone beside 使用目前位置, and nothing there is ever "pressed" |
 | `useCurrentPosition()` + the 使用目前位置 button and its `.geonote` | 12 of the 14 — **not** the `cwa_opendata/` two, which have no coordinate to fill: fill the box, note the accuracy, resubmit. The 10 pill pages also `setInputPlace()` + `buildPlaces()` so the 輸入 pill follows; the two `astro-score_daily*.html` have no pills and let their submit handler do the `setInputPlace()`, so those copies are four lines shorter. `setInputPlace()`/`currentPosition()`/`GEO_ERRORS` are **not** duplicated: root `places.js` |
-| `pickFromMap()` + the 在地圖上點選 button | 11 of the 14, and always **beside** that button — the two travel together, since it is the **same write minus the accuracy**. **Byte-identical across 9 pill pages** (box + `setInputPlace()` + `buildPlaces()` + `markActivePlace()` + resubmit), with the two `astro-score_daily*.html` the shorter copies, just the box, exactly as their geo copies are shorter. `light_pollution/light_pollution_map.html` is the twelfth location-box page and has **no** copy: clicking its own map is the same write, so a dialog holding a second map over the first would be the button asking the page to do what the page already is. All 11 clear the `.geonote`, since a leftover `±12 m` would describe a coordinate the box no longer holds, and all 11 return silently on `null` (取消). The map itself — `pickOnMap()`, `mapStyle()`, the Mercator four — is **not** duplicated: root `places.js`. Adding it to a thirteenth page is four edits: the button, the hint, the function, the listener |
+| `pickFromMap()` + the 在地圖上點選 button | all 12 of the 14 that have a location box, and always **beside** that button — the two travel together, since it is the **same write minus the accuracy**. **Byte-identical across the 9 pill pages** (box + `setInputPlace()` + `buildPlaces()` + `markActivePlace()` + resubmit), with `light_pollution/light_pollution_map.html` the tenth pill copy differing only in naming the note element `noteEl` — as its geo copy does, since `note()` is a function there — and the two `astro-score_daily*.html` the shorter copies, just the box, exactly as their geo copies are shorter. On the map page the resubmit flies the page's own map to the picked point and reads it. All 12 clear the `.geonote`, since a leftover `±12 m` would describe a coordinate the box no longer holds, and all 12 return silently on `null` (取消). The map itself — `pickOnMap()`, `mapStyle()`, the Mercator four — is **not** duplicated: root `places.js` |
 | The slippy map (Web Mercator + a grid of `<img>` tiles) | **`places.js` holds the geometry, and it is imported, not copied**: `mapWorldX`/`mapWorldY`/`mapLatAt`/`mapLonAt`, `mapClamp`, `mapWrapLon` and the `MAP_*` constants are used as-is by `light_pollution/light_pollution_map.html`, which is the only page that draws a map of its own. What it does **not** share is the tile loop: `pickOnMap()` renders one 256px layer into a dialog, the map page's `TileGrid` class renders **two stacked layers** at a tile size of `256 · 2^(map zoom − tile zoom)`, which is what lets a 1024px atlas tile and a 256px basemap tile sit on one grid. The pan/pinch/wheel handlers are the same shape in both and are **not** byte-identical: the map page's tap moves the marker instead of recentring, since sliding the map out from under your finger would answer about a different pixel. Change the Mercator four and both follow; change a handler and check the other by eye |
 | `PLACES` | **not duplicated** — root `places.js`, loaded by 12 of the 14 pages (not the `cwa_opendata/` two, which are addressed by county). `DEFAULT_LAT`/`DEFAULT_LON` are every page's empty-box fallback, both `astro-score_daily*.html` included |
 | The `countryName/principalSubdivision/city/locality` join | all 12 pages with a location box: `reverseGeocode()` on 11 of them, `placeName()` on `bigdatacloud/reverse-geocode.html`, which demos the endpoint head-on |
@@ -1150,11 +1151,10 @@ The layers each carry a `year`, and **switching layer re-reads the marker** with
 2016 and the number follows the picture. The three layers with no year of their own
 (trend, VIIRS, none) read `LP_YEARS[0]` and the legend note says so.
 
-Everything else is the repo's usual furniture with one deliberate absence: the location
-box, 📍 使用目前位置 and the saved-spot pills are the standard copies (see the duplication
-table), but there is **no 🗺️ 在地圖上點選** — clicking the page's own map is that button,
-and a dialog holding a second map over the first would be absurd. Three more things not
-to undo: the map **box stops where the phone sheet starts** (`inset: 0 0 62vh 0`), because
+Everything else is the repo's usual furniture: the location box, 📍 使用目前位置,
+🗺️ 在地圖上點選 and the saved-spot pills are the standard copies (see the duplication
+table). The picker overlaps a click on the page's own map, and is kept anyway so the
+location row is the same on every page. Three things not to undo: the map **box stops where the phone sheet starts** (`inset: 0 0 62vh 0`), because
 the view centres on the middle of the map element and a full-height box would centre on a
 point hidden behind the sheet; a **tap moves the marker** rather than recentring, unlike
 `pickOnMap()`'s fixed crosshair, since sliding the map out from under your finger answers

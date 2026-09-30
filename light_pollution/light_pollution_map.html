@@ -201,9 +201,9 @@
         }
 
         /* The location row, the same shape every page with a location box uses:
-           the box, 使用目前位置 beside it, the saved spots on a line of their own.
-           There is no 在地圖上點選 here -- the page *is* the map, and clicking it
-           is that button. */
+           the box, 使用目前位置 and 在地圖上點選 beside it, the saved spots on a
+           line of their own. Clicking this page's own map does the same write;
+           the button is kept anyway so the row matches every other page's. */
         .locrow { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
         .locrow input { width: 200px; flex: 0 0 auto; }
         .places { display: flex; gap: 6px; flex-wrap: wrap; flex-basis: 100%; }
@@ -353,10 +353,11 @@
 
         <h3>讀取點 point</h3>
         <form id="form">
-            <label for="location">location <span class="hint">lat,lon &mdash; or a saved spot, the device, or a click on the map</span></label>
+            <label for="location">location <span class="hint">lat,lon &mdash; or a saved spot, the device, a point picked on the map, or a click on this one</span></label>
             <div class="locrow">
                 <input type="text" id="location" name="location" spellcheck="false">
                 <button type="button" class="place geo" id="geo" title="device GPS → the 輸入 spot">📍 使用目前位置</button>
+                <button type="button" class="place geo" id="mappick" title="OpenStreetMap → the 輸入 spot">🗺️ 在地圖上點選</button>
                 <span class="geonote" id="geonote"></span>
                 <div class="places" id="places"></div>
             </div>
@@ -1567,6 +1568,44 @@ async function useCurrentPosition() {
     }
 }
 
+/**
+ * 在地圖上點選 (pick on the map): the same write as 使用目前位置 -- box, 輸入,
+ * pills, then fly there and read it -- from pickOnMap()'s dialog rather than
+ * from the device. A click on this page's own map already does much the same;
+ * the button is here so the location row is the one every other page has.
+ *
+ * pickOnMap() (places.js) opens on whatever the box already holds; anything
+ * unparseable falls back to places.js's default. It never rejects, and 取消
+ * resolves null -- on which this leaves the box, the pills and the map exactly
+ * as they were.
+ *
+ * Unlike the GPS route there is no accuracy to report, so the .geonote is
+ * cleared: a "±12 m" left over from an earlier fix would describe a coordinate
+ * the box no longer holds.
+ */
+async function pickFromMap() {
+    const button = document.getElementById("mappick");
+    const noteEl = document.getElementById("geonote");
+    button.disabled = true;
+    try {
+        const [latS, lonS] = document.getElementById("location").value.trim().split(",");
+        const lat = Number(latS), lon = Number(lonS);
+        const picked = await pickOnMap(
+            Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon } : {},
+        );
+        if (!picked) return;   // 取消
+        setInputPlace(picked.lat, picked.lon);
+        buildPlaces();   // the 輸入 pill carries coordinates in a dataset, so redraw it
+        document.getElementById("location").value = `${picked.lat},${picked.lon}`;
+        noteEl.classList.remove("error");
+        noteEl.textContent = "";
+        markActivePlace();
+        document.getElementById("form").requestSubmit();
+    } finally {
+        button.disabled = false;
+    }
+}
+
 function locationFromForm() {
     const raw = document.getElementById("location").value.trim();
     if (!raw) return { lat: DEFAULT_LAT, lon: DEFAULT_LON };
@@ -1656,6 +1695,7 @@ document.getElementById("viirsdate").addEventListener("change", (event) => {
     render();
 });
 document.getElementById("geo").addEventListener("click", useCurrentPosition);
+document.getElementById("mappick").addEventListener("click", pickFromMap);
 document.getElementById("location").addEventListener("input", markActivePlace);
 document.getElementById("reset").addEventListener("click", resetDefaults);
 document.getElementById("menubtn").addEventListener("click", () => {
