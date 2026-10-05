@@ -887,6 +887,11 @@ cell holds two moon things now, so `phase` is the truer name anyway. Keep the tw
 in step on everything else in the duplication table; the four new rows are this page's
 alone.
 
+**Weekend columns are shaded**, header included: `weekendClass()` tags a date
+`sat` or `sun` and `markBreak()` adds it to every cell of that column, Saturday a
+shade under the grid's `#fbfcfd`, Sunday a step deeper; today's accent header wins.
+It is this page's alone — `astro-score_daily.html` does not have it.
+
 **The three are geometry, with no weather in them, and that is the whole point.** The
 strips weigh the sky and the subject together and so go blank on a cloudy night; a mark
 reports only how high the subject got while the sun was below `DARK_SUN_ALT`, which is
