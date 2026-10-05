@@ -281,6 +281,15 @@
             padding: 5px 2px;
         }
         thead th.day span { display: block; }
+        /* Weekends: the whole column, header included, a shade under the grid's
+           own #fbfcfd -- Saturday faint, Sunday a step deeper -- so the nights
+           worth driving out on are found without reading dates. Kept this faint
+           so it never competes with the bars or the strip colours. Today's
+           accent header wins over it. */
+        td.sat { background: #edf0f3; }
+        td.sun { background: #e6eaee; }
+        thead th.day.sat { background: #e0e5eb; }
+        thead th.day.sun { background: #d6dce3; }
         thead th.day.today { background: var(--accent); color: white; }
 
         /* Zero horizontal padding, so the two glyphs fill the cell edge to edge and
@@ -1313,6 +1322,13 @@ function dateLines(date) {
     return [date.slice(5, 7), date.slice(8, 10)];
 }
 
+/** "2026-10-10" -> "sat", "2026-10-11" -> "sun", else null. A calendar date has
+ *  no zone, so UTC is only the arithmetic here, never a reading of the clock. */
+function weekendClass(date) {
+    const dow = new Date(`${date}T00:00:00Z`).getUTCDay();
+    return dow === 6 ? "sat" : dow === 0 ? "sun" : null;
+}
+
 /**
  * Today's date at the forecast location, as "YYYY-MM-DD".
  *
@@ -1431,6 +1447,8 @@ function buildTable(results, hidePast) {
     const breakAt = dates[0] !== today && dates.includes(today) ? today : null;
     const markBreak = (cell, date) => {
         if (date === breakAt) cell.classList.add("todaybreak");
+        const weekend = weekendClass(date);
+        if (weekend) cell.classList.add(weekend);
     };
 
     for (const date of dates) {
