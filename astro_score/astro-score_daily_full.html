@@ -450,8 +450,8 @@
            say twice -- the moon's elongation moves ~12.2 deg in a day on average
            and at most 14.3 deg near perigee (swept over 400 days), under a third
            of the 45 deg each glyph covers, so a date's two halves are the same
-           phase but for the odd boundary. Drawn for local noon, which is exactly
-           where the two blocks meet. A child of the cell
+           phase but for the odd boundary. Drawn for the moon's culmination that
+           date, as pure_math/moon_phase.html's card is. A child of the cell
            rather than of a stack, so it needs its own font-size: td.blocks zeroes
            font-size to kill stray inline gaps. */
         td.blocks .phase {
@@ -460,6 +460,10 @@
             line-height: 1.15;
             text-align: center;
         }
+        /* The glyph itself, turned by glyphRotation() so its lit side points the
+           way it does on the meridian. inline-block so it turns about its own
+           centre; at most ~30 deg from Taiwan, which stays inside the 2ch cell. */
+        td.blocks .phase .glyph { display: inline-block; }
 
         td.na { color: #bbb; }
         td.err { color: var(--err); font-size: 0.72rem; }
@@ -582,7 +586,7 @@
             <div class="rule vis">
                 <span class="formula">digit = tens of that body's best altitude while the sun is below &minus;10&deg;
                     <span class="gloss">&nbsp; visibility (可見) &mdash; how high it got in the dark, that block</span></span>
-                <span class="formula">moon = phase at that date's local noon
+                <span class="formula">moon = phase and tilt at that date's culmination
                     <span class="gloss">&nbsp; 月相 &mdash; one glyph per cell, not one per block</span></span>
                 <div class="example">
                     <div><b style="color:#8e44ad;">3</b>  <b style="color:#8e44ad;">A*</b> (銀心) reached the <b>30s</b> during the block's dark hours</div>
@@ -643,8 +647,12 @@
                     <li><b>The moon glyph is per day, not per half-day</b>, unlike everything above it: the
                         elongation moves about 12&deg; in 24 hours &mdash; 14.3&deg; at its fastest &mdash;
                         which is under a third of the 45&deg; each glyph covers, so the two halves of a date
-                        are the same phase but for the odd boundary. It is drawn for <b>local noon</b>,
-                        where the two blocks meet.</li>
+                        are the same phase but for the odd boundary. It is drawn for the moon's
+                        <b>culmination</b> that date &mdash; the moment it is highest &mdash; and
+                        <b>tilted</b> the way it looks then, facing south (north below the equator):
+                        the lit side points at the sun, as in an almanac. From Taiwan the tilt stays
+                        within about &plusmn;30&deg;; it is the season's angle of the moon's path, not
+                        the steep tilt of a crescent near the horizon.</li>
                     <li>It is a reminder rather than an input: <strong style="color:#1e8449;">AstroScore</strong>
                         already docks the score for moon <em>altitude</em> and knows nothing of the phase, so
                         the glyph is what tells a bright bar under a
@@ -652,8 +660,8 @@
                         nothing; the same moon at 10&deg; costs everything. <b>The phase and the slate digit
                         are the two halves of that</b>: how bright the moon is, and how high it got &mdash;
                         a <b>🌕</b> over a blank slate row is the good case, a <b>🌕</b> over a slate
-                        <b>8</b> the bad one. Hover a cell for the phase name
-                        and the elongation behind the glyph.</li>
+                        <b>8</b> the bad one. Hover a cell for the phase name,
+                        the elongation, the culmination time and the angle behind the glyph.</li>
                 </ul>
             </div>
 
@@ -1354,10 +1362,11 @@ function upMark(alt) {
 }
 
 // The eight phase glyphs in elongation order, one 45° octant each, starting at
-// new moon. They are the Northern Hemisphere's view -- 🌒 is lit on the right --
-// which is the right way round for every spot in places.js and would be mirrored
-// south of the equator. Nothing here flips them; a southern user reads the phase
-// correctly and the lit limb on the wrong side.
+// new moon. They are the view facing south (🌒 lit on the right), used as-is
+// wherever you are: the glyph only picks the *shape*, and glyphRotation() below
+// turns it so the lit side points at the sun as seen on the meridian. For these
+// shapes a half-turn is the same as a mirror, so a southern observer gets the
+// right picture from the rotation and nothing needs flipping.
 const MOON_GLYPHS = ["🌑", "🌒", "🌓", "🌔", "🌕", "🌖", "🌗", "🌘"];
 
 // The same eight as names, in milkyway.py's vocabulary (its MOON_PHASE_NAMES,
@@ -1389,6 +1398,95 @@ function moonOctant(elong) {
 /** The phase glyph for an elongation. */
 function moonGlyph(elong) {
     return MOON_GLYPHS[moonOctant(elong)];
+}
+
+// brightLimbPA(), limbAsSeen(), moonHighest() and glyphRotation() are copied
+// verbatim from pure_math/moon_phase.html, whose 月相圖示 card shows the same
+// glyph with its working -- keep the two in step.
+
+/**
+ * Position angle of the moon's bright limb (Meeus 48.5): the direction from the
+ * moon's centre to the middle of its lit edge, in degrees measured from
+ * celestial north through east, as atlases quote it. It depends only on the two
+ * RA/Dec pairs -- not on the place or the hour angle -- so it is the same
+ * number for everyone at a given instant.
+ */
+function brightLimbPA(sunRa, sunDec, moonRa, moonDec) {
+    const y = cos(sunDec) * sin(sunRa - moonRa);
+    const x = sin(sunDec) * cos(moonDec) - cos(sunDec) * sin(moonDec) * cos(sunRa - moonRa);
+    return mod360(Math.atan2(y, x) / DEG);
+}
+
+/**
+ * The bright limb as a calendar draws it: degrees clockwise from "up", for an
+ * observer facing the moon on the meridian -- south from the northern
+ * hemisphere, north from the southern -- so 90 is to your right.
+ *
+ * Facing south, celestial north is up and west is on the right, and position
+ * angle runs north -> east, i.e. anticlockwise: clockwise = 360 - PA. Facing
+ * north, south is up and east is on the right: clockwise = 180 - PA. That is the
+ * half-turn that lights a waxing moon on the left down south. The equator is
+ * counted as north, like everything else here that has to pick a side.
+ */
+function limbAsSeen(pa, lat) {
+    return lat >= 0 ? mod360(360 - pa) : mod360(180 - pa);
+}
+
+/**
+ * The UTC ms at which the moon stands highest between dayStartMs and 24 h later.
+ *
+ * That is normally its upper transit, on the meridian. About once a month the
+ * transit falls just past midnight and the day has none; the highest point is
+ * then one end of the day, which is still the honest answer to "highest that
+ * day". A 10-minute sweep finds the peak, a 1-minute one around it refines it.
+ */
+function moonHighest(dayStartMs, lat, lon) {
+    const altAt = (ms) => {
+        const jd = julianDay(ms);
+        const m = moonPosition(jd);
+        return altAz(m.ra, m.dec, lat, localSiderealTime(jd, lon)).alt;
+    };
+    const best = (from, to, step) => {
+        let bestMs = from;
+        let bestAlt = -Infinity;
+        for (let ms = from; ms <= to; ms += step) {
+            const a = altAt(ms);
+            if (a > bestAlt) { bestAlt = a; bestMs = ms; }
+        }
+        return bestMs;
+    };
+    const dayEnd = dayStartMs + 86400000 - 60000;
+    const coarse = best(dayStartMs, dayEnd, 600000);
+    return best(Math.max(dayStartMs, coarse - 600000), Math.min(dayEnd, coarse + 600000), 60000);
+}
+
+/**
+ * The CSS rotation (clockwise degrees) that turns a phase glyph so its lit side
+ * points along limbAsSeen(). Waxing glyphs are drawn lit on the right (90°),
+ * waning ones on the left (270°); 🌑 and 🌕 have no lit side and are turned
+ * anyway, harmlessly.
+ */
+function glyphRotation(octant, limbAngle) {
+    const drawn = octant < 4 ? 90 : 270;
+    const r = mod360(limbAngle - drawn);
+    return r > 180 ? r - 360 : r;
+}
+
+/**
+ * The moon as a calendar draws it for one local date: {elong, peakMs, limb,
+ * facing, rotation}, all taken at the moment the moon is highest that day (its
+ * culmination), with the lit limb read facing the meridian -- south from the
+ * northern hemisphere, north from the southern. Same as moon_phase.html's card.
+ */
+function moonFace(dayStartMs, lat, lon) {
+    const peakMs = moonHighest(dayStartMs, lat, lon);
+    const jd = julianDay(peakMs);
+    const sun = sunPosition(jd);
+    const moon = moonPosition(jd);
+    const elong = astroAt(peakMs, lat, lon).moonElong;
+    const limb = limbAsSeen(brightLimbPA(sun.ra, sun.dec, moon.ra, moon.dec), lat);
+    const facing = lat >= 0 ? "南" : "北";
+    return { elong, peakMs, limb, facing, rotation: glyphRotation(moonOctant(elong), limb) };
 }
 
 /**
@@ -1492,12 +1590,12 @@ function barFor(peak) {
 /**
  * One spot's response -> Map of "YYYY-MM-DD" -> one day record.
  *
- * A day record is {blocks, elong}: the array of BLOCKS block records that the
- * cell's stacks are drawn from, and the moon-sun elongation at that date's local
- * noon, which is a property of the *day* rather than of either block and so
- * hangs here rather than in both of them. Noon is the instant the two blocks
- * meet, so neither half of the date is favoured; see td.blocks .phase for why the
- * glyph is not drawn per block.
+ * A day record is {blocks, moon, offset}: the array of BLOCKS block records that
+ * the cell's stacks are drawn from, moonFace() for the date -- the phase and the
+ * lit limb's angle at that day's lunar culmination, a property of the *day*
+ * rather than of either block, so it hangs here rather than in both of them --
+ * and the response's UTC offset in seconds, to print the culmination as local
+ * time. See td.blocks .phase for why the glyph is not drawn per block.
  *
  * Each block record is {peak, milky, orion, gcNight, m42Night, moonNight, hours,
  * dark, scored}: the best 觀星 in the block, the best MilkyScore and OrionScore in
@@ -1550,9 +1648,8 @@ function blocksByDate(body, model, multi) {
                         hours: 0, dark: 0, scored: 0,
                     }),
                 ),
-                elong: astroAt(
-                    Date.parse(`${date}T12:00:00Z`) - offset * 1000, lat, lon,
-                ).moonElong,
+                moon: moonFace(Date.parse(`${date}T00:00:00Z`) - offset * 1000, lat, lon),
+                offset,
             });
         }
         const block = days.get(date).blocks[Math.floor(Number(t.slice(11, 13)) / BLOCK_HOURS)];
@@ -1682,7 +1779,8 @@ function visibleDates(dates, today, hidePast) {
  * at day 16 as at day 1, while the bar above them is a cloud model's guess.
  */
 function blocksCell(place, date, day) {
-    const { blocks, elong } = day;
+    const { blocks, moon: face, offset } = day;
+    const { elong } = face;
     const td = document.createElement("td");
     td.className = "blocks";
     const detail = [];
@@ -1754,13 +1852,20 @@ function blocksCell(place, date, day) {
         );
     }
     // One glyph for the cell, after both stacks and outside the loop.
+    // Wrapped so the glyph turns about its own centre, not the cell's width.
     const moon = document.createElement("span");
     moon.className = "phase";
-    moon.textContent = moonGlyph(elong);
+    const glyph = document.createElement("span");
+    glyph.className = "glyph";
+    glyph.textContent = moonGlyph(elong);
+    glyph.style.transform = `rotate(${face.rotation.toFixed(1)}deg)`;
+    moon.appendChild(glyph);
     td.appendChild(moon);
+    const culm = new Date(face.peakMs + offset * 1000).toISOString().slice(11, 16);
     td.title = `${place} — ${formatDate(date)}\n${detail.join("\n")}`
         + `\n${moonGlyph(elong)} ${MOON_NAMES[moonOctant(elong)]}`
-        + `  (elongation ${elong.toFixed(0)}°, at local noon)`;
+        + `  (elongation ${elong.toFixed(0)}°)`
+        + `\nculmination ${culm}，亮邊朝太陽 ${face.limb.toFixed(0)}° (面向${face.facing}方)`;
     return td;
 }
 

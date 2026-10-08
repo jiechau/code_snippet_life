@@ -510,7 +510,7 @@ what is new is that a cell now says something the forecast cannot take away.
 | purple `1`–`9` | **tens of A\*'s best altitude while it was dark**, that half-day — blank below 10° |
 | orange `1`–`9` | **the same for M42**, same gate |
 | slate `1`–`9` | **the same for the moon** — same rule, opposite meaning: high is bad |
-| 🌑…🌘 | **moon phase** at that date's local noon — one per cell, not per block |
+| 🌑…🌘 | **moon phase** at that date's culmination, tilted as seen facing south — one per cell, not per block |
 
 The four new rows are **geometry, with no weather in them**. The strips weigh
 the sky and the subject together, so they go blank on a cloudy night; a digit
@@ -591,7 +591,12 @@ per-block value. The elongation moves about 12° in a day (14.3° at its fastest
 under a third of the 45° each glyph covers, so a date's two halves are the same
 phase but for the odd boundary — and an emoji's advance is about twice a
 monospace character's, so it could not sit in the 1ch a block column is wide
-anyway. It is drawn for **local noon**, where the two blocks meet. It is a
+anyway. It is drawn for the moon's **culmination** that date — the moment it is
+highest — and **tilted** the way it looks then, facing south (north below the
+equator), so the lit side points at the sun as in an almanac; the working is
+`pure_math/moon_phase.html`'s 月相圖示 card, whose four functions this page copies.
+From Taiwan the tilt stays within about ±30°. The tooltip adds e.g.
+`culmination 09:40，亮邊朝太陽 250° (面向南方)`. It is a
 reminder, not an input: AstroScore docks the score for moon *altitude* and knows
 nothing of the phase, so the glyph is what tells a bright bar under a 🌕 from one
 under a 🌑. A full moon that has not risen costs nothing; the same moon 10° up
@@ -607,8 +612,8 @@ full" rather than "somewhere past full". The tooltip names the phase in
 waxing test rather than from the octant, so the two can differ by one step within
 a degree or so of a boundary. Neither is more correct — a phase name is a label
 on a continuum — and nothing computes from the answer. The glyphs are the
-**Northern Hemisphere's** view (🌒 lit on the right), which is right for every
-spot in `places.js` and would be mirrored south of the equator.
+facing-south set (🌒 lit on the right); facing north below the equator is a
+half-turn of the same rotation, which for these shapes is the mirror.
 
 ### Verification
 
@@ -624,8 +629,7 @@ this repo are. Slicing the inline `<script>` from `"use strict";` down to the
   with no skips, and a 400-day sweep putting the maximum 24-hour elongation drift
   at 14.32°.
 - **visibility (266)** — every block's `dark`, `gcNight` and `m42Night` at
-  龍磐公園 and 大武崙砲台 re-derived by brute force straight off the hour list; the
-  day record's elongation confirmed to be local noon's; and the marks observed
+  龍磐公園 and 大武崙砲台 re-derived by brute force straight off the hour list; and the marks observed
   standing under blank bars (23 and 27 blocks) and under a no-forecast `·`.
 - **rendering (144)** — every stack's rows in the order
   `bar,under,under,mark,mark,mark` with A* above M42 above the moon, exactly one

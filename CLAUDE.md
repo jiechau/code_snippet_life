@@ -405,7 +405,7 @@ two copy the chrome and the request *shape* but are the only pages addressed by
 | The `countryName/principalSubdivision/city/locality` join | all 12 pages with a location box: `reverseGeocode()` on 11 of them, `placeName()` on `bigdatacloud/reverse-geocode.html`, which demos the endpoint head-on |
 | `reverseGeocode()` (the *deferred, never-awaited* lookup) | 11 pages — all 3 `astro_score/` demos, both `open_meteo/`, the 4 `pure_math/` and both `light_pollution/` — **byte-identical in code**, with only four doc comments reworded where a page has no forecast and no grid point to disclaim. `bigdatacloud/reverse-geocode.html` is the twelfth and the odd one: it awaits its own `placeName()` inline, because there the name *is* the result. Only the `cwa_opendata/` two have none, having no coordinate. Every copy is fired after the page's own result is on screen, given the **requested** coordinates, and guarded on the meta line not having changed. What differs is how the name reaches the screen: `astro-score_readable.html` appends it to the meta element (`appendPlaceName()`, guarded on the line not having changed), the two `astro-score_daily*.html` store it in `inputPlaceName` and let `setMeta()` redraw it (`loadInputPlaceName()`, guarded on `PLACES[0]` still being that coordinate) — because a tab click there rewrites the meta line, which would wipe an appended node |
 | Light-pollution atlas (`lpRatio`, `lpSqm`, `lpBortle`, `lpZone`, `LP_ZONES`, `LP_BORTLE`, tile geometry, the `DecompressionStream` read) | `astro_score/astro-score_readable.html` + both `light_pollution/` pages — the only third-party binary format in the repo, and the one block copied three times. The *deferred, never-awaited* wrapper (`lightPollution()`, `loadLightPollution()`) is `astro_score`'s alone; `binary-tile.html` awaits its fetch, because there the tile **is** the result, and `light_pollution_map.html` awaits it per click, guarded by a `readToken` so a slow tile cannot overwrite the answer to a point clicked after it. `LP_ZONE_COLORS` — the atlas's 15 swatches, sampled out of Lorenz's published colour bar — is the **map page's alone**: it is the only page that draws the banding rather than naming one band |
-| Meeus solar/lunar series | all 3 `astro_score/astro-score_*.html` pages + `astro_score/milkyway.py` + the 4 `pure_math/` pages — never in `open_meteo/`. Every copy carries **only what it draws**: neither `astro-score_daily*.html` has `moonIllumination()` (they have `GC_RA`/`GC_DEC` + `M42_RA`/`M42_DEC`, which their two strips need, and `astro-score_daily_full.html` adds `moonElong` to `astroAt()` — the moon-sun elongation in ecliptic longitude, which its phase glyph needs and which is **not** the illuminated fraction: see `moonOctant()`); `pure_math/galactic_center.html` has no `obliquity()`/`eclipticToEquatorial()` at all (A* is already equatorial), and `pure_math/orion_nebula_m42.html` is that same file with M42's RA/Dec — the two are the only pair in this row that are byte-identical apart from one pair of constants; `pure_math/sun_phase.html` has nothing lunar; `pure_math/moon_phase.html` carries `sunPosition()` too, because the illuminated fraction needs the moon–sun elongation |
+| Meeus solar/lunar series | all 3 `astro_score/astro-score_*.html` pages + `astro_score/milkyway.py` + the 4 `pure_math/` pages — never in `open_meteo/`. Every copy carries **only what it draws**: neither `astro-score_daily*.html` has `moonIllumination()` (they have `GC_RA`/`GC_DEC` + `M42_RA`/`M42_DEC`, which their two strips need, and `astro-score_daily_full.html` adds `moonElong` to `astroAt()` — the moon-sun elongation in ecliptic longitude, which its phase glyph needs and which is **not** the illuminated fraction: see `moonOctant()` — plus the four bright-limb functions it shares with `pure_math/moon_phase.html`); `pure_math/galactic_center.html` has no `obliquity()`/`eclipticToEquatorial()` at all (A* is already equatorial), and `pure_math/orion_nebula_m42.html` is that same file with M42's RA/Dec — the two are the only pair in this row that are byte-identical apart from one pair of constants; `pure_math/sun_phase.html` has nothing lunar; `pure_math/moon_phase.html` carries `sunPosition()` too, because the illuminated fraction needs the moon–sun elongation |
 | `GC_RA`/`GC_DEC` **and** `M42_RA`/`M42_DEC` (the two fixed equatorial targets) | all 3 `astro_score/astro-score_*.html` pages carry both pairs; `astro_score/milkyway.py` carries **only** the `GC_` pair (it has no M42 anything, and is not the place to add one — the score does not read either); `pure_math/galactic_center.html` carries only `GC_`, `pure_math/orion_nebula_m42.html` only `M42_`. `gcMaxAlt()` and `m42MaxAlt()` are deliberately **two functions, not one `maxAlt(lat, dec)`** — they are read as the pair of constants they are, and it keeps each `pure_math/` page line-for-line comparable with the block it was lifted from. Both targets are **display only everywhere**: `astroScore()` reads neither, so a subject below the horizon never lowers a score |
 | `DARK_SUN_ALT`, `MOON_KILL_ALT`, `moonPenalty()`, `astroScore()` | all 3 `astro_score/astro-score_*.html` pages, verbatim. `astro-score_daily_full.html` adds a **fourth** threshold beside them, `TARGET_UP_ALT` (10°), which is its alone — nothing else in the repo draws a visibility mark. Split across `pure_math/`: `sun_phase.html` takes `DARK_SUN_ALT`, `moon_phase.html` takes `MOON_KILL_ALT` + `moonPenalty()`. **`astroScore()` is in neither** — a pure-math page has no cloud figure to score |
 | `LABELS`, `API_SHORT`, `UNIT_SHORT`, `tint()`, `SCALES`, hour-grid rendering | the 2 hour-by-hour grid pages only — the two `astro-score_daily*.html` draw days as bars, not variables as tinted cells, and have none of them; `open-meteo.html`/`reverse-geocode.html`/the `pure_math/` four draw no grid at all |
@@ -963,18 +963,25 @@ digits competed with the glyphs they sit under instead of qualifying them.
 
 **The moon glyph is per cell, not per block** — the only thing a cell draws that is not a
 per-block value, which is why `blocksByDate()` now returns a **day record**
-`{blocks, elong}` rather than a bare array, and why `blocksCell()` takes that record.
+`{blocks, moon, offset}` rather than a bare array, and why `blocksCell()` takes that record.
 Two reasons, the layout one weaker: an emoji's advance is about twice a monospace
 character's, so it cannot sit in the `1ch` a `.stack` is wide without overlapping its
 neighbour, while the cell it spans is `2ch` and holds it. The real reason is that there
 is nothing to say twice — the elongation moves ~12.2°/day on average and at most 14.3°
 near perigee (swept over 400 days), under a third of the 45° each glyph covers. It is
-drawn for **local noon**, where the two blocks meet, so neither half of the date is
-favoured. It is a reminder, not an input: `astroScore()` docks the score for moon
+drawn for the moon's **culmination** that date and **tilted** the way it looks then —
+`moonFace()`, built from `brightLimbPA()`/`limbAsSeen()`/`moonHighest()`/
+`glyphRotation()` copied **verbatim** from `pure_math/moon_phase.html`, whose 月相圖示
+card is the same glyph with its working; keep the four in step. From Taiwan the tilt
+stays within about ±30°: it is the season's slant of the moon's path on the meridian,
+not the steep tilt of a crescent at the horizon, so a small wobble down a row is the
+whole effect. The tooltip adds `culmination 09:40，亮邊朝太陽 250° (面向南方)`. Checked by
+slicing both pages: 180 cells (Taipei, 龍磐公園, Sydney × 60 days) give the same glyph,
+rotation and text as the card for that date. It is a reminder, not an input: `astroScore()` docks the score for moon
 **altitude** and knows nothing of phase, so the glyph is what tells a bright bar under a
 🌕 from one under a 🌑.
 
-The phase comes from `astroAt()`'s new `moonElong` — `mod360(moon.eclLon - sun.eclLon)`,
+The phase comes from `astroAt()`'s `moonElong` at that culmination — `mod360(moon.eclLon - sun.eclLon)`,
 free because both longitudes were already computed — and **not** from
 `moonIllumination()`, which this page still does not have. `moonOctant()` rounds rather
 than floors, so each glyph is centred on its phase and covers ±22.5°: 🌕 means "within a
@@ -982,8 +989,9 @@ day and a bit of full", not "somewhere past full". `MOON_NAMES` is `milkyway.py`
 eight-name vocabulary, but reached from the octant rather than from
 `moon_phase_name()`'s illumination-plus-waxing test, so the two can disagree by one step
 within a degree of a boundary — expected, and nothing computes from either. The glyphs
-are the **Northern Hemisphere's** view (🌒 lit on the right), right for every `places.js`
-spot and mirrored south of the equator; nothing flips them.
+are the facing-south set (🌒 lit on the right) and the rotation does the rest: facing
+north below the equator is a half-turn, which for these shapes is the mirror, so there
+is no second set.
 
 The marks take their hue from CSS (`.mark.gc` → `--milky`, `.mark.m42` → `--orion`),
 never an inline style — unlike the strips, whose colour *is* their value. Colour here
@@ -1000,8 +1008,7 @@ add a ~40-line DOM stub (`createElement`/`classList`/`appendChild`/`insertRow`) 
 **594 assertions**: octant boundaries and wrap, seven published 2026 new/full/quarter
 instants landing in the right octant, one synodic month advancing `0..7` with no skips,
 the 14.32° drift figure above; every block's `dark`/`gcNight`/`m42Night` at 龍磐公園 and
-大武崙砲台 re-derived by brute force off the hour list, the day record's elongation
-confirmed to be local noon's, and marks observed under blank bars and under a `·`; and
+大武崙砲台 re-derived by brute force off the hour list, and marks observed under blank bars and under a `·`; and
 each stack's rows in the order `bar,under,under,mark,mark,mark` with A* above M42 above
 the moon, exactly one phase glyph per cell as the cell's last child, and three marks per
 stack across a whole built table; and `upMark()`'s tens mapping at the gate, at each
@@ -1289,8 +1296,9 @@ term over −18°..−12° instead. Showing the standard bands next to the page'
 threshold is the point; do not make the threshold *be* one of them.
 
 `moon_phase.html` also draws a **月相圖示** card: the nearest of the eight
-`MOON_GLYPHS` (`moonOctant()`, copied from `astro-score_daily_full.html` — keep
-the two in step), always the facing-south set, CSS-rotated by
+`MOON_GLYPHS` (`moonOctant()`, copied from `astro-score_daily_full.html`, which
+now also copies this page's `brightLimbPA()`/`limbAsSeen()`/`moonHighest()`/
+`glyphRotation()` to tilt its own glyph — keep all of them in step), always the facing-south set, CSS-rotated by
 `glyphRotation()` so the lit side points along `limbAsSeen()`. It is drawn the
 way an almanac prints it, **not** as the sky looks at the instant: phase and
 angle are taken when **the moon is highest on the time box's date**
