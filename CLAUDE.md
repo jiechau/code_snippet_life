@@ -1291,10 +1291,22 @@ threshold is the point; do not make the threshold *be* one of them.
 `moon_phase.html` also draws a **月相圖示** card: the nearest of the eight
 `MOON_GLYPHS` (`moonOctant()`, copied from `astro-score_daily_full.html` — keep
 the two in step), always the facing-south set, CSS-rotated by
-`glyphRotation()` so the lit side points along `brightLimbAngle()`, the moon→sun
-direction on the sky as seen facing the moon, zenith up. A half-turn of these
-shapes is a mirror, so that one rotation also covers the southern hemisphere —
-don't add a flipped set. Display only, like the page's other extras.
+`glyphRotation()` so the lit side points along `limbAsSeen()`. It is drawn the
+way an almanac prints it, **not** as the sky looks at the instant: phase and
+angle are taken when **the moon is highest on the time box's date**
+(`moonHighest()`, 10-minute sweep refined to 1 minute, same solar-zone offset as
+the rest of the page) — one picture all day, and the moon on the meridian, which
+is what makes "facing south" true; on the ~monthly day with no transit it lands
+on 00:00/24:00, deliberately, and the angle is
+the bright limb's position angle (`brightLimbPA()`, Meeus 48.5 — place- and
+hour-independent) read **facing the meridian**: south north of the equator
+(`360° − χ`, west on the right), north south of it (`180° − χ`, east on the
+right), clockwise from up. The card reads `culmination 14:56，亮邊朝太陽 250° (面向南方)`.
+It used to be the moon→sun direction seen facing the moon at the instant, which
+swung with the hour and could not be compared with a printed calendar — don't
+put that back. A half-turn of these shapes is a mirror, so that one rotation
+also covers the southern hemisphere — don't add a flipped set. Display only,
+like the page's other extras.
 
 `moon_phase.html` is the largest of the three because the phase needs the sun:
 `sunPosition()` is there for `moonIllumination()`'s elongation, not for anything on

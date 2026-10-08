@@ -448,7 +448,7 @@ function moonPenalty(moonAlt) {
 // new moon -- copied from astro_score/astro-score_daily_full.html, which draws
 // one under every day. They are the view facing south (🌒 lit on the right),
 // used as-is wherever you are: the glyph only picks the *shape*, and
-// brightLimbAngle() below turns it so the lit side points at the sun. For these
+// limbAsSeen() below turns it so the lit side points at the sun. For these
 // shapes a half-turn is the same as a mirror, so a southern observer gets the
 // right picture from the rotation and nothing needs flipping.
 const MOON_GLYPHS = ["🌑", "🌒", "🌓", "🌔", "🌕", "🌖", "🌗", "🌘"];
@@ -459,34 +459,64 @@ function moonOctant(elong) {
 }
 
 /**
- * Where the lit limb points, as you stand facing the moon with the zenith up:
- * degrees clockwise from "up", so 90 is to your right and 180 straight down.
- *
- * The lit side faces the sun, so this is the direction from the moon towards
- * the sun, projected onto the sky at the moon. Horizontal vectors are
- * (east, north, up); `up` is the zenith with its moonward part removed and
- * `right` is moon × up. Geocentric like the rest of the page, which moves it by
- * well under a degree -- far finer than an emoji can show.
+ * Position angle of the moon's bright limb (Meeus 48.5): the direction from the
+ * moon's centre to the middle of its lit edge, in degrees measured from
+ * celestial north through east, as atlases quote it. It depends only on the two
+ * RA/Dec pairs -- not on the place or the hour angle -- so it is the same
+ * number for everyone at a given instant.
  */
-function brightLimbAngle(moonAlt, moonAz, sunAlt, sunAz) {
-    const vec = (alt, az) => [cos(alt) * sin(az), cos(alt) * cos(az), sin(alt)];
-    const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-    const m = vec(moonAlt, moonAz);
-    const s = vec(sunAlt, sunAz);
-    const up = [-m[2] * m[0], -m[2] * m[1], 1 - m[2] * m[2]];
-    const right = [
-        m[1] * up[2] - m[2] * up[1],
-        m[2] * up[0] - m[0] * up[2],
-        m[0] * up[1] - m[1] * up[0],
-    ];
-    const sm = dot(s, m);
-    const toSun = [s[0] - sm * m[0], s[1] - sm * m[1], s[2] - sm * m[2]];
-    return mod360(Math.atan2(dot(toSun, right), dot(toSun, up)) / DEG);
+function brightLimbPA(sunRa, sunDec, moonRa, moonDec) {
+    const y = cos(sunDec) * sin(sunRa - moonRa);
+    const x = sin(sunDec) * cos(moonDec) - cos(sunDec) * sin(moonDec) * cos(sunRa - moonRa);
+    return mod360(Math.atan2(y, x) / DEG);
+}
+
+/**
+ * The bright limb as a calendar draws it: degrees clockwise from "up", for an
+ * observer facing the moon on the meridian -- south from the northern
+ * hemisphere, north from the southern -- so 90 is to your right.
+ *
+ * Facing south, celestial north is up and west is on the right, and position
+ * angle runs north -> east, i.e. anticlockwise: clockwise = 360 - PA. Facing
+ * north, south is up and east is on the right: clockwise = 180 - PA. That is the
+ * half-turn that lights a waxing moon on the left down south. The equator is
+ * counted as north, like everything else here that has to pick a side.
+ */
+function limbAsSeen(pa, lat) {
+    return lat >= 0 ? mod360(360 - pa) : mod360(180 - pa);
+}
+
+/**
+ * The UTC ms at which the moon stands highest between dayStartMs and 24 h later.
+ *
+ * That is normally its upper transit, on the meridian. About once a month the
+ * transit falls just past midnight and the day has none; the highest point is
+ * then one end of the day, which is still the honest answer to "highest that
+ * day". A 10-minute sweep finds the peak, a 1-minute one around it refines it.
+ */
+function moonHighest(dayStartMs, lat, lon) {
+    const altAt = (ms) => {
+        const jd = julianDay(ms);
+        const m = moonPosition(jd);
+        return altAz(m.ra, m.dec, lat, localSiderealTime(jd, lon)).alt;
+    };
+    const best = (from, to, step) => {
+        let bestMs = from;
+        let bestAlt = -Infinity;
+        for (let ms = from; ms <= to; ms += step) {
+            const a = altAt(ms);
+            if (a > bestAlt) { bestAlt = a; bestMs = ms; }
+        }
+        return bestMs;
+    };
+    const dayEnd = dayStartMs + 86400000 - 60000;
+    const coarse = best(dayStartMs, dayEnd, 600000);
+    return best(Math.max(dayStartMs, coarse - 600000), Math.min(dayEnd, coarse + 600000), 60000);
 }
 
 /**
  * The CSS rotation (clockwise degrees) that turns a phase glyph so its lit side
- * points along brightLimbAngle(). Waxing glyphs are drawn lit on the right (90°),
+ * points along limbAsSeen(). Waxing glyphs are drawn lit on the right (90°),
  * waning ones on the left (270°); 🌑 and 🌕 have no lit side and are turned
  * anyway, harmlessly.
  */
@@ -569,9 +599,24 @@ function working(utcMs, lat, lon, offsetHours) {
     const waxing = eclipticGap < 180;
     const name = moonPhaseName(illum, sun.eclLon, moon.eclLon);
     const penalty = moonPenalty(alt);
-    const sunHz = altAz(sun.ra, sun.dec, lat, lst);
-    const octant = moonOctant(eclipticGap);
-    const limb = brightLimbAngle(alt, az, sunHz.alt, sunHz.az);
+
+    // The glyph is drawn for the moment the moon is highest on the time box's
+    // date, not for the instant itself, so it is the same picture all day and
+    // is the moon as you would actually look for it -- on the meridian, which
+    // is why the angle below is read facing south (or north).
+    const dayMs = 86400000;
+    const offMs = offsetHours * 3600000;
+    const dayStartMs = Math.floor((utcMs + offMs) / dayMs) * dayMs - offMs;
+    const peakMs = moonHighest(dayStartMs, lat, lon);
+    const peakJd = julianDay(peakMs);
+    const peakSun = sunPosition(peakJd);
+    const peakMoon = moonPosition(peakJd);
+    const peakAlt = altAz(peakMoon.ra, peakMoon.dec, lat, localSiderealTime(peakJd, lon)).alt;
+    const peakGap = mod360(peakMoon.eclLon - peakSun.eclLon);
+    const octant = moonOctant(peakGap);
+    const pa = brightLimbPA(peakSun.ra, peakSun.dec, peakMoon.ra, peakMoon.dec);
+    const facing = lat >= 0 ? "南" : "北";
+    const limb = limbAsSeen(pa, lat);
     const rotation = glyphRotation(octant, limb);
 
     // Signed, so it reads as a correction rather than as a second longitude.
@@ -621,11 +666,15 @@ function working(utcMs, lat, lon, offsetHours) {
         { label: "黃經差", sym: "λ☾ − λ☉", val: deg(eclipticGap, 2), note: "under 180° = 盈 (waxing), over = 虧 (waning)" },
         { label: "月相", sym: "name", val: `${name} · ${waxing ? "盈" : "虧"}`, note: "k picks the band, the line above picks the column" },
 
-        { stage: "月相圖示 · the glyph, turned to the sun" },
+        { stage: "月相圖示 · the glyph at the day's highest moon, facing the meridian" },
+        { label: "最高時刻", sym: "t·max", val: localLabel(peakMs, offsetHours), note: `highest moon on the time box's date = ${utcLabel(peakMs)}; the glyph is the same all day` },
+        { label: "最高高度", sym: "h·max", val: deg(peakAlt, 2), note: "10-min sweep of 00:00–24:00, refined to the minute — can be below 0" },
+        { label: "最高黃經差", sym: "λ☾ − λ☉", val: deg(peakGap, 2), note: "the same subtraction as above, at that moment" },
         { label: "圖示", sym: "octant", val: `${octant} ${MOON_GLYPHS[octant]}`, note: "round(黃經差 / 45) mod 8 — nearest of eight, drawn facing south" },
-        { label: "太陽高度/方位", sym: "h☉ A☉", val: `${deg(sunHz.alt, 2)} / ${deg(sunHz.az, 2)}`, note: "same altAz() as the moon's" },
-        { label: "亮邊方向", sym: "χ", val: deg(limb, 1), note: "moon→sun on the sky, clockwise from 天頂 as you face the moon; 90° = right" },
-        { label: "旋轉", sym: "rot", val: deg(rotation, 1), note: "χ − 90° (盈 glyph, lit right) or χ − 270° (虧 glyph, lit left)" },
+        { label: "亮邊位置角", sym: "χ", val: deg(pa, 2), note: "Meeus 48.5 — moon→sun from celestial north through east; place-independent" },
+        { label: "面向", sym: "facing", val: `${facing}方`, note: "南 north of the equator, 北 south of it — where the moon crosses the meridian" },
+        { label: "亮邊方向", sym: "χ′", val: deg(limb, 1), note: lat >= 0 ? "360° − χ — facing south: north up, west right; clockwise from up" : "180° − χ — facing north: south up, east right; clockwise from up" },
+        { label: "旋轉", sym: "rot", val: deg(rotation, 1), note: "χ′ − 90° (盈 glyph, lit right) or χ′ − 270° (虧 glyph, lit left)" },
 
         { stage: "扣分 · what the score does with it" },
         { label: "扣分門檻", sym: "MOON_KILL_ALT", val: deg(MOON_KILL_ALT, 0), note: "the altitude at which the moon is treated as ruining the sky outright" },
@@ -644,7 +693,7 @@ function working(utcMs, lat, lon, offsetHours) {
         {
             k: "月相圖示",
             v: MOON_GLYPHS[octant],
-            n: `亮邊朝太陽 ${deg(limb, 0)} (面向月亮, 天頂 0°)`,
+            n: `culmination ${localLabel(peakMs, offsetHours).slice(11, 16)}，亮邊朝太陽 ${deg(limb, 0)} (面向${facing}方)`,
             rot: rotation,
         },
         { k: "照光比例", v: `${num(illum * 100, 1)}%`, n: `相位角 ${deg(phaseAngle, 1)}` },

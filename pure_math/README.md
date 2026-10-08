@@ -111,13 +111,19 @@ Every shared function is **byte-identical** to
   names (新月 / 眉月 / 上弦 / 盈凸 / 滿月, and their waning counterparts) are ported
   straight from `milkyway.py`'s `moon_phase_name()`. Those two are now the pair
   to keep in step.
-- **A 月相圖示 card: the phase as an emoji, turned to face the sun.** The glyph is
-  the nearest of eight (`MOON_GLYPHS` / `moonOctant()`, copied from
+- **A 月相圖示 card: the phase as an emoji, drawn the way an almanac prints it.**
+  The glyph is the nearest of eight (`MOON_GLYPHS` / `moonOctant()`, copied from
   `astro_score/astro-score_daily_full.html`), always the facing-south set (🌒 lit
-  on the right). `brightLimbAngle()` then works out where the lit limb really
-  points as you face the moon with the zenith up — the moon→sun direction
-  projected onto the sky — and the glyph is CSS-rotated to match, so an evening
-  crescent lies tipped towards the set sun instead of standing upright. For these
+  on the right), and it is computed for **the moment the moon is highest on the
+  time box's date** (`moonHighest()`: a 10-minute sweep, refined to the minute),
+  not for the instant itself — so it is the same picture all day, and it is the
+  moon on the meridian, where you would look for it. About once a month the moon
+  has no transit that day; the highest point is then 00:00 or 24:00. `brightLimbPA()` gives the bright limb's position angle (Meeus 48.5,
+  from celestial north through east), and `limbAsSeen()` reads it for an observer
+  facing the meridian: **south** in the northern hemisphere (north up, west
+  right, `360° − χ`), **north** in the southern (south up, east right,
+  `180° − χ`). The glyph is CSS-rotated to match and the card reads e.g.
+  `culmination 14:56，亮邊朝太陽 250° (面向南方)`, clockwise from straight up. For these
   shapes a half-turn is a mirror, so the southern hemisphere needs no second set.
   Display only; nothing computes from it.
 
