@@ -113,7 +113,7 @@ Every shared function is **byte-identical** to
   to keep in step.
 - **A 月相圖示 card: the phase as an emoji, drawn the way an almanac prints it.**
   The glyph is the nearest of eight (`MOON_GLYPHS` / `moonOctant()`, copied from
-  `astro_score/astro-score_daily_full.html`), always the facing-south set (🌒 lit
+  `astro_score/astro-score_daily.html`), always the facing-south set (🌒 lit
   on the right), and it is computed for **the moment the moon is highest on the
   time box's date** (`moonHighest()`: a 10-minute sweep, refined to the minute),
   not for the instant itself — so it is the same picture all day, and it is the

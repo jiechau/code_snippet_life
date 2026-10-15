@@ -36,16 +36,16 @@ here mainly when changing those constants; the adjustable form is
   and an orange OrionScore one.
   The first row is 輸入, which 使用目前位置 points at wherever you are standing
   and 在地圖上點選 at wherever you can find on a map.
-- [AstroScore daily full](https://jiechau.github.io/code_snippet_life/astro_score/astro-score_daily_full.html)
-  — that grid with three more rows under every bar, all three of them geometry
-  rather than forecast: three digits giving how high a body got during that
-  half-day's dark hours, in tens of degrees (`6` = reached the sixties, blank =
-  never cleared 10°) — purple for 銀心 (A*), orange for M42, slate for the moon —
-  and the moon phase (🌑 🌒 🌓 🌔 🌕 🌖 🌗 🌘) once per cell. The slate digit is
-  the one that means the opposite of the others: high is bad. Because none of the three reads the
-  cloud model, they stay true at the right-hand end of the grid where the bars
-  have given out — the page answers *when is the season* beside *which night is
-  clear*.
+  Under every bar sit three more rows, all of them geometry rather than
+  forecast: three digits giving how high a body got during that half-day's dark
+  hours, in tens of degrees (`6` = reached the sixties, blank = never cleared
+  10°) — purple for 銀心 (A*), orange for M42, slate for the moon — and the moon
+  phase (🌑 🌒 🌓 🌔 🌕 🌖 🌗 🌘) once per cell. The slate digit is the one that
+  means the opposite of the others: high is bad. Because none of the three reads
+  the cloud model, they stay true at the right-hand end of the grid where the
+  bars have given out — the page answers *when is the season* beside *which
+  night is clear*. (`astro-score_daily_full.html`, its old name, now redirects
+  here.)
 
 - [Astro Bookmark](https://jiechau.github.io/code_snippet_life/astro_score/astro-bookmark.html)
   — outbound links only: CWA's 月相圖, two light-pollution maps, NCDR's
@@ -55,12 +55,10 @@ here mainly when changing those constants; the adjustable form is
 ## The pages
 
 `astro-score_readable.html` answers *which hour tonight*, for one place.
-`astro-score_daily.html` answers *which place, which night*, and
-`astro-score_daily_full.html` is that grid with the sky's own calendar under it —
-the same bars and strips, plus three forecast-independent rows per cell
-(A* visibility, M42 visibility, moon phase). Everything below about the daily
-grid applies to both; the section on `astro-score_daily_full.html` covers what
-only that one has.
+`astro-score_daily.html` answers *which place, which night* — and, with the
+sky's own calendar under every bar, *when is the season*: three
+forecast-independent rows per cell (A* visibility, M42 visibility, moon phase),
+covered in their own section below.
 
 `astro-score_daily.html` — it asks the same
 question of every entry in [`places.js`](../places.js) at once (one request each)
@@ -496,11 +494,11 @@ rule of thumb kept on purpose, so the two are free to disagree. The astronomy
 *is* shared, though: change the Meeus series here, in `milkyway.py` or in
 `open_meteo/open-meteo_readable.html` and all three need re-checking.
 
-## `astro-score_daily_full.html`
+## `astro-score_daily.html`: the rows under the strips
 
-The daily grid, with three rows added under every bar. The bars and the two
-strips are unchanged and mean exactly what they mean on `astro-score_daily.html`;
-what is new is that a cell now says something the forecast cannot take away.
+Three rows under every bar. The bars and the two strips mean exactly what the
+section above says; what these add is that a cell says something the forecast
+cannot take away.
 
 | row | what it is |
 | --- | --- |

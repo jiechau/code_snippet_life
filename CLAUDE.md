@@ -380,7 +380,7 @@ in no row below: it is a static list of outbound links — no form, no request, 
 `places.js`, none of the chrome — so nothing there has to be kept in step with
 anything. They are `open_meteo/open-meteo.html`,
 `open_meteo/open-meteo_readable.html`, `astro_score/astro-score_readable.html`,
-`astro_score/astro-score_daily.html`, `astro_score/astro-score_daily_full.html`,
+`astro_score/astro-score_daily.html`,
 `bigdatacloud/reverse-geocode.html`,
 `light_pollution/binary-tile.html`, `light_pollution/light_pollution_map.html`, the four
 `pure_math/{galactic_center,orion_nebula_m42,sun_phase,moon_phase}.html` and the two
@@ -405,9 +405,9 @@ two copy the chrome and the request *shape* but are the only pages addressed by
 | The `countryName/principalSubdivision/city/locality` join | all 12 pages with a location box: `reverseGeocode()` on 11 of them, `placeName()` on `bigdatacloud/reverse-geocode.html`, which demos the endpoint head-on |
 | `reverseGeocode()` (the *deferred, never-awaited* lookup) | 11 pages — all 3 `astro_score/` demos, both `open_meteo/`, the 4 `pure_math/` and both `light_pollution/` — **byte-identical in code**, with only four doc comments reworded where a page has no forecast and no grid point to disclaim. `bigdatacloud/reverse-geocode.html` is the twelfth and the odd one: it awaits its own `placeName()` inline, because there the name *is* the result. Only the `cwa_opendata/` two have none, having no coordinate. Every copy is fired after the page's own result is on screen, given the **requested** coordinates, and guarded on the meta line not having changed. What differs is how the name reaches the screen: `astro-score_readable.html` appends it to the meta element (`appendPlaceName()`, guarded on the line not having changed), the two `astro-score_daily*.html` store it in `inputPlaceName` and let `setMeta()` redraw it (`loadInputPlaceName()`, guarded on `PLACES[0]` still being that coordinate) — because a tab click there rewrites the meta line, which would wipe an appended node |
 | Light-pollution atlas (`lpRatio`, `lpSqm`, `lpBortle`, `lpZone`, `LP_ZONES`, `LP_BORTLE`, tile geometry, the `DecompressionStream` read) | `astro_score/astro-score_readable.html` + both `light_pollution/` pages — the only third-party binary format in the repo, and the one block copied three times. The *deferred, never-awaited* wrapper (`lightPollution()`, `loadLightPollution()`) is `astro_score`'s alone; `binary-tile.html` awaits its fetch, because there the tile **is** the result, and `light_pollution_map.html` awaits it per click, guarded by a `readToken` so a slow tile cannot overwrite the answer to a point clicked after it. `LP_ZONE_COLORS` — the atlas's 15 swatches, sampled out of Lorenz's published colour bar — is the **map page's alone**: it is the only page that draws the banding rather than naming one band |
-| Meeus solar/lunar series | all 3 `astro_score/astro-score_*.html` pages + `astro_score/milkyway.py` + the 4 `pure_math/` pages — never in `open_meteo/`. Every copy carries **only what it draws**: neither `astro-score_daily*.html` has `moonIllumination()` (they have `GC_RA`/`GC_DEC` + `M42_RA`/`M42_DEC`, which their two strips need, and `astro-score_daily_full.html` adds `moonElong` to `astroAt()` — the moon-sun elongation in ecliptic longitude, which its phase glyph needs and which is **not** the illuminated fraction: see `moonOctant()` — plus the four bright-limb functions it shares with `pure_math/moon_phase.html`); `pure_math/galactic_center.html` has no `obliquity()`/`eclipticToEquatorial()` at all (A* is already equatorial), and `pure_math/orion_nebula_m42.html` is that same file with M42's RA/Dec — the two are the only pair in this row that are byte-identical apart from one pair of constants; `pure_math/sun_phase.html` has nothing lunar; `pure_math/moon_phase.html` carries `sunPosition()` too, because the illuminated fraction needs the moon–sun elongation |
+| Meeus solar/lunar series | all 3 `astro_score/astro-score_*.html` pages + `astro_score/milkyway.py` + the 4 `pure_math/` pages — never in `open_meteo/`. Every copy carries **only what it draws**: neither `astro-score_daily*.html` has `moonIllumination()` (they have `GC_RA`/`GC_DEC` + `M42_RA`/`M42_DEC`, which their two strips need, and `astro-score_daily.html` adds `moonElong` to `astroAt()` — the moon-sun elongation in ecliptic longitude, which its phase glyph needs and which is **not** the illuminated fraction: see `moonOctant()` — plus the four bright-limb functions it shares with `pure_math/moon_phase.html`); `pure_math/galactic_center.html` has no `obliquity()`/`eclipticToEquatorial()` at all (A* is already equatorial), and `pure_math/orion_nebula_m42.html` is that same file with M42's RA/Dec — the two are the only pair in this row that are byte-identical apart from one pair of constants; `pure_math/sun_phase.html` has nothing lunar; `pure_math/moon_phase.html` carries `sunPosition()` too, because the illuminated fraction needs the moon–sun elongation |
 | `GC_RA`/`GC_DEC` **and** `M42_RA`/`M42_DEC` (the two fixed equatorial targets) | all 3 `astro_score/astro-score_*.html` pages carry both pairs; `astro_score/milkyway.py` carries **only** the `GC_` pair (it has no M42 anything, and is not the place to add one — the score does not read either); `pure_math/galactic_center.html` carries only `GC_`, `pure_math/orion_nebula_m42.html` only `M42_`. `gcMaxAlt()` and `m42MaxAlt()` are deliberately **two functions, not one `maxAlt(lat, dec)`** — they are read as the pair of constants they are, and it keeps each `pure_math/` page line-for-line comparable with the block it was lifted from. Both targets are **display only everywhere**: `astroScore()` reads neither, so a subject below the horizon never lowers a score |
-| `DARK_SUN_ALT`, `MOON_KILL_ALT`, `moonPenalty()`, `astroScore()` | all 3 `astro_score/astro-score_*.html` pages, verbatim. `astro-score_daily_full.html` adds a **fourth** threshold beside them, `TARGET_UP_ALT` (10°), which is its alone — nothing else in the repo draws a visibility mark. Split across `pure_math/`: `sun_phase.html` takes `DARK_SUN_ALT`, `moon_phase.html` takes `MOON_KILL_ALT` + `moonPenalty()`. **`astroScore()` is in neither** — a pure-math page has no cloud figure to score |
+| `DARK_SUN_ALT`, `MOON_KILL_ALT`, `moonPenalty()`, `astroScore()` | all 3 `astro_score/astro-score_*.html` pages, verbatim. `astro-score_daily.html` adds a **fourth** threshold beside them, `TARGET_UP_ALT` (10°), which is its alone — nothing else in the repo draws a visibility mark. Split across `pure_math/`: `sun_phase.html` takes `DARK_SUN_ALT`, `moon_phase.html` takes `MOON_KILL_ALT` + `moonPenalty()`. **`astroScore()` is in neither** — a pure-math page has no cloud figure to score |
 | `LABELS`, `API_SHORT`, `UNIT_SHORT`, `tint()`, `SCALES`, hour-grid rendering | the 2 hour-by-hour grid pages only — the two `astro-score_daily*.html` draw days as bars, not variables as tinted cells, and have none of them; `open-meteo.html`/`reverse-geocode.html`/the `pure_math/` four draw no grid at all |
 | `MODELS` (the four ids, in order) | all 5 Open-Meteo pages + `milkyway.py` + `open-meteo.py` — every one of them, in the same order, since it is the order rows and tabs appear in |
 | `seriesKey(hourly, name, model, multi)`, `modelsFromParams()`, `renderTabs()`/`.tab` CSS | all 5 Open-Meteo pages, verbatim apart from what the tab click re-renders. The two `astro-score_daily*.html` tabs pick which model is *scored*, not merely shown; `astro-score_readable.html`'s do both, and deliberately leave the meta line alone (`appendPlaceName()` has already appended to it) |
@@ -428,7 +428,7 @@ five extra fields (`lp`/`d`/`m`/`mp`/`f` and `eclLat`) so the page can draw the
 fundamental arguments — every computed term is unchanged — and `moonPhaseName()` /
 `MOON_PHASE_NAMES` are ported from `milkyway.py`'s `moon_phase_name()`, which no other
 page has, making those two the pair to keep in step. The third is
-`astro-score_daily_full.html`'s `astroAt()`, which returns one extra field,
+`astro-score_daily.html`'s `astroAt()`, which returns one extra field,
 `moonElong` = `mod360(moon.eclLon - sun.eclLon)`, for its phase glyph. `astroAt()`
 is page-level assembly rather than a Meeus series and every series function under
 it is untouched, so the row's byte-identity claim still holds where it matters —
@@ -461,10 +461,10 @@ four-field join is the one thing the two pages share.
 
 ## astro_score specifics
 
-Stargazing and Milky Way scoring: `milkyway.py` and three demo pages,
+Stargazing and Milky Way scoring: `milkyway.py` and two demo pages,
 `astro-score_readable.html` (listed as **AstroScore readable**),
-`astro-score_daily.html` (**AstroScore daily**) and
-`astro-score_daily_full.html` (**AstroScore daily full**). The first was `milkyway_readable.html`
+`astro-score_daily.html` (**AstroScore daily**), plus `astro-score_daily_full.html`, now
+only a redirect to `astro-score_daily.html` (the full page took over that name). The first was `milkyway_readable.html`
 until the folder was renamed; two carried-over forks of the `open_meteo/` pages were
 deleted at the same time. Both are named after the folder rather than a script because
 they are forks of `open_meteo/open-meteo_readable.html`, not ports of one script. See the
@@ -486,8 +486,7 @@ table applies to it.
 
 They answer different questions and that is the whole reason each exists:
 `astro-score_readable.html` is **which hour tonight, at one place**;
-`astro-score_daily.html` is **which place, which night**; and
-`astro-score_daily_full.html` is that last one again with **when is the season**
+`astro-score_daily.html` is **which place, which night**, with **when is the season**
 under it. Don't merge them, and don't
 add hour detail to either daily page — the readable page is one click away and is where
 hour detail belongs.
@@ -874,23 +873,21 @@ forecast. That heavier rule is only applied when a past column actually precedes
 i.e. when 從今天開始 is unticked; as the first column it would just double the label
 column's own border.
 
-### astro-score_daily_full.html
+### astro-score_daily.html: the rows under the strips
 
-`astro-score_daily.html` with **four more rows under every bar**, and everything the
+**Four more rows under every bar**, and everything the
 daily section above says still applies — same request per place, same `FETCH_POOL`,
 same tabs, same 從今天開始, same one-night-across-two-cells reading. A stack is now
 **six** fixed 1em rows (bar, MilkyScore strip, OrionScore strip, then the altitude marks
 for A*, M42 and the moon) rather than three, and the cell carries **one more child after
 both stacks**: the phase glyph, class `.phase` — **not** `.moon`, which would be
 out-specified by `td.blocks .phase`'s ancestor selector and lose `.mark`'s font-size; a
-cell holds two moon things now, so `phase` is the truer name anyway. Keep the two pages
-in step on everything else in the duplication table; the four new rows are this page's
-alone.
+cell holds two moon things now, so `phase` is the truer name anyway. The four rows are
+this page's alone.
 
 **Weekend columns are shaded**, header included: `weekendClass()` tags a date
 `sat` or `sun` and `markBreak()` adds it to every cell of that column, Saturday a
 shade under the grid's `#fbfcfd`, Sunday a step deeper; today's accent header wins.
-`astro-score_daily.html` has the same three pieces verbatim — keep the two in step.
 
 **The three are geometry, with no weather in them, and that is the whole point.** The
 strips weigh the sky and the subject together and so go blank on a cloudy night; a mark
@@ -1296,7 +1293,7 @@ term over −18°..−12° instead. Showing the standard bands next to the page'
 threshold is the point; do not make the threshold *be* one of them.
 
 `moon_phase.html` also draws a **月相圖示** card: the nearest of the eight
-`MOON_GLYPHS` (`moonOctant()`, copied from `astro-score_daily_full.html`, which
+`MOON_GLYPHS` (`moonOctant()`, copied from `astro-score_daily.html`, which
 now also copies this page's `brightLimbPA()`/`limbAsSeen()`/`moonHighest()`/
 `glyphRotation()` to tilt its own glyph — keep all of them in step), always the facing-south set, CSS-rotated by
 `glyphRotation()` so the lit side points along `limbAsSeen()`. It is drawn the
