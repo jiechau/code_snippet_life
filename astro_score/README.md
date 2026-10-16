@@ -418,9 +418,8 @@ no longer a duplicated block to keep in step; it is this page's own.
 The location box sits **last in the form, directly above Fetch**, out of normal
 parameter order on purpose: it is the only field normally touched, so it belongs
 next to the button. A narrow `lat,lon` box with **📍 使用目前位置** and
-**🗺️ 在地圖上點選** beside it and the saved spots wrapped onto a line of their own: 輸入, 瑞光路, 大武崙砲台, 烏石港,
-東澳灣, 新城鄉, 石梯坪, 三仙台, 加路蘭, 龍磐公園, 柚子湖, 內洞停車場, 拉拉山,
-合歡山, 國聖港燈塔.
+**🗺️ 在地圖上點選** beside it and the saved spots wrapped onto a line of their own: 輸入, 瑞光路, 永安漁港, 海山漁港,
+後龍外埔漁港, 大安濱海樂園, 漁光島, 大武崙砲台, 烏石港, 東澳灣, 新城鄉, 石梯坪, 三仙台, 加路蘭, 龍磐公園, 柚子湖, 內洞停車場, 拉拉山, 合歡山.
 Clicking one fills the coordinates **and refetches** — leaving a stale grid under a new location would
 misrepresent it. The pressed button shows which spot is displayed, and a
 hand-typed coordinate presses none. They come from the `PLACES` array in
