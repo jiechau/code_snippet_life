@@ -31,8 +31,8 @@ rather than serving anonymously. `origin` also pushes to Bitbucket, which offers
 no Pages hosting — it is a mirror only.
 
 One file is shared by every demo page: [`places.js`](places.js) at the repo root
-holds the saved stargazing spots (瑞光路, 永安漁港, 海山漁港, 後龍外埔漁港, 大安濱海樂園,
-漁光島, 大武崙砲台, 烏石港, 東澳灣, 新城鄉, 石梯坪, 三仙台, 加路蘭, 龍磐公園, 柚子湖, 內洞停車場, 拉拉山, 合歡山) that fill
+holds the saved stargazing spots (瑞光路, 大園黃金海岸, 新竹海山漁港, 後龍外埔漁港, 大安濱海樂園,
+漁光島, 大武崙砲台, 烏石港, 東澳灣, 新城鄉煙波, 壽豐鹽寮漁港, 豐濱石梯坪, 成功三仙台, 東河金樽, 台東市加路蘭, 龍磐公園, 柚子湖, 內洞停車場, 拉拉山, 合歡山) that fill
 the location buttons,
 plus the default coordinates taken from the first entry. Each page loads it as
 `../places.js`, so adding or reordering a spot is a one-line change in one file
