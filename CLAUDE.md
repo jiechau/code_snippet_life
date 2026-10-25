@@ -477,7 +477,7 @@ import: see the duplication table above.
 
 A third page, `astro-bookmark.html`, is a **bookmark list, not a demo**: the
 outside pages worth a look before driving out (CWA's 月相圖, two light-pollution
-maps, NCDR's 即時降雨預警, CWA's 雷達回波圖 / 一週 / 降水預報), each opening in a
+maps, NCDR's 即時降雨預警, CWA's 雷達回波圖, windy, CWA's 一週 / 一週 town / 降水預報), each opening in a
 new tab. It copies
 this folder's **`index.html`** chrome rather than the demo pages', because it has no
 form, no request and no script; adding a link is one `<li>`, and the small host line
