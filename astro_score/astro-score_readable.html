@@ -1875,7 +1875,33 @@ document.getElementById("location").addEventListener("input", markActivePlace);
 document.getElementById("geo").addEventListener("click", useCurrentPosition);
 document.getElementById("mappick").addEventListener("click", pickFromMap);
 
+/**
+ * A link can name the place: #lat=…&lon=… (the shape light_pollution_map.html
+ * writes) lands in 輸入 and fetches at once, since whoever followed it came for
+ * that place. astro-score_daily.html's row names link here this way. Read once,
+ * at load; anything unparseable or off the globe is ignored and the page opens
+ * as it always has, on places.js's 輸入 and an empty panel.
+ */
+function applyHash() {
+    let lat, lon;
+    try {
+        const h = new URLSearchParams(location.hash.replace(/^#/, ""));
+        if (!h.has("lat") || !h.has("lon")) return;
+        lat = Number(h.get("lat"));
+        lon = Number(h.get("lon"));
+    } catch {
+        return;
+    }
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return;
+    setInputPlace(lat, lon);
+    buildPlaces();   // the 輸入 pill carries coordinates in a dataset, so redraw it
+    document.getElementById("location").value = `${lat},${lon}`;
+    markActivePlace();
+    document.getElementById("form").requestSubmit();
+}
+
 resetDefaults();
+applyHash();
 </script>
 </body>
 </html>

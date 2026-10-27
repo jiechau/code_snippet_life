@@ -274,6 +274,7 @@
             min-width: 84px;
         }
         th.label .name { font-weight: 700; }
+        th.label a.name { color: inherit; text-decoration: underline dotted; text-underline-offset: 3px; }
         th.label .api {
             display: block;
             font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -1930,9 +1931,17 @@ function buildTable(results, hidePast) {
         const th = document.createElement("th");
         th.className = "label";
         th.scope = "row";
-        const name = document.createElement("span");
+        // A saved spot's name opens the hour-by-hour page with that spot in its
+        // 輸入 box -- this grid says which night, that one says which hour. 輸入
+        // itself (row 0) stays plain text, like its missing bortle/short lines.
+        const name = document.createElement(index > 0 ? "a" : "span");
         name.className = "name";
         name.textContent = r.place;
+        if (index > 0) {
+            // A new tab, so this grid -- one fetch per row to rebuild -- stays put.
+            name.href = `astro-score_readable.html#lat=${r.lat}&lon=${r.lon}`;
+            name.target = "_blank";
+        }
         th.appendChild(name);
         // Latitude and longitude on their own lines rather than "lat, lon" on
         // one: the label column is position: sticky, so its width is subtracted
@@ -1945,6 +1954,17 @@ function buildTable(results, hidePast) {
             api.className = "api";
             api.textContent = String(coord);
             th.appendChild(api);
+        }
+        // The Bortle class noted on site and the spot's nickname, both from
+        // places.js. Not on 輸入 (row 0): it moves wherever the box points, and
+        // those two describe only the coordinate written in the file.
+        if (index > 0) {
+            for (const text of [`bortle=${r.bortle.toFixed(1)}`, r.short]) {
+                const api = document.createElement("span");
+                api.className = "api";
+                api.textContent = text;
+                th.appendChild(api);
+            }
         }
         tr.appendChild(th);
 
@@ -2201,12 +2221,12 @@ document.getElementById("form").addEventListener("submit", async (event) => {
     const settled = await settledPool(requests, FETCH_POOL, (p) => fetchForecast(p));
     const seconds = (performance.now() - started) / 1000;
 
-    const results = PLACES.map(([place, lat, lon], i) => {
+    const results = PLACES.map(([place, lat, lon, bortle, short], i) => {
         const outcome = settled[i];
         if (outcome.status === "rejected") {
             const err = outcome.reason;
             return {
-                place, lat, lon, params: requests[i], url: buildUrl(requests[i]), bytes: 0, body: null,
+                place, lat, lon, bortle, short, params: requests[i], url: buildUrl(requests[i]), bytes: 0, body: null,
                 error: `request failed: ${err.name === "TimeoutError" ? "timed out" : err.message}`,
             };
         }
@@ -2214,11 +2234,11 @@ document.getElementById("form").addEventListener("submit", async (event) => {
         if (!r.ok || !r.body.hourly) {
             // Same policy as open_meteo/open-meteo.py: show the API's own reason.
             return {
-                place, lat, lon, params: requests[i], url: r.url, bytes: r.bytes, body: null,
+                place, lat, lon, bortle, short, params: requests[i], url: r.url, bytes: r.bytes, body: null,
                 error: `HTTP ${r.status} — ${r.body.reason || "no hourly data in response"}`,
             };
         }
-        return { place, lat, lon, params: requests[i], url: r.url, bytes: r.bytes, body: r.body, error: null };
+        return { place, lat, lon, bortle, short, params: requests[i], url: r.url, bytes: r.bytes, body: r.body, error: null };
     });
 
     setUrls(results);
