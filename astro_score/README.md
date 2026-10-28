@@ -502,8 +502,8 @@ cannot take away.
 | row | what it is |
 | --- | --- |
 | `▂▄▆█` | best 觀星 hour in the half-day (as on the daily page) |
-| purple `▀` | best MilkyScore in it — sky × A* altitude |
-| orange `▀` | best OrionScore in it — sky × M42 altitude |
+| purple strip | best MilkyScore in it — sky × A* altitude |
+| orange strip | best OrionScore in it — sky × M42 altitude |
 | purple `1`–`9` | **tens of A\*'s best altitude while it was dark**, that half-day — blank below 10° |
 | orange `1`–`9` | **the same for M42**, same gate |
 | slate `1`–`9` | **the same for the moon** — same rule, opposite meaning: high is bad |

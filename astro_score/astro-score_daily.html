@@ -365,7 +365,7 @@
                makes no line box however much height it is given -- the stack would
                fall back to the bar's baseline and hang lower than its neighbours,
                which is exactly the misalignment this replaced. Every stack is the
-               same height (three fixed 1em rows), so aligning them by their tops
+               same height (fixed-height rows), so aligning them by their tops
                puts the bars and both strips on one line, unconditionally. */
             vertical-align: top;
         }
@@ -376,24 +376,25 @@
            .bar's own 1.5rem is exactly the line box a glyph makes, so the drawn
            bars do not move. */
         .stack .bar { display: block; width: auto; height: 1em; }
-        /* The two strips: MilkyScore, then OrionScore under it. U+2580 UPPER HALF
-           BLOCK: its ink fills the top half of the character cell, so each lands
-           directly under what is above it and the empty lower half of each line
-           box reads as the spacing that keeps the two readable as separate bands
-           rather than one two-tone block. Their colours are set per cell
-           (MILKY_BANDS / ORION_BANDS), the only place on this page a value picks
-           a colour -- the bars, whose height is already their value, are one
-           fixed green. Fixed height for the same reason as .bar: below its lowest
-           band a strip is left empty, and an empty block box makes no line box,
-           which would shorten the stack under one cell only. One class for both,
-           since they are the same geometry twice. */
+        /* The two strips: MilkyScore, then OrionScore under it. Painted as a
+           background, not drawn as a glyph: the box is exactly the height CSS
+           gives it, whatever the font's ascent and descent. They were U+2580 UPPER
+           HALF BLOCK until the empty lower half of each 1em line box showed up as
+           a gap between purple and orange while purple sat flush on the green --
+           the glyph's ink is wherever the font puts it, so the two edges could not
+           both be made to meet. Half an em of .bar's 1.5rem is about the ink the
+           glyph had, so a strip reads as the same weight, and the two now stack
+           with no seam, under the bar as well as under each other. Their colours
+           are set per cell (MILKY_BANDS / ORION_BANDS), the only place on this
+           page a value picks a colour -- the bars, whose height is already their
+           value, are one fixed green. Fixed height for the same reason as .bar:
+           below its lowest band a strip is left unpainted, and an empty box must
+           still take its place or the stack under one cell only would be shorter.
+           One class for both, since they are the same geometry twice. */
         .under {
             display: block;
-            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
             font-size: 1.5rem;
-            line-height: 1;
-            height: 1em;
-            letter-spacing: 0;
+            height: 0.5em;
         }
         /* The three altitude marks, under the two strips: a purple digit for A*,
            an orange one for M42, a slate one for the moon, in that order -- the
@@ -1313,11 +1314,6 @@ const BARS = [
     [30, "▂"],   // LOWER ONE QUARTER BLOCK
 ];
 
-// Drawn under every half-day bar whose MilkyScore -- or OrionScore -- clears its
-// lowest band. One glyph for both strips: they are the same measurement of two
-// different subjects, so they differ in hue and in nothing else.
-const UNDER_GLYPH = "▀";   // UPPER HALF BLOCK
-
 // Drawn where a block scored no hour at all -- past a model's horizon Open-Meteo
 // returns nulls, and blocksByDate() declines to score them, so the block keeps
 // peak 0 and would otherwise draw the same blank as a hopeless night. A missing
@@ -1351,7 +1347,7 @@ const NO_DATA_GLYPH = "·";   // MIDDLE DOT
  * is unambiguous -- it means "never got 10 deg up in the dark", not "got up a
  * little". The exact altitude behind a digit is in the cell's title.
  *
- * One function for both marks, exactly as UNDER_GLYPH serves both strips: the
+ * One function for both marks, exactly as .under serves both strips: the
  * same measurement of two different subjects, differing in hue and in nothing
  * else.
  */
@@ -1768,7 +1764,7 @@ function visibleDates(dates, today, hidePast) {
  * One day at one place, as a table cell.
  *
  * Two stacks side by side, one per half-day, each six rows tall: the 觀星 bar,
- * the MilkyScore strip, the OrionScore strip, then the altitude marks for A*, M42
+ * the MilkyScore strip, the OrionScore strip (both half-height), then the altitude marks for A*, M42
  * and the moon. Under both stacks, spanning the cell, one moon phase glyph -- the
  * only thing here that is a property of the date rather than of a block.
  *
@@ -1800,10 +1796,7 @@ function blocksCell(place, date, day) {
         for (const paint of [milkyColor(milky), orionColor(orion)]) {
             const under = document.createElement("span");
             under.className = "under";
-            if (paint) {
-                under.textContent = UNDER_GLYPH;
-                under.style.color = paint;
-            }
+            if (paint) under.style.backgroundColor = paint;
             stack.appendChild(under);
         }
         // Then the three altitude marks: A* above M42 -- the strips' own order, so

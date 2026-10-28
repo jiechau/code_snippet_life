@@ -699,7 +699,7 @@ across a column rule, *not* as `██` inside a single cell — a cell showing 
 of one night beside the head of the next. Any prose added here must keep that straight; it
 is the one thing about this grid a reader gets wrong.
 
-Under each bar sit **two `▀` strips: the purple MilkyScore** (`milkyScore()`,
+Under each bar sit **two strips: the purple MilkyScore** (`milkyScore()`,
 `MILKY_BANDS`, `milkyColor()`) — the block's best hour of `gcAlt° × 觀星/100`, with a
 below-horizon core clamped to 0 — **and an orange OrionScore** under it
 (`orionScore()`, `ORION_BANDS`, `orionColor()`), the identical product for
@@ -723,10 +723,15 @@ maxima, because the best sky and the highest subject can fall in different hours
 through `milkyScore()`: the two are separate answers, and keeping them apart is what
 lets either ramp be retuned without touching the other. The strips are **two `.under`
 spans appended whatever the value** — empty and unpainted below the lowest band —
-and `.under`/`.bar` all carry `height: 1em`, because an empty block box generates no
+and every row carries a fixed `height`, because an empty block box generates no
 line box and would shorten that one stack, pulling its neighbours' floor out of line.
-A stack is therefore **three fixed 1em rows**; `vertical-align: top` on `.stack` is
-what keeps the bars and both strips on one line unconditionally. Purple stays **above**
+`vertical-align: top` on `.stack` is what keeps the bars and both strips on one line
+unconditionally. **A strip is a painted `background-color`, `height: 0.5em` of the
+bar's 1.5rem — not a glyph.** It was `▀` (UPPER HALF BLOCK) in a 1em row, and the
+empty lower half of that row showed as a gap between purple and orange while purple
+sat flush on the green; a glyph's ink is wherever the font's ascent/descent put it, so
+no line-height made both edges meet on every machine. A box is exactly its CSS
+height, so bar, purple and orange now stack seamlessly. Don't put the glyph back. Purple stays **above**
 orange: moving it would silently re-read every grid anyone has already looked at.
 
 **The two strips rarely paint together, and that is the point.** Across the year
@@ -878,7 +883,7 @@ column's own border.
 **Four more rows under every bar**, and everything the
 daily section above says still applies — same request per place, same `FETCH_POOL`,
 same tabs, same 從今天開始, same one-night-across-two-cells reading. A stack is now
-**six** fixed 1em rows (bar, MilkyScore strip, OrionScore strip, then the altitude marks
+**six** fixed-height rows (the 1em bar, the two half-em strips, then the altitude marks
 for A*, M42 and the moon) rather than three, and the cell carries **one more child after
 both stacks**: the phase glyph, class `.phase` — **not** `.moon`, which would be
 out-specified by `td.blocks .phase`'s ancestor selector and lose `.mark`'s font-size; a
