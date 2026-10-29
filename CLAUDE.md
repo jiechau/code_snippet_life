@@ -740,6 +740,13 @@ no line-height made both edges meet on every machine. A box is exactly its CSS
 height, so bar, purple and orange now stack seamlessly. Don't put the glyph back. Purple stays **above**
 orange: moving it would silently re-read every grid anyone has already looked at.
 
+**The green bar is a painted box too**, for the same reason: `BAR_FILL` maps each
+glyph to a fraction of the 1em box (`█` 1, `▆` 0.75, `▄` 0.5, `▂` 0.25) and a
+bottom-anchored `.fill` span is drawn at that height. As a glyph, `█`'s ink ran to the
+font's descent and overlapped the strip under it. The glyphs are still the legend's
+vocabulary, `barFor()`'s return value and the bar's `aria-label`; only the no-forecast
+`·` is still text.
+
 **A blue ClearScore strip sits above both** (`clearScore()`, `CLEAR_BANDS`,
 `clearColor()`): the block's best **dark-hour** `100 − cloud_cover` — the same Cloud
 `astroScore()` reads, with the moon left out — banded `>90 / >80 / >70 / >60`,

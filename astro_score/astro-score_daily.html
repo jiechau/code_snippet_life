@@ -383,7 +383,17 @@
            their purple strip up level with the neighbouring bars' floor. 1em of
            .bar's own 1.5rem is exactly the line box a glyph makes, so the drawn
            bars do not move. */
-        .stack .bar { display: block; width: auto; height: 1em; }
+        .stack .bar { display: block; width: auto; height: 1em; position: relative; }
+        /* The bar itself, painted rather than drawn as a glyph (see BAR_FILL):
+           anchored to the bottom of the 1em box, so it can never reach past it
+           into the strip below. */
+        .stack .bar .fill {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--ok);
+        }
         /* The three strips: ClearScore, MilkyScore, then OrionScore under it. Painted as a
            background, not drawn as a glyph: the box is exactly the height CSS
            gives it, whatever the font's ascent and descent. They were U+2580 UPPER
@@ -1358,6 +1368,13 @@ const BARS = [
     [30, "▂"],   // LOWER ONE QUARTER BLOCK
 ];
 
+// The glyph's height as a fraction of the bar's 1em box. In the grid a bar is a
+// painted box of this height, not the glyph itself: a block glyph's ink runs to
+// the font's descent, which on some machines is below the 1em box, so it spilled
+// over the blue strip under it -- the same reason the strips are boxes. The
+// glyphs stay the vocabulary of the legend and the cell's aria-label.
+const BAR_FILL = { "█": 1, "▆": 0.75, "▄": 0.5, "▂": 0.25 };
+
 // Drawn where a block scored no hour at all -- past a model's horizon Open-Meteo
 // returns nulls, and blocksByDate() declines to score them, so the block keeps
 // peak 0 and would otherwise draw the same blank as a hopeless night. A missing
@@ -1864,7 +1881,18 @@ function blocksCell(place, date, day) {
         stack.className = "stack";
         const span = document.createElement("span");
         span.className = scored ? "bar" : "bar nodata";
-        span.textContent = scored ? barFor(peak) : NO_DATA_GLYPH;
+        if (scored) {
+            const glyph = barFor(peak);
+            if (glyph) {
+                const fill = document.createElement("span");
+                fill.className = "fill";
+                fill.style.height = `${BAR_FILL[glyph] * 100}%`;
+                span.appendChild(fill);
+                span.setAttribute("aria-label", glyph);
+            }
+        } else {
+            span.textContent = NO_DATA_GLYPH;
+        }
         stack.appendChild(span);
         // The ClearScore strip first -- the sky alone, directly under the bar it
         // qualifies -- then the MilkyScore strip, then the OrionScore one -- A* above M42
