@@ -502,13 +502,13 @@
         <h1>AstroScore <span style="color:#777;font-weight:400;">daily</span></h1>
         <p class="sub">
             The next 16 days for every saved spot at once: a row per place, a column per
-            day, and each cell two block glyphs, one per half-day. Same
+            day, and each cell two block glyphs, one for the small hours and one for the evening. Same
             <strong style="color:#1e8449;">AstroScore</strong> (觀星 score) as
             <a href="astro-score_readable.html">astro-score_readable.html</a> &mdash; this page just
             asks it of every place in the list at once (<span id="placeCount">10</span> rows) and
-            folds each day's 24 hours into two half-day blocks. <b>Under each bar</b>, the sky's own
+            folds each day's night hours into two blocks (<span class="blockwin">00&ndash;05 &middot; 19&ndash;23</span>). <b>Under each bar</b>, the sky's own
             calendar: four rows of pure geometry, three digits giving how high a body
-            got in the dark that half-day, in tens of degrees &mdash; purple for
+            got in the dark in that block, in tens of degrees &mdash; purple for
             <b>A*</b> (銀心), orange for <b>M42</b>, slate for the <b>moon</b>
             (<b style="color:#8e44ad;">6</b> = reached the sixties, blank = never cleared 10&deg;)
             &mdash; and the moon phase (🌑 &hellip; 🌕 &hellip; 🌘) under the cell. The slate
@@ -525,9 +525,9 @@
             <summary>how to read a cell (說明)</summary>
 
             <div class="rule">
-                <span class="formula">each cell (每格) = 2 blocks &mdash; 00&ndash;11 &middot; 12&ndash;23
+                <span class="formula">each cell (每格) = 2 blocks &mdash; <span class="blockwin">00&ndash;05 &middot; 19&ndash;23</span>
                     <span class="gloss">&nbsp; local time; left = after midnight, right = this evening</span></span>
-                <span class="formula">block = max AstroScore (觀星) over its 12 hours
+                <span class="formula">block = max AstroScore (觀星) over its hours
                     <span class="gloss">&nbsp; the best single hour in it, 0&ndash;100</span></span>
                 <div class="example">
                     <div><b>█</b>  &gt; 90   drop everything and drive</div>
@@ -540,7 +540,7 @@
             </div>
 
             <div class="rule clear">
-                <span class="formula">strip = max (100 &minus; Cloud) over the dark hours of the same 12
+                <span class="formula">strip = max (100 &minus; Cloud) over the dark hours of the same block
                     <span class="gloss">&nbsp; ClearScore &mdash; the sky alone, moon ignored</span></span>
                 <div class="example">
                     <div><b style="color:#0b3a75;">&#9600;</b>  &gt; 90   very clear</div>
@@ -558,7 +558,7 @@
             </div>
 
             <div class="rule milky">
-                <span class="formula">strip = max (A* alt&deg; &times; AstroScore/100) over the same 12 hours
+                <span class="formula">strip = max (A* alt&deg; &times; AstroScore/100) over the same block's hours
                     <span class="gloss">&nbsp; MilkyScore &mdash; the sky (觀星) <em>and</em> the subject (銀心)</span></span>
                 <div class="example">
                     <div><b style="color:#3d0f6b;">▀</b>  &gt; 50</div>
@@ -580,7 +580,7 @@
             </div>
 
             <div class="rule orion">
-                <span class="formula">strip = max (M42 alt&deg; &times; AstroScore/100) over the same 12 hours
+                <span class="formula">strip = max (M42 alt&deg; &times; AstroScore/100) over the same block's hours
                     <span class="gloss">&nbsp; OrionScore &mdash; the same again for the <em>winter</em> subject</span></span>
                 <div class="example">
                     <div><b style="color:#7a3000;">&#9600;</b>  &gt; 50</div>
@@ -694,9 +694,9 @@
 
             <div class="rule notes">
                 <ul>
-                    <li>Each block is half a day, so each holds exactly one dark stretch: the small hours
-                        fall in 00&ndash;11 and the evening in 12&ndash;23, while their daylight halves
-                        score 0 and cannot touch a maximum.</li>
+                    <li>Only the night is looked at: the two blocks are
+                        <span class="blockwin">00&ndash;05 &middot; 19&ndash;23</span> &mdash; the small hours on
+                        the left, the evening on the right &mdash; and every hour outside both is skipped &mdash; not scored, not measured for the digits.</li>
                     <li><b>A night straddles midnight, so it reads across two cells</b> &mdash; the right
                         glyph of one day (that evening) and the left glyph of the next (its small hours).
                         <b>█</b> on the right of 08/18 next to <b>█</b> on the left of 08/19 is
@@ -710,7 +710,7 @@
                         today and the days ahead. Untick it to bring back the week
                         <code>past_days</code> asked for: a forecast beside what the sky actually did,
                         with a heavier rule marking today. It drops whole days only, and never shortens a day it
-                        shows &mdash; today's column always covers the full 24 hours, hours already gone
+                        shows &mdash; today's column always covers both windows, hours already gone
                         included, so a block does not shrink as the afternoon wears on. Hover any cell for the
                         exact sums.</li>
                     <li>The score itself is <code>(100 &minus; Cloud) &times; (100 &minus; MoonPenalty) / 100</code>,
@@ -1319,14 +1319,32 @@ function astroScore(sunAlt, moonAlt, cover) {
  * Folding hours into blocks
  * ------------------------------------------------------------------ */
 
-// Two twelve-hour blocks per day, in the order they are drawn in a cell. They
-// split the day at noon, which on a stargazing grid splits the *night*: 00-11
-// holds the small hours of this date (its daylight half scores 0 and cannot
-// affect a maximum), 12-23 holds the evening. So the left glyph is "after
-// midnight" and the right one is "this evening".
-const BLOCK_HOURS = 12;
-const BLOCKS = 24 / BLOCK_HOURS;
-const BLOCK_LABELS = ["00-11", "12-23"];
+// Two blocks per day, in the order they are drawn in a cell: the small hours of
+// this date (DAY_*) and its evening (NIGHT_*), local wall-clock hours, both ends
+// inclusive. Hours outside both windows are not looked at at all -- not scored,
+// not measured for the marks -- since this page is for astrophotography and a
+// daytime hour has nothing to say. So the left glyph is "after midnight" and the
+// right one is "this evening". Edit the four numbers to move the windows; the
+// labels, the corner cell and the legend follow.
+const DAY_START_HR = 0;
+const DAY_END_HR = 5;
+const NIGHT_START_HR = 19;
+const NIGHT_END_HR = 23;
+const BLOCK_WINDOWS = [[DAY_START_HR, DAY_END_HR], [NIGHT_START_HR, NIGHT_END_HR]];
+const BLOCKS = BLOCK_WINDOWS.length;
+const pad2 = (h) => String(h).padStart(2, "0");
+const BLOCK_LABELS = BLOCK_WINDOWS.map(([a, b]) => `${pad2(a)}-${pad2(b)}`);
+
+/** How many hours block b covers. */
+function blockHours(b) {
+    const [start, end] = BLOCK_WINDOWS[b];
+    return end - start + 1;
+}
+
+/** The block a local hour 0..23 falls in, or -1 if it is in neither window. */
+function blockOf(hour) {
+    return BLOCK_WINDOWS.findIndex(([start, end]) => hour >= start && hour <= end);
+}
 
 // Block peak -> glyph. Highest threshold first, so the first match wins; a peak
 // at or below the last threshold has no glyph and the cell shows a gap. Bands are
@@ -1647,7 +1665,7 @@ function barFor(peak) {
  *
  * Each block record is {peak, clear, milky, orion, gcNight, m42Night, moonNight, hours,
  * dark, scored}: the best 觀星 in the block, the best dark-hour ClearScore, the best MilkyScore and OrionScore in
- * it, how high A*, M42 and the moon got while it was dark, how many of the twelve
+ * it, how high A*, M42 and the moon got while it was dark, how many of the block's
  * hours the response actually carried, how many of those were dark, and how many
  * carried a cloud figure rather than a null. A block short on either count can peak low for
  * a reason that is not "cloudy", which the cell title spells out.
@@ -1700,7 +1718,9 @@ function blocksByDate(body, model, multi) {
                 offset,
             });
         }
-        const block = days.get(date).blocks[Math.floor(Number(t.slice(11, 13)) / BLOCK_HOURS)];
+        const b = blockOf(Number(t.slice(11, 13)));
+        if (b < 0) return;   // outside both windows: not looked at
+        const block = days.get(date).blocks[b];
         block.hours += 1;
         const utcMs = Date.parse(`${t}:00Z`) - offset * 1000;
         const { sunAlt, moonAlt, gcAlt, m42Alt } = astroAt(utcMs, lat, lon);
@@ -1885,10 +1905,10 @@ function blocksCell(place, date, day) {
         // No text node between the stacks: appended straight onto the cell, they
         // have no whitespace to collapse into a gap, so the glyphs tile.
         td.appendChild(stack);
-        // A block short of twelve scored hours can peak low for a reason that is
+        // A block short of its full count of scored hours can peak low for a reason that is
         // not "cloudy" -- a null cloud figure, or a response that stopped early --
         // so say so rather than letting a missing bar be misread.
-        const short = scored < BLOCK_HOURS ? ` (${scored}/${hours || BLOCK_HOURS} hr)` : "";
+        const short = scored < blockHours(b) ? ` (${scored}/${hours || blockHours(b)} hr)` : "";
         // The marks are one rounded digit on screen; the title gives the altitude
         // behind each, so a block that just missed its gate is distinguishable
         // from one whose body never came up. "--" is "no dark hour to look in".
@@ -1952,7 +1972,7 @@ function buildTable(results, hidePast) {
     corner.appendChild(cornerName);
     const cornerApi = document.createElement("span");
     cornerApi.className = "api";
-    cornerApi.textContent = "00-11 12-23";
+    cornerApi.textContent = BLOCK_LABELS.join(" ");
     corner.appendChild(cornerApi);
     headRow.appendChild(corner);
 
@@ -2317,6 +2337,11 @@ document.getElementById("mappick").addEventListener("click", pickFromMap);
 document.getElementById("hidePast").addEventListener("change", renderGrid);
 
 document.getElementById("placeCount").textContent = String(PLACES.length);
+// The legend's window text, from the constants, so editing them moves it too.
+for (const el of document.querySelectorAll(".blockwin")) {
+    el.textContent = BLOCK_WINDOWS
+        .map(([a, b]) => `${pad2(a)}\u2013${pad2(b)}`).join(" \u00b7 ");
+}
 resetDefaults();
 
 // Fetch once on load, so the page opens on the grid rather than on an empty

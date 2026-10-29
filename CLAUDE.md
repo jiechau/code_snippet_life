@@ -671,8 +671,8 @@ and is not.
 ### astro-score_daily.html
 
 A week for every place at once: **a row per `PLACES` entry, a column per day**, and
-each cell **two** block glyphs — `▂ ▄ ▆ █`, blank, or a faint `·` — one per half-day (00–11 / 12–23,
-left to right, local time). A block's value is the **maximum** 觀星 in it, i.e. its best
+each cell **two** block glyphs — `▂ ▄ ▆ █`, blank, or a faint `·` — one per night window (00–05 / 19–23,
+left to right, local time, both ends inclusive). A block's value is the **maximum** 觀星 in it, i.e. its best
 single hour on the plain 0–100 scale, and that peak picks a height: `>90` `█`, `>70` `▆`,
 `>50` `▄`, `>30` `▂`, at or below 30 blank. Thresholds are **strictly greater** — a peak
 of exactly 90 draws `▆`.
@@ -683,7 +683,7 @@ horizon Open-Meteo returns nulls, `blocksByDate()` declines to score them, and t
 keeps `peak 0`. Without the dot a missing forecast drew exactly the blank a washed-out sky
 draws, which at the 16-day default is the last column of the `ecmwf_ifs025` grid and most
 of the right half of the `icon_global` one. The cell title still reports the `(0/12 hr)`
-count behind it. Don't collapse the two back.
+count behind it (`0/6` or `0/5`). Don't collapse the two back.
 
 Max rather than sum or average is the point: the grid answers "is there an hour worth
 going out for", and one excellent hour justifies the drive even when the rest of the night
@@ -691,9 +691,15 @@ clouds over. The cost is that a bar says nothing about how *long* the window las
 that is what the readable page is for, and the daily page should not grow a second
 encoding to say it.
 
-Half-days rather than quarter-days because each then holds exactly one dark stretch (the
-daylight half scores 0 and cannot touch a maximum), which is also why the split is at noon
-and not midnight. **A night therefore straddles two cells**: the right glyph of one day is
+**The windows are four constants** — `DAY_START_HR`/`DAY_END_HR` (the small hours,
+default 0–5) and `NIGHT_START_HR`/`NIGHT_END_HR` (the evening, default 19–23) — gathered
+into `BLOCK_WINDOWS`, from which `BLOCK_LABELS`, the corner cell, the `.blockwin` legend
+text and each block's expected hour count (`blockHours()`) all follow. Hours outside both
+windows are **skipped entirely** by `blocksByDate()` (`blockOf()` returns −1): not scored,
+not measured for the altitude marks. It used to be two half-days split at noon, which
+looked at every hour; the windows exist because this page is for astrophotography. Note
+the cost: in winter the sky over Taiwan is dark (sun below −10°) by ~18:00, and that hour
+falls in neither window at the defaults. **A night therefore straddles two cells**: the right glyph of one day is
 that evening, the left glyph of the next is its small hours. One clear night reads `…█|█…`
 across a column rule, *not* as `██` inside a single cell — a cell showing `██` is the tail
 of one night beside the head of the next. Any prose added here must keep that straight; it
