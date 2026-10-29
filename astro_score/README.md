@@ -468,21 +468,23 @@ The page states this formula on itself, above the form:
 
 ```
 觀星     = 0                                        if 太陽 > −10°
-月亮扣分 = min(100, max(0, 月亮 / 10 × 100))        0 below the horizon, 100 from +10° up
+月亮高度 = min(100, max(0, 月亮 / 30 × 100))        0 below the horizon, 100 from +30° up
+月亮扣分 = 月亮高度 × 月相 / 100                    月相 = lit fraction, 0 new .. 100 full
 觀星     = (100 − 雲量) × (100 − 月亮扣分) / 100    otherwise
 ```
 
 Run on a 20%-cloud hour, the moon term is the whole story:
 
-| 雲量 | 月亮 | 計算 | 觀星 |
-| --- | --- | --- | --- |
-| 20 | −5° | `(100−20) × (100−0)   / 100` | **80** — moon down, near enough a clear night |
-| 20 | +2° | `(100−20) × (100−20)  / 100` | **64** — a low moon costs a fifth, not the hour |
-| 20 | +8° | `(100−20) × (100−80)  / 100` | **16** — almost gone |
-| 20 | +10° | `(100−20) × (100−100) / 100` | **0** — moon high enough to write the hour off |
+| 雲量 | 月亮 | 月相 | 計算 | 觀星 |
+| --- | --- | --- | --- | --- |
+| 20 | −5° | any | `(100−20) × (100−0)   / 100` | **80** — moon down, near enough a clear night |
+| 20 | +6° | 100 | `(100−20) × (100−20)  / 100` | **64** — a low full moon costs a fifth, not the hour |
+| 20 | +30° | 50 | `(100−20) × (100−50)  / 100` | **40** — a quarter moon high up costs half |
+| 20 | +45° | 10 | `(100−20) × (100−10)  / 100` | **72** — a thin crescent barely matters |
+| 20 | +30° | 100 | `(100−20) × (100−100) / 100` | **0** — a full moon high enough to write the hour off |
 
-The penalty is **altitude only** — a crescent and a full moon at the same height
-score the same, which is why 月相 stays on screen as its own row to judge by eye.
+The penalty reads **both height and phase** (`MOON_FULL_ALT` = 30°,
+`moonIllumination()`): a new moon costs nothing at any height.
 
 Sun and moon altitudes come from the same Meeus series as the 太陽/月亮 rows,
 computed in the page. Null cloud cover scores `-`, not 100. The result is
@@ -536,12 +538,8 @@ Same rule, same tens, inverted reading: a high purple or orange digit is a reaso
 to drive out, a high slate one is the reason not to. Nothing in the code tells
 them apart — deliberately, since they are the same measurement — so the colour is
 what carries it, cool and dark where the two targets are warm. Its gate is
-`MOON_KILL_ALT` rather than `TARGET_UP_ALT`: the same 10° today, but tied to the
-threshold it is actually about, so retuning the moon penalty moves the moon mark
-and not the targets' airmass floor. That gate is also where `moonPenalty()` tops
-out, which gives the row a second reading: **any slate digit at all means at least
-one dark hour of that block scored zero on moonlight alone** (verified — every
-moon digit over a live grid had `moonPenalty()` at 100).
+`MOON_UP_ALT` (10°), a constant of its own. It reports height only; the penalty
+also scales by phase and ramps to 30°, so read the digit beside the phase glyph.
 
 **The moon digit is the block's worst and the bar is its best**, and both are
 true: a block can carry a slate `8` and still show a tall bar, when the good hour
@@ -562,8 +560,7 @@ Two thresholds, both the page's own:
 
 - **10°** (`TARGET_UP_ALT`) rather than the horizon — below that you are looking
   through more than five atmospheres of haze, and real horizons have a ridge or a
-  tree line in them. It is the same number as `MOON_KILL_ALT` by coincidence, not
-  for the same reason.
+  tree line in them.
 - **dark** is the page's existing `DARK_SUN_ALT` (−10°), the threshold
   AstroScore already zeroes the score above, so a digit and the bar over it agree
   about when the night starts.
@@ -640,8 +637,9 @@ this repo are. Slicing the inline `<script>` from `"use strict";` down to the
   of every markable altitude in 0.01° steps confirming one character, always
   `1`–`9`, never `0`; across a live grid, every drawn digit equal to `upMark()` of
   its block's own maximum with nothing at all drawn below its own gate
-  (`TARGET_UP_ALT` for the two targets, `MOON_KILL_ALT` for the moon); and every
-  moon digit confirmed to have `moonPenalty()` saturated at 100. With the moon row
+  (`TARGET_UP_ALT` for the two targets, then `MOON_KILL_ALT` — now `MOON_UP_ALT` —
+  for the moon); and every moon digit confirmed to have the old altitude-only
+  `moonPenalty()` saturated at 100, which no longer holds. With the moon row
   in, the digits appearing at 龍磐公園 span `1` through `8`.
 
 ## `milkyway.py`

@@ -425,23 +425,28 @@ function moonPhaseName(illum, sunEclLon, moonEclLon) {
     return "滿月";
 }
 
-// Moon altitude at which its glow is treated as ruining the sky outright.
-// Below it the penalty ramps in linearly rather than switching on at the
-// horizon: a moon 2° up is nothing like a moon 10° up, and rounding both to
-// "moon is up, score 0" threw away the best hour of many nights.
-const MOON_KILL_ALT = 10;
+// Moon altitude at which MoonHeight tops out. Below it the factor ramps in
+// linearly from the horizon: a moon 5° up lights far less of the sky than one at
+// 30°, and rounding both to "moon is up" threw away the best hour of many nights.
+const MOON_FULL_ALT = 30;
 
 /**
- * How much the moon spoils the sky, 0..100.
- *
- * 0 with the moon at or below the horizon, 100 from MOON_KILL_ALT up, linear in
- * between. Altitude alone -- a thin crescent and a full moon at the same height
- * are penalised the same, which is why 月相 stays a row of its own rather than
- * being folded in here.
+ * How high the moon is, as a factor 0..100: 0 at or below the horizon, 100 from
+ * MOON_FULL_ALT up, linear in between.
  */
-function moonPenalty(moonAlt) {
+function moonHeight(moonAlt) {
     if (moonAlt <= 0) return 0;
-    return Math.min(100, (moonAlt / MOON_KILL_ALT) * 100);
+    return Math.min(100, (moonAlt / MOON_FULL_ALT) * 100);
+}
+
+/**
+ * How much the moon spoils the sky, 0..100: MoonHeight scaled by the illuminated
+ * fraction, moonIllum in percent (0 new .. 100 full). So a full moon at 30° or
+ * higher is the whole penalty, a half moon there costs 50, and a new moon costs
+ * nothing at any height.
+ */
+function moonPenalty(moonAlt, moonIllum) {
+    return moonHeight(moonAlt) * Number(moonIllum) / 100;
 }
 
 // The eight phase glyphs in elongation order, one 45° octant each, starting at
@@ -598,7 +603,8 @@ function working(utcMs, lat, lon, offsetHours) {
     const eclipticGap = mod360(moon.eclLon - sun.eclLon);
     const waxing = eclipticGap < 180;
     const name = moonPhaseName(illum, sun.eclLon, moon.eclLon);
-    const penalty = moonPenalty(alt);
+    const height = moonHeight(alt);
+    const penalty = moonPenalty(alt, illum * 100);
 
     // The glyph is drawn for the moment the moon is highest on the time box's
     // date, not for the instant itself, so it is the same picture all day and
@@ -677,8 +683,9 @@ function working(utcMs, lat, lon, offsetHours) {
         { label: "旋轉", sym: "rot", val: deg(rotation, 1), note: "χ′ − 90° (盈 glyph, lit right) or χ′ − 270° (虧 glyph, lit left)" },
 
         { stage: "扣分 · what the score does with it" },
-        { label: "扣分門檻", sym: "MOON_KILL_ALT", val: deg(MOON_KILL_ALT, 0), note: "the altitude at which the moon is treated as ruining the sky outright" },
-        { label: "月亮扣分", sym: "penalty", val: num(penalty, 1), note: "0 below the horizon, ramping to 100 at the threshold — altitude only, k is not read" },
+        { label: "滿額高度", sym: "MOON_FULL_ALT", val: deg(MOON_FULL_ALT, 0), note: "the altitude at which MoonHeight reaches 100" },
+        { label: "月亮高度係數", sym: "MoonHeight", val: num(height, 1), note: "0 below the horizon, ramping to 100 at MOON_FULL_ALT" },
+        { label: "月亮扣分", sym: "penalty", val: num(penalty, 1), note: "MoonHeight × k — a new moon costs nothing at any height" },
         { label: "剩餘倍率", sym: "(100 − p)/100", val: num((100 - penalty) / 100, 3), note: "what astroScore() multiplies the clear-sky fraction by" },
     ];
 
@@ -700,7 +707,7 @@ function working(utcMs, lat, lon, offsetHours) {
         {
             k: "月亮扣分",
             v: num(penalty, 0),
-            n: penalty > 0 ? `門檻 ${MOON_KILL_ALT}°` : "無扣分",
+            n: penalty > 0 ? `高度 ${num(height, 0)} × 照光 ${num(illum * 100, 0)}%` : "無扣分",
             cls: penalty > 50 ? "bad" : penalty === 0 ? "good" : "",
         },
     ];

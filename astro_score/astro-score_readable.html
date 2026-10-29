@@ -327,19 +327,22 @@
             <div class="rule">
                 <span class="formula">AstroScore (觀星) = 0
                     <span class="gloss">&nbsp; if Sun (太陽) &gt; &minus;10&deg; &mdash; daylight or bright twilight is out, whatever the sky looks like</span></span>
-                <span class="formula">MoonPenalty (月亮扣分) = min(100, max(0, Moon (月亮) / 10 &times; 100))
-                    <span class="gloss">&nbsp; 0 at or below the horizon, 100 from +10&deg; up</span></span>
+                <span class="formula">MoonHeight = min(100, max(0, Moon (月亮) / 30 &times; 100))
+                    <span class="gloss">&nbsp; 0 at or below the horizon, 100 from +30&deg; up</span></span>
+                <span class="formula">MoonPenalty (月亮扣分) = MoonHeight &times; Illum (月相) / 100
+                    <span class="gloss">&nbsp; Illum = lit fraction, 0 at new moon to 100 at full</span></span>
                 <span class="formula">AstroScore = (100 &minus; Cloud (雲量)) &times; (100 &minus; MoonPenalty) / 100
                     <span class="gloss">&nbsp; otherwise</span></span>
                 <div class="example">
-                    <div>Cloud 20, Moon  &minus;5&deg;  &rarr;  (100&minus;20) &times; (100&minus;  <b>0</b>) / 100 =  <b>80</b>   moon down, near enough a clear night</div>
-                    <div>Cloud 20, Moon  +2&deg;  &rarr;  (100&minus;20) &times; (100&minus; <b>20</b>) / 100 =  <b>64</b>   low moon costs a fifth, not the hour</div>
-                    <div>Cloud 20, Moon  +8&deg;  &rarr;  (100&minus;20) &times; (100&minus; <b>80</b>) / 100 =  <b>16</b>   almost gone</div>
-                    <div>Cloud 20, Moon +10&deg;  &rarr;  (100&minus;20) &times; (100&minus;<b>100</b>) / 100 =   <b>0</b>   moon high enough to write off</div>
+                    <div>Cloud 20, Moon  &minus;5&deg;, any phase  &rarr;  (100&minus;20) &times; (100&minus;  <b>0</b>) / 100 =  <b>80</b>   moon down, near enough a clear night</div>
+                    <div>Cloud 20, Moon  +6&deg;, full     &rarr;  (100&minus;20) &times; (100&minus; <b>20</b>) / 100 =  <b>64</b>   low moon costs a fifth, not the hour</div>
+                    <div>Cloud 20, Moon +30&deg;, half     &rarr;  (100&minus;20) &times; (100&minus; <b>50</b>) / 100 =  <b>40</b>   a quarter moon high up costs half</div>
+                    <div>Cloud 20, Moon +45&deg;, 10% lit  &rarr;  (100&minus;20) &times; (100&minus; <b>10</b>) / 100 =  <b>72</b>   a thin crescent barely matters</div>
+                    <div>Cloud 20, Moon +30&deg;, full     &rarr;  (100&minus;20) &times; (100&minus;<b>100</b>) / 100 =   <b>0</b>   full moon high enough to write off</div>
                 </div>
                 <ul>
-                    <li>MoonPenalty (月亮扣分) is <b>altitude only</b> &mdash; a crescent and a full moon at the same height score
-                        alike, so read the moon phase (月相) row alongside it.</li>
+                    <li>MoonPenalty (月亮扣分) reads <b>both</b> the moon's height and its phase (月相): a thin
+                        crescent 30&deg; up costs a few points, a full moon at the same height the whole score.</li>
                     <li><b>Cloud (雲量)</b> is total cloud cover from whichever model the <b>cloud source (雲量來源)</b> tabs have
                         selected; the deck rows below are for context and do not enter the score.
                         Switching tab redraws every row from that model &mdash; and rescores AstroScore (觀星) with it
@@ -364,12 +367,12 @@
                         conventional twilight bands (civil &minus;6&deg;, nautical &minus;12&deg;,
                         astronomical &minus;18&deg;), which are worth knowing but are not what is
                         scored here.</li>
-                    <li><b>Moon (月亮)</b> is the moon's altitude, and the input to MoonPenalty (月亮扣分) above: nothing
-                        below the horizon, the full penalty from +10&deg; up, ramped in between.</li>
-                    <li><b>Moon phase (月相)</b> is the illuminated fraction, 0 at new moon to 100 at full. It is
-                        <b>not</b> in the score &mdash; the penalty reads height alone &mdash; so it is on
-                        screen to be read beside Moon (月亮): a thin crescent 20&deg; up is a different night from
-                        a full moon at the same height.</li>
+                    <li><b>Moon (月亮)</b> is the moon's altitude, and one input to MoonPenalty (月亮扣分) above: nothing
+                        below the horizon, full height from +30&deg; up, ramped in between.</li>
+                    <li><b>Moon phase (月相)</b> is the illuminated fraction, 0 at new moon to 100 at full. It is the
+                        other input to MoonPenalty (月亮扣分), which scales the moon's height by it: a thin
+                        crescent 20&deg; up is a different night from a full moon at the same height, and the
+                        score now says so.</li>
                     <li><b>Sgr A* (銀心)</b> is the altitude of the Milky Way core (Sagittarius A*, RA 17h45m,
                         Dec &minus;29&deg;),
                         up only part of the night. It does
@@ -1161,35 +1164,41 @@ function loadLightPollution(lat, lon) {
 // on purpose, and the hour either side of it is the one to distrust.
 const DARK_SUN_ALT = -10;
 
-// Moon altitude at which its glow is treated as ruining the sky outright.
-// Below it the penalty ramps in linearly rather than switching on at the
-// horizon: a moon 2° up is nothing like a moon 10° up, and rounding both to
-// "moon is up, score 0" threw away the best hour of many nights.
-const MOON_KILL_ALT = 10;
+// Moon altitude at which MoonHeight tops out. Below it the factor ramps in
+// linearly from the horizon: a moon 5° up lights far less of the sky than one at
+// 30°, and rounding both to "moon is up" threw away the best hour of many nights.
+const MOON_FULL_ALT = 30;
 
 /**
- * How much the moon spoils the sky, 0..100.
- *
- * 0 with the moon at or below the horizon, 100 from MOON_KILL_ALT up, linear in
- * between. Altitude alone -- a thin crescent and a full moon at the same height
- * are penalised the same, which is why 月相 stays on screen as its own row.
+ * How high the moon is, as a factor 0..100: 0 at or below the horizon, 100 from
+ * MOON_FULL_ALT up, linear in between.
  */
-function moonPenalty(moonAlt) {
+function moonHeight(moonAlt) {
     if (moonAlt <= 0) return 0;
-    return Math.min(100, (moonAlt / MOON_KILL_ALT) * 100);
+    return Math.min(100, (moonAlt / MOON_FULL_ALT) * 100);
+}
+
+/**
+ * How much the moon spoils the sky, 0..100: MoonHeight scaled by the illuminated
+ * fraction, moonIllum in percent (0 new .. 100 full). So a full moon at 30° or
+ * higher is the whole penalty, a half moon there costs 50, and a new moon costs
+ * nothing at any height.
+ */
+function moonPenalty(moonAlt, moonIllum) {
+    return moonHeight(moonAlt) * Number(moonIllum) / 100;
 }
 
 /**
  * 觀星, 0..100 -- deliberately much simpler than milkyway.py's sky_quality().
  *
  * Daylight or twilight is out flat; what is left is the clear fraction of the
- * sky, scaled down by how high the moon is. Null cloud cover scores nothing
+ * sky, scaled down by how high and how lit the moon is. Null cloud cover scores nothing
  * rather than 100.
  */
-function astroScore(sunAlt, moonAlt, cover) {
+function astroScore(sunAlt, moonAlt, moonIllum, cover) {
     if (cover === null || cover === undefined) return null;
     if (sunAlt > DARK_SUN_ALT) return 0;
-    return (100 - Number(cover)) * (100 - moonPenalty(moonAlt)) / 100;
+    return (100 - Number(cover)) * (100 - moonPenalty(moonAlt, moonIllum)) / 100;
 }
 
 /* ------------------------------------------------------------------ *
@@ -1504,7 +1513,7 @@ function buildTable(body, params, fromNow) {
         for (const i of indices) {
             const td = scoreRow.insertCell();
             markBreak(td, i);
-            const value = astroScore(astro[i].sunAlt, astro[i].moonAlt, hourly[coverKey][i]);
+            const value = astroScore(astro[i].sunAlt, astro[i].moonAlt, astro[i].moonIllum, hourly[coverKey][i]);
             if (value === null) {
                 td.textContent = "-";
                 td.className += " na";

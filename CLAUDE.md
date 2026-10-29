@@ -407,7 +407,7 @@ two copy the chrome and the request *shape* but are the only pages addressed by
 | Light-pollution atlas (`lpRatio`, `lpSqm`, `lpBortle`, `lpZone`, `LP_ZONES`, `LP_BORTLE`, tile geometry, the `DecompressionStream` read) | `astro_score/astro-score_readable.html` + both `light_pollution/` pages — the only third-party binary format in the repo, and the one block copied three times. The *deferred, never-awaited* wrapper (`lightPollution()`, `loadLightPollution()`) is `astro_score`'s alone; `binary-tile.html` awaits its fetch, because there the tile **is** the result, and `light_pollution_map.html` awaits it per click, guarded by a `readToken` so a slow tile cannot overwrite the answer to a point clicked after it. `LP_ZONE_COLORS` — the atlas's 15 swatches, sampled out of Lorenz's published colour bar — is the **map page's alone**: it is the only page that draws the banding rather than naming one band |
 | Meeus solar/lunar series | all 3 `astro_score/astro-score_*.html` pages + `astro_score/milkyway.py` + the 4 `pure_math/` pages — never in `open_meteo/`. Every copy carries **only what it draws**: neither `astro-score_daily*.html` has `moonIllumination()` (they have `GC_RA`/`GC_DEC` + `M42_RA`/`M42_DEC`, which their two strips need, and `astro-score_daily.html` adds `moonElong` to `astroAt()` — the moon-sun elongation in ecliptic longitude, which its phase glyph needs and which is **not** the illuminated fraction: see `moonOctant()` — plus the four bright-limb functions it shares with `pure_math/moon_phase.html`); `pure_math/galactic_center.html` has no `obliquity()`/`eclipticToEquatorial()` at all (A* is already equatorial), and `pure_math/orion_nebula_m42.html` is that same file with M42's RA/Dec — the two are the only pair in this row that are byte-identical apart from one pair of constants; `pure_math/sun_phase.html` has nothing lunar; `pure_math/moon_phase.html` carries `sunPosition()` too, because the illuminated fraction needs the moon–sun elongation |
 | `GC_RA`/`GC_DEC` **and** `M42_RA`/`M42_DEC` (the two fixed equatorial targets) | all 3 `astro_score/astro-score_*.html` pages carry both pairs; `astro_score/milkyway.py` carries **only** the `GC_` pair (it has no M42 anything, and is not the place to add one — the score does not read either); `pure_math/galactic_center.html` carries only `GC_`, `pure_math/orion_nebula_m42.html` only `M42_`. `gcMaxAlt()` and `m42MaxAlt()` are deliberately **two functions, not one `maxAlt(lat, dec)`** — they are read as the pair of constants they are, and it keeps each `pure_math/` page line-for-line comparable with the block it was lifted from. Both targets are **display only everywhere**: `astroScore()` reads neither, so a subject below the horizon never lowers a score |
-| `DARK_SUN_ALT`, `MOON_KILL_ALT`, `moonPenalty()`, `astroScore()` | all 3 `astro_score/astro-score_*.html` pages, verbatim. `astro-score_daily.html` adds a **fourth** threshold beside them, `TARGET_UP_ALT` (10°), which is its alone — nothing else in the repo draws a visibility mark. Split across `pure_math/`: `sun_phase.html` takes `DARK_SUN_ALT`, `moon_phase.html` takes `MOON_KILL_ALT` + `moonPenalty()`. **`astroScore()` is in neither** — a pure-math page has no cloud figure to score |
+| `DARK_SUN_ALT`, `MOON_FULL_ALT`, `moonHeight()`, `moonPenalty()`, `astroScore()` | all 3 `astro_score/astro-score_*.html` pages, verbatim. `astro-score_daily.html` adds two thresholds beside them, `TARGET_UP_ALT` and `MOON_UP_ALT` (both 10°), which are its alone — nothing else in the repo draws a visibility mark. Split across `pure_math/`: `sun_phase.html` takes `DARK_SUN_ALT`, `moon_phase.html` takes `MOON_FULL_ALT` + `moonHeight()` + `moonPenalty()`. **`astroScore()` is in neither** — a pure-math page has no cloud figure to score |
 | `LABELS`, `API_SHORT`, `UNIT_SHORT`, `tint()`, `SCALES`, hour-grid rendering | the 2 hour-by-hour grid pages only — the two `astro-score_daily*.html` draw days as bars, not variables as tinted cells, and have none of them; `open-meteo.html`/`reverse-geocode.html`/the `pure_math/` four draw no grid at all |
 | `MODELS` (the four ids, in order) | all 5 Open-Meteo pages + `milkyway.py` + `open-meteo.py` — every one of them, in the same order, since it is the order rows and tabs appear in |
 | `seriesKey(hourly, name, model, multi)`, `modelsFromParams()`, `renderTabs()`/`.tab` CSS | all 5 Open-Meteo pages, verbatim apart from what the tab click re-renders. The two `astro-score_daily*.html` tabs pick which model is *scored*, not merely shown; `astro-score_readable.html`'s do both, and deliberately leave the meta line alone (`appendPlaceName()` has already appended to it) |
@@ -660,10 +660,14 @@ It is given the **requested** lat/lon, not the response's grid point — same re
 `reverseGeocode()`, and more so: Open-Meteo's cell can be ~6 km away and light pollution
 changes far faster over that distance than cloud cover does. Its score is
 `(100 − 雲量) × (100 − moonPenalty) / 100`, zeroed outright when the sun is above −10°,
-where `moonPenalty` ramps 0→100 as moon altitude goes 0°→10° (`MOON_KILL_ALT`) and is 0
-below the horizon — altitude only, so 月相 is left on screen to judge illumination by eye.
-The moon used to be a hard `> 0° → 0` cutoff; the ramp exists because that threw away the
-best hour of nights when a low moon was setting, so **don't "simplify" it back**. The score
+where `moonPenalty(alt, illum)` = `moonHeight(alt) × illum / 100`: `moonHeight` ramps
+0→100 as moon altitude goes 0°→30° (`MOON_FULL_ALT`) and is 0 below the horizon, and
+`illum` is `moonIllumination()` in percent, 0 new to 100 full. So a new moon costs
+nothing at any height and a full moon at 30° or higher zeroes the hour. It used to be
+altitude only with a 10° ramp (`MOON_KILL_ALT`), and before that a hard `> 0° → 0`
+cutoff; the ramp exists because the cutoff threw away the best hour of nights when a low
+moon was setting, so **don't "simplify" it back**. All three copies, plus
+`pure_math/moon_phase.html`, pass the illuminated fraction in. The score
 is **deliberately not** a port of `sky_quality()` — a rule of thumb the user is still
 revising, so the two are free to disagree. The astronomy underneath it is the shared part,
 and is not.
@@ -847,11 +851,10 @@ is still absent — one form makes a request per row, so the fields and the loca
 read by separate functions. The row label stacks **three** lines — name, then
 latitude and longitude one per line, a `.api` span each — because the label column is
 `position: sticky` and its width comes off every scroll position, so one long `lat, lon`
-line was setting it; three short lines buy the grid two more days on a phone. It also has
-no `moonIllumination()`: the
-astronomy it copies is only what it draws — `GC_RA`/`GC_DEC` are there because the
-MilkyScore strip needs the core's altitude, the lunar illuminated fraction is not
-because there is no 月相 row. The block
+line was setting it; three short lines buy the grid two more days on a phone. It now carries
+`moonIllumination()` (and `angularSeparation()`, verbatim from the readable page) because
+`moonPenalty()` reads the lit fraction; `astroAt()` returns it as `moonIllum`. The phase
+glyph still comes from `moonElong`, not from it. The block
 glyphs are **fixed-width `<span class="bar">` elements, not a monospace string** — a blank
 block is an empty span, and an empty character in a proportional run would collapse and
 shift the rest of the cell. They sit on the baseline so the four grow out of a common
@@ -945,13 +948,12 @@ to drive out, a high slate one is the reason not to. Nothing in the code tells t
 against the two warm band hues, 6.1:1 on white so it survives 0.65rem) is what carries
 it. Three things not to undo:
 
-- Its gate is **`MOON_KILL_ALT`, not `TARGET_UP_ALT`** — the same 10° today, but tied to
-  the threshold it is actually about, so retuning the moon penalty moves the moon mark
-  and retuning the airmass floor moves the two targets. `blocksCell()`'s `marks` array
-  carries a gate per row for exactly this.
-- That gate is also where `moonPenalty()` saturates, so the row has a second reading:
-  **any slate digit means at least one dark hour of that block scored zero on moonlight
-  alone.** Verified — every moon digit over a live grid had `moonPenalty()` at 100.
+- Its gate is **`MOON_UP_ALT`, not `TARGET_UP_ALT`** — the same 10° today, but its own
+  constant. `blocksCell()`'s `marks` array carries a gate per row for exactly this. It
+  used to be `MOON_KILL_ALT`, where the old altitude-only penalty saturated, so a slate
+  digit meant "an hour scored zero on moonlight"; that reading is **gone** now that the
+  penalty ramps to 30° and scales by phase. The digit is height only — read it beside
+  the phase glyph.
 - **The digit is the block's worst hour and the bar is its best**, and both are true: a
   block can carry a slate `8` and a tall bar at once, when the good hour was one the moon
   had not risen for. That pairing is the whole value of the row — a moonless window inside
@@ -967,11 +969,8 @@ how high — which is why they sit adjacent and why neither replaces the other. 
 secondary data read off the side of what they annotate, and at the bar's own 1.5rem the
 digits competed with the glyphs they sit under instead of qualifying them.
 
-- **`TARGET_UP_ALT` (10°)** is a fourth threshold beside `DARK_SUN_ALT` and
-  `MOON_KILL_ALT`, and it is **the same number as `MOON_KILL_ALT` by coincidence, not for
-  the same reason** — that one is where moonlight is treated as having ruined the sky,
-  this one is where a subject becomes worth pointing at. Retune either without touching
-  the other. It has no counterpart on `astro-score_readable.html` or in `milkyway.py`.
+- **`TARGET_UP_ALT` (10°)** is a threshold beside `DARK_SUN_ALT` and `MOON_FULL_ALT`:
+  where a subject becomes worth pointing at. Retune it without touching the others. It has no counterpart on `astro-score_readable.html` or in `milkyway.py`.
 - The altitude a digit rounds down is the block's max **while dark**, not the transit
   ceiling `gcMaxAlt()` reports: in late September A* transits ~+39° at 龍磐公園 but does
   it in twilight, so the marks there read `2` and `3` (+29° to +36°) rather than the `3`
@@ -1001,13 +1000,12 @@ stays within about ±30°: it is the season's slant of the moon's path on the me
 not the steep tilt of a crescent at the horizon, so a small wobble down a row is the
 whole effect. The tooltip adds `culmination 09:40，亮邊朝太陽 250° (面向南方)`. Checked by
 slicing both pages: 180 cells (Taipei, 龍磐公園, Sydney × 60 days) give the same glyph,
-rotation and text as the card for that date. It is a reminder, not an input: `astroScore()` docks the score for moon
-**altitude** and knows nothing of phase, so the glyph is what tells a bright bar under a
-🌕 from one under a 🌑.
+rotation and text as the card for that date. The glyph itself is display only, but phase is now an input to the
+score too: `moonPenalty()` scales the moon's height by `moonIllum`.
 
 The phase comes from `astroAt()`'s `moonElong` at that culmination — `mod360(moon.eclLon - sun.eclLon)`,
 free because both longitudes were already computed — and **not** from
-`moonIllumination()`, which this page still does not have. `moonOctant()` rounds rather
+`moonIllumination()`, which the page now has for the score only. `moonOctant()` rounds rather
 than floors, so each glyph is centred on its phase and covers ±22.5°: 🌕 means "within a
 day and a bit of full", not "somewhere past full". `MOON_NAMES` is `milkyway.py`'s own
 eight-name vocabulary, but reached from the octant rather than from
@@ -1038,7 +1036,8 @@ the moon, exactly one phase glyph per cell as the cell's last child, and three m
 stack across a whole built table; and `upMark()`'s tens mapping at the gate, at each
 boundary and at the zenith, a 0.01° sweep confirming one character always in `1`–`9` and
 never `0`, every drawn digit equal to `upMark()` of its own block's maximum with nothing
-drawn below its own gate, and every moon digit carrying a saturated `moonPenalty()`.
+drawn below its own gate, and (under the old altitude-only penalty, no longer true)
+every moon digit carrying a saturated `moonPenalty()`.
 Re-run it when touching either page.
 
 `milkyway.py` scores each upcoming hour for Milky Way astrophotography at a `lat,lon`.

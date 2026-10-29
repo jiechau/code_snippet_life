@@ -650,9 +650,9 @@
                         is a reason to drive out, a high <b style="color:#41607d;">slate</b> one is the
                         reason not to. Nothing in the code tells them apart &mdash; that is deliberate,
                         they are the same measurement &mdash; so the <b>colour</b> is what carries it, cool
-                        and dark where the two targets are warm. Its gate is the same 10&deg;, which here
-                        is <em>also</em> where MoonPenalty (月亮扣分) tops out, so <b>any slate digit at all
-                        means at least one dark hour of that block scored zero on moonlight alone</b>.</li>
+                        and dark where the two targets are warm. Its gate is the same 10&deg;. It is
+                        height only: read it beside the phase glyph, since MoonPenalty (月亮扣分) scales the
+                        moon's height by how lit it is, and a high slate digit under 🌒 costs little.</li>
                     <li><b>The moon digit is the block's worst, the bar is its best</b>, and both are true:
                         a block can carry a slate <b>8</b> and still show a tall bar, when the good hour was
                         one the moon had not risen for. That pairing is the useful one &mdash; it is a
@@ -670,8 +670,7 @@
                         changes which target you point at. Hover a cell for all three exact altitudes.</li>
                     <li><b>10&deg;</b> rather than the horizon, because below that you are looking through
                         more than five atmospheres of haze and most real horizons have a ridge or a tree
-                        line in them. It is the same number as MoonPenalty (月亮扣分) tops out at, by
-                        coincidence and not for the same reason.</li>
+                        line in them.</li>
                     <li><b>Dark</b> is the page's own &minus;10&deg; sun threshold &mdash; the one
                         <strong style="color:#1e8449;">AstroScore</strong> zeroes the score above &mdash; so
                         a mark and the bar over it agree about when the night starts.</li>
@@ -724,8 +723,9 @@
                         included, so a block does not shrink as the afternoon wears on. Hover any cell for the
                         exact sums.</li>
                     <li>The score itself is <code>(100 &minus; Cloud) &times; (100 &minus; MoonPenalty) / 100</code>,
-                        zeroed while the sun is above &minus;10&deg;, MoonPenalty (月亮扣分) ramping 0 &rarr; 100 as the
-                        moon climbs 0&deg; &rarr; 10&deg;. Sun and moon are computed in the page. See
+                        zeroed while the sun is above &minus;10&deg;. MoonPenalty (月亮扣分) is
+                        <code>MoonHeight &times; Illum / 100</code>: MoonHeight ramps 0 &rarr; 100 as the moon
+                        climbs 0&deg; &rarr; 30&deg;, and Illum is the lit fraction, 0 at new moon to 100 at full. Sun and moon are computed in the page. See
                         <a href="astro-score_readable.html">astro-score_readable.html</a> for the worked
                         examples.</li>
                     <li><b>The models do not all reach 16 days out</b>, and here that reads as a blank,
@@ -1247,9 +1247,9 @@ function altAz(ra, dec, lat, lst) {
  * new series: the sidereal time is already computed.
  *
  * It also returns the moon-sun elongation, for the phase glyph under each cell.
- * It is still *not* astro-score_readable.html's moonIllumination(): see moonGlyph().
- *
- * The lunar illuminated fraction itself stays uncomputed -- there is no 月相 row to put a percentage in, and the glyph does not need one.
+ * The glyph is drawn from that elongation, not from moonIllumination(): see
+ * moonGlyph(). The illuminated fraction is returned too, but only because
+ * moonPenalty() reads it -- the score scales the moon's height by how lit it is.
  */
 function astroAt(utcMs, lat, lon) {
     const jd = julianDay(utcMs);
@@ -1266,7 +1266,28 @@ function astroAt(utcMs, lat, lon) {
         // positions above -- and it is the whole of what a phase glyph needs,
         // carrying waxing/waning in the same number as the fraction lit.
         moonElong: mod360(moon.eclLon - sun.eclLon),
+        // Lit percentage, 0..100, for moonPenalty(). The same as
+        // astro-score_readable.html's, so the two pages score alike.
+        moonIllum: moonIllumination(sun.ra, sun.dec, moon.ra, moon.dec, moon.dist) * 100,
     };
+}
+
+/** Great-circle angle between two equatorial positions, in degrees. */
+function angularSeparation(ra1, dec1, ra2, dec2) {
+    const cosSep = sin(dec1) * sin(dec2) + cos(dec1) * cos(dec2) * cos(ra1 - ra2);
+    return Math.acos(clamp1(cosSep)) / DEG;
+}
+
+/** Illuminated fraction of the lunar disk, 0..1. */
+function moonIllumination(sunRa, sunDec, moonRa, moonDec, moonDist) {
+    const elong = angularSeparation(sunRa, sunDec, moonRa, moonDec);
+    const auKm = 149597870.7;
+    // Phase angle of the moon as seen from Earth (Meeus 48.2).
+    const phase = Math.atan2(
+        auKm * sin(elong),
+        moonDist - auKm * cos(elong),
+    );
+    return (1 + Math.cos(phase)) / 2;
 }
 
 /* ------------------------------------------------------------------ *
@@ -1278,22 +1299,28 @@ function astroAt(utcMs, lat, lon) {
 // on purpose, and the hour either side of it is the one to distrust.
 const DARK_SUN_ALT = -10;
 
-// Moon altitude at which its glow is treated as ruining the sky outright.
-// Below it the penalty ramps in linearly rather than switching on at the
-// horizon: a moon 2° up is nothing like a moon 10° up, and rounding both to
-// "moon is up, score 0" threw away the best hour of many nights.
-const MOON_KILL_ALT = 10;
+// Moon altitude at which MoonHeight tops out. Below it the factor ramps in
+// linearly from the horizon: a moon 5° up lights far less of the sky than one at
+// 30°, and rounding both to "moon is up" threw away the best hour of many nights.
+const MOON_FULL_ALT = 30;
 
 /**
- * How much the moon spoils the sky, 0..100.
- *
- * 0 with the moon at or below the horizon, 100 from MOON_KILL_ALT up, linear in
- * between. Altitude alone -- a thin crescent and a full moon at the same height
- * are penalised the same.
+ * How high the moon is, as a factor 0..100: 0 at or below the horizon, 100 from
+ * MOON_FULL_ALT up, linear in between.
  */
-function moonPenalty(moonAlt) {
+function moonHeight(moonAlt) {
     if (moonAlt <= 0) return 0;
-    return Math.min(100, (moonAlt / MOON_KILL_ALT) * 100);
+    return Math.min(100, (moonAlt / MOON_FULL_ALT) * 100);
+}
+
+/**
+ * How much the moon spoils the sky, 0..100: MoonHeight scaled by the illuminated
+ * fraction, moonIllum in percent (0 new .. 100 full). So a full moon at 30° or
+ * higher is the whole penalty, a half moon there costs 50, and a new moon costs
+ * nothing at any height.
+ */
+function moonPenalty(moonAlt, moonIllum) {
+    return moonHeight(moonAlt) * Number(moonIllum) / 100;
 }
 
 // How high a fixed target has to get, during a block's dark hours, for that
@@ -1302,27 +1329,29 @@ function moonPenalty(moonAlt) {
 // ridge or a tree line in them, so a target that never clears it was not
 // observable whatever the sky did.
 //
-// It is the same number as MOON_KILL_ALT by coincidence and not for the same
-// reason -- that one is where moonlight is treated as having ruined the sky,
-// this one is where a subject becomes worth pointing at. Retune either without
-// touching the other.
-//
-// Unlike DARK_SUN_ALT and MOON_KILL_ALT this has no counterpart on
+// Unlike DARK_SUN_ALT and MOON_FULL_ALT this has no counterpart on
 // astro-score_readable.html or in milkyway.py: neither draws a visibility mark,
 // and astroScore() reads none of the three targets' altitudes anyway.
 const TARGET_UP_ALT = 10;
+
+// The moon's own mark gate: the slate digit is drawn once the moon clears it in
+// the dark. The same 10° as TARGET_UP_ALT, but a constant of its own, and no
+// longer tied to the penalty -- MoonPenalty now ramps to MOON_FULL_ALT (30°) and
+// is scaled by phase, so a slate digit says how high the moon got, not that the
+// score was zeroed. Read it beside the phase glyph.
+const MOON_UP_ALT = 10;
 
 /**
  * 觀星, 0..100 -- deliberately much simpler than milkyway.py's sky_quality().
  *
  * Daylight or twilight is out flat; what is left is the clear fraction of the
- * sky, scaled down by how high the moon is. Null cloud cover scores nothing
+ * sky, scaled down by how high and how lit the moon is. Null cloud cover scores nothing
  * rather than 100.
  */
-function astroScore(sunAlt, moonAlt, cover) {
+function astroScore(sunAlt, moonAlt, moonIllum, cover) {
     if (cover === null || cover === undefined) return null;
     if (sunAlt > DARK_SUN_ALT) return 0;
-    return (100 - Number(cover)) * (100 - moonPenalty(moonAlt)) / 100;
+    return (100 - Number(cover)) * (100 - moonPenalty(moonAlt, moonIllum)) / 100;
 }
 
 /* ------------------------------------------------------------------ *
@@ -1740,7 +1769,7 @@ function blocksByDate(body, model, multi) {
         const block = days.get(date).blocks[b];
         block.hours += 1;
         const utcMs = Date.parse(`${t}:00Z`) - offset * 1000;
-        const { sunAlt, moonAlt, gcAlt, m42Alt } = astroAt(utcMs, lat, lon);
+        const { sunAlt, moonAlt, moonIllum, gcAlt, m42Alt } = astroAt(utcMs, lat, lon);
         // Visibility is taken before the cloud guard below, and deliberately so:
         // whether a target was up in the dark is geometry, known for every hour
         // the response carries whether or not that hour came with a cloud figure.
@@ -1752,15 +1781,15 @@ function blocksByDate(body, model, multi) {
             block.m42Night = Math.max(block.m42Night, m42Alt);
             // The moon is measured exactly like the two targets and means the
             // reverse of them -- see the .mark comment. Note that this maximum is
-            // *not* what moonPenalty() saw: the penalty is applied per hour and
-            // the block's peak 觀星 is the best of those hours, so a block can
+            // *not* what moonPenalty() saw: the penalty is applied per hour, scaled
+            // by phase, and the block's peak 觀星 is the best of those hours, so a block can
             // carry a moon digit and still peak high, when the good hour was one
             // the moon had not yet risen for. The digit says how bad the worst of
             // the block was, and the bar says how good the best of it was; both
             // are true and they are answering different questions.
             block.moonNight = Math.max(block.moonNight, moonAlt);
         }
-        const score = astroScore(sunAlt, moonAlt, hourly[key][i]);
+        const score = astroScore(sunAlt, moonAlt, moonIllum, hourly[key][i]);
         if (score === null) return;   // null cloud cover: no data, not a zero
         block.peak = Math.max(block.peak, score);
         // Dark hours only, the same gate astroScore() applies: a cloudless
@@ -1915,14 +1944,13 @@ function blocksCell(place, date, day) {
         // daylight altitude.
         //
         // Each carries its own gate, and they are the same number today: the two
-        // targets clear TARGET_UP_ALT, the moon MOON_KILL_ALT. Same rule, two
-        // constants, because they are about different things -- retune the moon
-        // penalty and the moon mark should follow it, not the targets' airmass
-        // floor. See the note on TARGET_UP_ALT.
+        // targets clear TARGET_UP_ALT, the moon MOON_UP_ALT. Same rule, two
+        // constants, because they are about different things. See the notes on
+        // both.
         const marks = [
             ["gc", gcNight, TARGET_UP_ALT],
             ["m42", m42Night, TARGET_UP_ALT],
-            ["moon", moonNight, MOON_KILL_ALT],
+            ["moon", moonNight, MOON_UP_ALT],
         ];
         for (const [cls, night, gate] of marks) {
             const mark = document.createElement("span");
