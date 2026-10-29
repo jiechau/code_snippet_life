@@ -734,6 +734,15 @@ no line-height made both edges meet on every machine. A box is exactly its CSS
 height, so bar, purple and orange now stack seamlessly. Don't put the glyph back. Purple stays **above**
 orange: moving it would silently re-read every grid anyone has already looked at.
 
+**A blue ClearScore strip sits above both** (`clearScore()`, `CLEAR_BANDS`,
+`clearColor()`): the block's best **dark-hour** `100 − cloud_cover` — the same Cloud
+`astroScore()` reads, with the moon left out — banded `>90 / >80 / >70 / >60`,
+deepest first, blank at or below 60. It is a percentage, not degrees, so it has its own
+ladder rather than `MILKY_BANDS`'. Its use is the pairing with the bar: deep blue under
+a short bar is a clear night lost to moonlight. Daylight hours are excluded so a clear
+afternoon cannot paint the blue under a night that clouded in. A stack is therefore
+**seven** rows (`bar,under,under,under,mark,mark,mark`).
+
 **The two strips rarely paint together, and that is the point.** Across the year
 they are opposite seasons; within a single autumn night they fall in opposite
 *halves*, so the purple tends to sit under a day's **right** glyph (the core, up in

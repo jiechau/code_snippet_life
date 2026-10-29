@@ -20,6 +20,8 @@
             /* The MilkyScore accent: the middle step of MILKY_BANDS, used for the
                legend section that explains the strip. */
             --milky: #8e44ad;
+            /* The ClearScore accent: the middle step of CLEAR_BANDS. */
+            --clear: #2f6fb3;
             /* The OrionScore accent, the same way: the middle step of
                ORION_BANDS, for its own legend section. */
             --orion: #e2711d;
@@ -98,6 +100,12 @@
            colour: green for the 觀星 bar, purple for the MilkyScore strip, orange
            for the OrionScore one, and a neutral dark bar for the notes, which
            belong to none of them. */
+        .rule.clear {
+            border-left-color: var(--clear);
+            background: #f2f7fc;
+        }
+        .rule.clear .formula { color: var(--clear); }
+        .rule.clear .example { border-top-color: #d3e2f2; }
         .rule.milky {
             border-left-color: var(--milky);
             background: #f8f4fb;
@@ -376,7 +384,7 @@
            .bar's own 1.5rem is exactly the line box a glyph makes, so the drawn
            bars do not move. */
         .stack .bar { display: block; width: auto; height: 1em; }
-        /* The two strips: MilkyScore, then OrionScore under it. Painted as a
+        /* The three strips: ClearScore, MilkyScore, then OrionScore under it. Painted as a
            background, not drawn as a glyph: the box is exactly the height CSS
            gives it, whatever the font's ascent and descent. They were U+2580 UPPER
            HALF BLOCK until the empty lower half of each 1em line box showed up as
@@ -385,7 +393,7 @@
            both be made to meet. Half an em of .bar's 1.5rem is about the ink the
            glyph had, so a strip reads as the same weight, and the two now stack
            with no seam, under the bar as well as under each other. Their colours
-           are set per cell (MILKY_BANDS / ORION_BANDS), the only place on this
+           are set per cell (CLEAR_BANDS / MILKY_BANDS / ORION_BANDS), the only place on this
            page a value picks a colour -- the bars, whose height is already their
            value, are one fixed green. Fixed height for the same reason as .bar:
            below its lowest band a strip is left unpainted, and an empty box must
@@ -529,6 +537,24 @@
                     <div>   &le; 30   blank &mdash; nothing worth the trip</div>
                     <div><b style="color:#c3ccd5;">&middot;</b>         no forecast &mdash; this model does not reach that far</div>
                 </div>
+            </div>
+
+            <div class="rule clear">
+                <span class="formula">strip = max (100 &minus; Cloud) over the dark hours of the same 12
+                    <span class="gloss">&nbsp; ClearScore &mdash; the sky alone, moon ignored</span></span>
+                <div class="example">
+                    <div><b style="color:#0b3a75;">&#9600;</b>  &gt; 90   very clear</div>
+                    <div><b style="color:#2f6fb3;">&#9600;</b>  &gt; 80</div>
+                    <div><b style="color:#6fa3d8;">&#9600;</b>  &gt; 70</div>
+                    <div><b style="color:#b7d3ee;">&#9600;</b>  &gt; 60</div>
+                    <div>   &le; 60   blank &mdash; 40% of the sky or more under cloud</div>
+                </div>
+                <ul>
+                    <li>The same Cloud (雲量) AstroScore (觀星) reads, with the moon left out, so a
+                        deep blue strip under a short bar is a clear night spoiled by moonlight.</li>
+                    <li>Only hours with the sun below &minus;10&deg; count: a clear afternoon is no
+                        use to anyone stargazing.</li>
+                </ul>
             </div>
 
             <div class="rule milky">
@@ -1484,6 +1510,34 @@ function moonFace(dayStartMs, lat, lon) {
 }
 
 /**
+ * ClearScore for one hour: the sky alone, 100 − cloud cover. The same Cloud
+ * astroScore() reads, without the moon, so the strip can tell a clear moonlit
+ * night (deep blue, short bar) from a cloudy one (no blue). Like the score,
+ * only dark hours count -- see blocksByDate.
+ */
+function clearScore(cover) {
+    return 100 - Number(cover);
+}
+
+// Block peak ClearScore -> the blue it is drawn in, deepest first. Strictly
+// greater, like BARS: exactly 60 draws nothing. Its own ladder, not
+// MILKY_BANDS': this one is a percentage, those are degrees.
+const CLEAR_BANDS = [
+    [90, "#0b3a75"],
+    [80, "#2f6fb3"],
+    [70, "#6fa3d8"],
+    [60, "#b7d3ee"],
+];
+
+/** The blue for a block's peak ClearScore, or null below the lowest band. */
+function clearColor(peak) {
+    for (const [threshold, color] of CLEAR_BANDS) {
+        if (peak > threshold) return color;
+    }
+    return null;
+}
+
+/**
  * MilkyScore for one hour: 觀星 as a fraction, times the galactic core's
  * altitude in degrees.
  *
@@ -1591,8 +1645,8 @@ function barFor(peak) {
  * and the response's UTC offset in seconds, to print the culmination as local
  * time. See td.blocks .phase for why the glyph is not drawn per block.
  *
- * Each block record is {peak, milky, orion, gcNight, m42Night, moonNight, hours,
- * dark, scored}: the best 觀星 in the block, the best MilkyScore and OrionScore in
+ * Each block record is {peak, clear, milky, orion, gcNight, m42Night, moonNight, hours,
+ * dark, scored}: the best 觀星 in the block, the best dark-hour ClearScore, the best MilkyScore and OrionScore in
  * it, how high A*, M42 and the moon got while it was dark, how many of the twelve
  * hours the response actually carried, how many of those were dark, and how many
  * carried a cloud figure rather than a null. A block short on either count can peak low for
@@ -1637,7 +1691,7 @@ function blocksByDate(body, model, multi) {
                     // first-value case; `dark` is what says whether any of them
                     // was ever written to.
                     () => ({
-                        peak: 0, milky: 0, orion: 0,
+                        peak: 0, clear: 0, milky: 0, orion: 0,
                         gcNight: -90, m42Night: -90, moonNight: -90,
                         hours: 0, dark: 0, scored: 0,
                     }),
@@ -1672,6 +1726,9 @@ function blocksByDate(body, model, multi) {
         const score = astroScore(sunAlt, moonAlt, hourly[key][i]);
         if (score === null) return;   // null cloud cover: no data, not a zero
         block.peak = Math.max(block.peak, score);
+        // Dark hours only, the same gate astroScore() applies: a cloudless
+        // afternoon would otherwise paint the blue under a night that clouded in.
+        if (sunAlt <= DARK_SUN_ALT) block.clear = Math.max(block.clear, clearScore(hourly[key][i]));
         // Maximum of the product, not the product of the maxima: the two peaks
         // can fall in different hours, and an hour that was never good is not
         // made good by another hour's core altitude.
@@ -1756,19 +1813,20 @@ function visibleDates(dates, today, hidePast) {
 
 // No tint() here, unlike the other three Open-Meteo pages: this grid draws bars,
 // not tinted number cells, and a bar's height is already its value, so the green
-// is fixed in CSS (.bar). The values that do pick a colour are the two strips
+// is fixed in CSS (.bar). The values that do pick a colour are the three strips
 // under each bar -- neither has a height to vary, so depth of hue is all they
-// have (milkyColor / MILKY_BANDS and orionColor / ORION_BANDS above).
+// have (clearColor / CLEAR_BANDS, milkyColor / MILKY_BANDS and orionColor /
+// ORION_BANDS above).
 
 /**
  * One day at one place, as a table cell.
  *
- * Two stacks side by side, one per half-day, each six rows tall: the 觀星 bar,
- * the MilkyScore strip, the OrionScore strip (both half-height), then the altitude marks for A*, M42
+ * Two stacks side by side, one per half-day, each seven rows tall: the 觀星 bar,
+ * the ClearScore, MilkyScore and OrionScore strips (all half-height), then the altitude marks for A*, M42
  * and the moon. Under both stacks, spanning the cell, one moon phase glyph -- the
  * only thing here that is a property of the date rather than of a block.
  *
- * The four lower rows are geometry and the two upper ones are forecast, which is
+ * The four lower rows are geometry and the four upper ones are forecast, which is
  * the division to keep in mind reading a cell: a mark and a phase are as certain
  * at day 16 as at day 1, while the bar above them is a cloud model's guess.
  */
@@ -1780,7 +1838,7 @@ function blocksCell(place, date, day) {
     const detail = [];
     for (let b = 0; b < BLOCKS; b += 1) {
         const {
-            peak, milky, orion, gcNight, m42Night, moonNight, hours, dark, scored,
+            peak, clear, milky, orion, gcNight, m42Night, moonNight, hours, dark, scored,
         } = blocks[b];
         const stack = document.createElement("span");
         stack.className = "stack";
@@ -1788,12 +1846,13 @@ function blocksCell(place, date, day) {
         span.className = scored ? "bar" : "bar nodata";
         span.textContent = scored ? barFor(peak) : NO_DATA_GLYPH;
         stack.appendChild(span);
-        // The MilkyScore strip, then the OrionScore one under it -- A* above M42
+        // The ClearScore strip first -- the sky alone, directly under the bar it
+        // qualifies -- then the MilkyScore strip, then the OrionScore one -- A* above M42
         // because the purple came first and moving it would silently re-read every
         // grid anyone has looked at. Both spans are appended whatever the value,
         // so the stack keeps its height and the bars keep a common floor; below
         // its lowest band a strip is simply left empty and unpainted.
-        for (const paint of [milkyColor(milky), orionColor(orion)]) {
+        for (const paint of [clearColor(clear), milkyColor(milky), orionColor(orion)]) {
             const under = document.createElement("span");
             under.className = "under";
             if (paint) under.style.backgroundColor = paint;
@@ -1836,6 +1895,7 @@ function blocksCell(place, date, day) {
         const upText = (night) => (dark ? `${night.toFixed(0).padStart(3)}°` : "  --");
         detail.push(
             `${BLOCK_LABELS[b]}  peak ${String(Math.round(peak)).padStart(3)}`
+            + `  clear ${String(Math.round(clear)).padStart(3)}`
             + `  milky ${milky.toFixed(1).padStart(4)}`
             + `  orion ${orion.toFixed(1).padStart(4)}`
             + `  A* max ${upText(gcNight)}  M42 max ${upText(m42Night)}`
