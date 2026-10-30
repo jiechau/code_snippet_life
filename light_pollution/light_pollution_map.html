@@ -242,9 +242,10 @@
         button.act.secondary { background: #fff; color: var(--accent); }
         button.act.secondary:hover { background: var(--accent); color: #fff; }
 
-        /* The reading: the same four cards binary-tile.html puts above its
-           working, at menu width. */
+        /* The reading: the same five cards binary-tile.html puts above its
+           working, at menu width. An odd last card takes the whole row. */
         .out { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .out .card:last-child:nth-child(odd) { grid-column: 1 / -1; }
         .card {
             background: #f7f9fb;
             border: 1px solid var(--line);
@@ -462,6 +463,17 @@ const LP_BORTLE = [
 ];
 const LP_BORTLE_BRIGHTEST = 9;
 
+// SQM -> a decimal Bortle, lightpollutionmap.app's way: the same cut points
+// placed as anchors (19.50 *is* 6.0 there, where LP_BORTLE makes it the top of
+// class 5) and a straight line between neighbours. Read out of that site's
+// client bundle and checked against 25 spots on its own pages, 25/25 to one
+// decimal. Only the formula is theirs -- the SQM fed in is still Lorenz's, which
+// sits within ~0.1 mag of theirs over Taiwan, so expect a tenth or two apart.
+const APP_BORTLE_ANCHORS = [
+    [21.99, 2], [21.89, 3], [21.69, 4], [20.49, 5],
+    [19.50, 6], [18.94, 7], [18.38, 8], [17.80, 9],
+];
+
 const mod360 = (x) => ((x % 360) + 360) % 360;
 
 /** The atlas's compressed integer -> artificial/natural brightness ratio. */
@@ -485,6 +497,19 @@ function lpBortle(sqm) {
         if (sqm >= threshold) return cls;
     }
     return LP_BORTLE_BRIGHTEST;
+}
+
+function lpAppBortle(sqm) {
+    if (sqm >= 21.99) return 1;
+    if (sqm <= 17.80) return 9;
+    for (let i = 0; i < APP_BORTLE_ANCHORS.length - 1; i++) {
+        const [hiSqm, hiCls] = APP_BORTLE_ANCHORS[i];
+        const [loSqm, loCls] = APP_BORTLE_ANCHORS[i + 1];
+        if (sqm <= hiSqm && sqm > loSqm) {
+            return hiCls + (hiSqm - sqm) / (hiSqm - loSqm) * (loCls - hiCls);
+        }
+    }
+    return 5;   // unreachable for a finite sqm; theirs falls back to 5 as well
 }
 
 function lpZone(ratio) {
@@ -1311,13 +1336,15 @@ async function readPoint(lat, lon, { fillBox = false, recenter = false } = {}) {
         const { compressed } = decodePoint(tile.data, addr.ix, addr.iy);
         const ratio = lpRatio(compressed);
         const sqm = lpSqm(ratio);
+        const appBortle = lpAppBortle(sqm);
         const bortle = lpBortle(sqm);
         const zone = lpZone(ratio);
 
         showCards([
             { k: "SQM", v: fmt(sqm), n: "mag/arcsec² — bigger is darker", good: sqm >= 21.69, bad: sqm < 19.5 },
             { k: "LP Zone", v: zone, n: "the atlas's own banding", good: /^[012]/.test(zone), bad: /^[67]/.test(zone) },
-            { k: "Bortle", v: String(bortle), n: "rule of thumb, read off SQM", good: bortle <= 3, bad: bortle >= 7 },
+            { k: "app Bortle", v: fmt(appBortle, 1), n: "lightpollutionmap.app's decimal scale", good: appBortle <= 4, bad: appBortle > 7 },
+            { k: "LP Bortle", v: String(bortle), n: "rule of thumb, read off SQM", good: bortle <= 3, bad: bortle >= 7 },
             { k: "artificial glow", v: `${fmt(ratio)}×`, n: "of the natural night sky", good: ratio < 0.33, bad: ratio > 9 },
         ]);
         markLegend(zone);

@@ -28,7 +28,7 @@ here mainly when changing those constants; the adjustable form is
 - [AstroScore readable](https://jiechau.github.io/code_snippet_life/astro_score/astro-score_readable.html)
   — an hour-by-hour grid with a 觀星 score per hour, plus 太陽/月亮/月相/銀心 rows,
   the fixed 銀心 (max) ceiling, the same altitude pair again for the Orion Nebula
-  (M42 (°) / M42 (max)), and the site's 光害 (SQM) / Bortle / LP Zone; the
+  (M42 (°) / M42 (max)), and the site's 光害 (SQM) / app Bortle / LP Bortle / LP Zone; the
   雲量來源 tabs pick which of the four models it is drawn from.
 - [AstroScore daily](https://jiechau.github.io/code_snippet_life/astro_score/astro-score_daily.html)
   — the same score folded into a week-at-a-glance grid: a row per place, a
@@ -331,7 +331,7 @@ does not feed it removed.
   the core is shot through too much airmass to photograph. It is up for only part of
   the night, and is **not** a score input: 觀星 rates a dark, clear, moonless sky,
   which is worth going out for with or without the core.
-- **The 光害 (SQM) / Bortle / LP Zone rows** sit under 銀心 (max) and are three views
+- **The 光害 (SQM) / app Bortle / LP Bortle / LP Zone rows** sit under 銀心 (max) and are four views
   of one fetched number — how bright the sky itself is where you are standing, so
   like 銀心 (max) they are constant across the row and untinted. The source is
   [David Lorenz's World Atlas of Artificial Night Sky Brightness](https://djlorenz.github.io/astronomy/lp/),
@@ -343,7 +343,14 @@ does not feed it removed.
   - **SQM** (mag/arcsec², bigger is darker) is the row that carries information —
     it is one formula of Lorenz's own away from what the atlas stores.
   - **LP Zone** is the atlas's own 15-step banding, `0` (darkest) to `7b`.
-  - **Bortle** is the familiar 1–9 scale, read off SQM by the conventional ladder.
+  - **app Bortle** is that SQM on [lightpollutionmap.app](https://lightpollutionmap.app/)'s
+    decimal scale — their straight-line interpolation between the Bortle cut points
+    (19.50 → 6.0, 18.94 → 7.0), read out of their client bundle and checked against
+    25 spots on their own pages, 25/25. Their formula, not their data: the SQM is
+    still Lorenz's, which over Taiwan sits within ~0.1 of theirs (Lorenz slightly
+    darker on 20 of 25), so the row lands a tenth or two from their site. Their SQM
+    itself comes from their own server, which answers only their own origin.
+  - **LP Bortle** is the familiar 1–9 class, read off SQM by the conventional ladder.
     It is a rule of thumb the atlas's author
     [declines to publish](https://djlorenz.github.io/astronomy/lp/bortle.html),
     because Bortle judges the whole sky — horizon light domes included — which a

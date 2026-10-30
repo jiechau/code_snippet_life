@@ -419,8 +419,14 @@
                         satellite data by the Earth Observation Group), the one light-pollution source that
                         needs no API key. It is <b>modelled, not measured</b>, on a ~0.9 km grid. Not a score
                         input: AstroScore (觀星) rates tonight's sky, and no forecast can move the city.</li>
-                    <li><b>Bortle</b> and <b>LP Zone</b> are two labels for that same number, shown under it
-                        rather than instead of it. LP Zone is the atlas's own banding; <b>Bortle</b> is the
+                    <li><b>app Bortle</b> is that same SQM on
+                        <a href="https://lightpollutionmap.app/" target="_blank" rel="noopener">lightpollutionmap.app</a>'s
+                        decimal scale: their straight-line interpolation between the Bortle cut points (19.50
+                        reads 6.0, 18.94 reads 7.0). <b>Their formula, not their data</b> &mdash; the SQM fed
+                        in is still Lorenz's, which over Taiwan sits within about 0.1 of theirs, so expect
+                        this row to differ from their site by a tenth or two.</li>
+                    <li><b>LP Bortle</b> and <b>LP Zone</b> are two labels for that same number, shown under it
+                        rather than instead of it. LP Zone is the atlas's own banding; <b>LP Bortle</b> is the
                         familiar 1&ndash;9 scale, read off SQM by the conventional ladder &mdash; a rule of
                         thumb the atlas's author pointedly <a href="https://djlorenz.github.io/astronomy/lp/bortle.html"
                         target="_blank" rel="noopener">declines to publish</a>, since Bortle judges the whole
@@ -428,7 +434,7 @@
                         also coarse exactly where it matters: <b>Bortle 4 spans 21.69 down to 20.49</b>, so
                         most decent sites in Taiwan read &quot;4&quot; while LP Zone still tells them apart.
                         Read the SQM.</li>
-                    <li>Unlike the rows above, these three are <b>fetched, not computed</b>: one ~65 KB
+                    <li>Unlike the rows above, these four are <b>fetched, not computed</b>: one ~65 KB
                         compressed tile of the atlas, read for the single grid point you asked about. It is
                         loaded after the forecast is already on screen and never waited for, so the rows
                         show &hellip; until it lands and &ndash; if it never does. The decode is shown byte
@@ -1024,6 +1030,17 @@ const LP_BORTLE = [
 ];
 const LP_BORTLE_BRIGHTEST = 9;
 
+// SQM -> a decimal Bortle, lightpollutionmap.app's way: the same cut points
+// placed as anchors (19.50 *is* 6.0 there, where LP_BORTLE makes it the top of
+// class 5) and a straight line between neighbours. Read out of that site's
+// client bundle and checked against 25 spots on its own pages, 25/25 to one
+// decimal. Only the formula is theirs -- the SQM fed in is still Lorenz's, which
+// sits within ~0.1 mag of theirs over Taiwan, so expect a tenth or two apart.
+const APP_BORTLE_ANCHORS = [
+    [21.99, 2], [21.89, 3], [21.69, 4], [20.49, 5],
+    [19.50, 6], [18.94, 7], [18.38, 8], [17.80, 9],
+];
+
 const lpTileCache = new Map();    // "tilex_tiley" -> Int8Array (successes only)
 const lpPointCache = new Map();   // "lat,lon" -> {ratio, sqm, bortle, zone} | null
 
@@ -1048,6 +1065,19 @@ function lpBortle(sqm) {
         if (sqm >= threshold) return cls;
     }
     return LP_BORTLE_BRIGHTEST;
+}
+
+function lpAppBortle(sqm) {
+    if (sqm >= 21.99) return 1;
+    if (sqm <= 17.80) return 9;
+    for (let i = 0; i < APP_BORTLE_ANCHORS.length - 1; i++) {
+        const [hiSqm, hiCls] = APP_BORTLE_ANCHORS[i];
+        const [loSqm, loCls] = APP_BORTLE_ANCHORS[i + 1];
+        if (sqm <= hiSqm && sqm > loSqm) {
+            return hiCls + (hiSqm - sqm) / (hiSqm - loSqm) * (loCls - hiCls);
+        }
+    }
+    return 5;   // unreachable for a finite sqm; theirs falls back to 5 as well
 }
 
 function lpZone(ratio) {
@@ -1126,7 +1156,7 @@ async function lightPollution(lat, lon, timeoutMs = 20000) {
 
         const ratio = lpRatio(value);
         const sqm = lpSqm(ratio);
-        return { ratio, sqm, bortle: lpBortle(sqm), zone: lpZone(ratio) };
+        return { ratio, sqm, appBortle: lpAppBortle(sqm), bortle: lpBortle(sqm), zone: lpZone(ratio) };
     } catch {
         return null;
     }
@@ -1278,7 +1308,7 @@ const M42_ROW = { key: "m42Alt", label: "M42 (°)", api: "M42 alt", scale: [0, 2
 // M42 transits ~59°–63° over Taiwan where the core only reaches ~36°–39°.
 const M42_MAX_ROW = { key: "m42MaxAlt", label: "M42 (max)", api: "M42 max" };
 
-// Light pollution at the location: three views of one number, drawn under
+// Light pollution at the location: four views of one number, drawn under
 // 銀心 (max) because they are the same kind of thing -- fixed by where you are
 // standing rather than by the hour, so the same value fills every column.
 //
@@ -1286,13 +1316,16 @@ const M42_MAX_ROW = { key: "m42MaxAlt", label: "M42 (max)", api: "M42 max" };
 // would be a solid band of colour that reads as data changing by the hour.
 //
 // SQM is the row that carries information -- it is one formula away from what
-// the atlas stores. Bortle is the familiar label and LP Zone is the atlas's own,
-// finer, banding of the identical figure; both are shown *under* SQM rather than
-// instead of it so a lossy class never hides the number behind it.
+// the atlas stores. app Bortle is that figure on lightpollutionmap.app's decimal
+// scale, LP Bortle the familiar class and LP Zone the atlas's own, finer,
+// banding of it; all three are shown *under* SQM rather than instead of it so a
+// lossy label never hides the number behind it.
 const LP_ROWS = [
     { key: "sqm", label: "光害 (SQM)", api: "sky mag", digits: 2,
       title: "artificial zenith sky brightness, mag/arcsec² — light pollution atlas, not Open-Meteo" },
-    { key: "bortle", label: "Bortle", api: "1–9",
+    { key: "appBortle", label: "app Bortle", api: "1.0–9.0", digits: 1,
+      title: "decimal Bortle, lightpollutionmap.app's interpolation applied to this atlas's SQM — their formula, not their data" },
+    { key: "bortle", label: "LP Bortle", api: "1–9",
       title: "Bortle class, read off SQM by the conventional ladder — a rule of thumb, not atlas data" },
     { key: "zone", label: "LP Zone", api: "0–7b",
       title: "the atlas's own light pollution zone — finer than Bortle, and native to the data" },
@@ -1607,7 +1640,7 @@ function buildTable(body, params, fromNow) {
     drawAstroRow(M42_ROW);
     drawAstroRow(M42_MAX_ROW);
 
-    // 光害 / Bortle / LP Zone -- fetched, not computed, and possibly not here yet.
+    // 光害 / app Bortle / LP Bortle / LP Zone -- fetched, not computed, and possibly not here yet.
     // undefined means the lookup is still in flight (drawn "…"), null means it
     // failed or the browser has no DecompressionStream (drawn "–"); either way the
     // grid above and below is untouched.

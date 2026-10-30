@@ -17,7 +17,7 @@ reason `reverse-geocode.html` is named after its endpoint, and
 **Live demo:** https://jiechau.github.io/code_snippet_life/light_pollution/
 
 - [binary tile](https://jiechau.github.io/code_snippet_life/light_pollution/binary-tile.html)
-  — a `lat,lon` and an atlas year in; SQM, Bortle and LP Zone out, with every
+  — a `lat,lon` and an atlas year in; SQM, app Bortle, LP Bortle and LP Zone out, with every
   intermediate step and the raw bytes shown.
 - [light pollution map](https://jiechau.github.io/code_snippet_life/light_pollution/light_pollution_map.html)
   — the same atlas as a **map**: one layer per atlas year plus the 2013–2025 trend, over
@@ -98,7 +98,7 @@ viewer pulls in `pako`; this page uses the built-in
 [`DecompressionStream`](https://developer.mozilla.org/en-US/docs/Web/API/DecompressionStream)
 instead and needs no library.
 
-Everything after that integer is derived, and the three derivations have very
+Everything after that integer is derived, and the derivations have very
 different standing:
 
 | Row | Whose | Notes |
@@ -106,7 +106,8 @@ different standing:
 | `ratio` | Lorenz | `(5/195)·(e^(0.0195·value) − 1)` — artificial glow ÷ natural night sky |
 | `SQM` | Lorenz | `22 − 2.5·log₁₀(1 + ratio)`, mag/arcsec², bigger is darker |
 | `LP Zone` | Lorenz | his own 15-step banding, `0` (darkest) to `7b` |
-| **`Bortle`** | **ours** | the conventional SQM ladder — see below |
+| **`LP Bortle`** | **ours** | the conventional SQM ladder, as an integer class — see below |
+| **`app Bortle`** | **lightpollutionmap.app's formula** | the same cut points as anchors with a straight line between them, one decimal — see below |
 
 **Bortle is the one step the atlas does not endorse.** Lorenz
 [declines to publish it](https://djlorenz.github.io/astronomy/lp/bortle.html):
@@ -117,6 +118,17 @@ round brightness-ratio steps — but **Bortle 4 swallows zones 3a, 3b, 4a and 4b
 whole** (SQM 21.69 down to 20.49), which is the entire range decent dark sites in
 Taiwan occupy. Read the SQM; Bortle is there because people speak it.
 
+**app Bortle** is that same ladder made continuous, the way
+[lightpollutionmap.app](https://lightpollutionmap.app/) shows it: each cut point
+becomes an anchor (19.50 *is* 6.0, 18.94 *is* 7.0) and a value between two is read
+off the straight line joining them. The formula was read out of that site's client
+code and reproduces all 25 Bortle figures its own pages show for the `places.js`
+spots. **Only the formula is theirs**: the SQM fed in is still Lorenz's. Their
+SQM comes from their own server, which answers only their own site, and over
+Taiwan it sits within about 0.1 of Lorenz's, so this row lands a tenth or two
+from what their map says. Its use is the one LP Bortle cannot serve: it still moves
+inside Bortle 4.
+
 ## The year buttons
 
 The atlas is published annually and old years stay put, so the same point can be
@@ -124,24 +136,25 @@ read from 2016, 2020, 2022, 2023, 2024 or 2025. That turns a snapshot into a
 trend, and it is the quickest way to see a site being lost. 合歡山,
 Taiwan's certified dark-sky park:
 
-| atlas | SQM | artificial glow | LP Zone | Bortle |
-| --- | --- | --- | --- | --- |
-| 2016 | 21.51 | 0.57× natural | 3a | 4 |
-| 2020 | 21.44 | 0.68× | 3b | 4 |
-| 2022 | 21.42 | 0.71× | 3b | 4 |
-| 2023 | 21.38 | 0.77× | 3b | 4 |
-| 2024 | 21.39 | 0.75× | 3b | 4 |
-| 2025 | 21.37 | 0.78× | 3b | 4 |
+| atlas | SQM | artificial glow | LP Zone | app Bortle | LP Bortle |
+| --- | --- | --- | --- | --- | --- |
+| 2016 | 21.51 | 0.57× natural | 3a | 4.1 | 4 |
+| 2020 | 21.44 | 0.68× | 3b | 4.2 | 4 |
+| 2022 | 21.42 | 0.71× | 3b | 4.2 | 4 |
+| 2023 | 21.38 | 0.77× | 3b | 4.3 | 4 |
+| 2024 | 21.39 | 0.75× | 3b | 4.2 | 4 |
+| 2025 | 21.37 | 0.78× | 3b | 4.3 | 4 |
 
 Artificial glow there has risen by about a third in nine years. Note that
-**Bortle reads "4" for every one of those rows** — a second, concrete
-demonstration of why the page shows the SQM above it.
+**LP Bortle reads "4" for every one of those rows** — a second, concrete
+demonstration of why the page shows the SQM above it. app Bortle does follow
+the drift, 4.1 → 4.3.
 
 ## Where else this appears
 
 The same decode runs in three places: both pages here, and
 [`astro_score/astro-score_readable.html`](../astro_score/astro-score_readable.html),
-where it fills the `光害 (SQM)` / `Bortle` / `LP Zone` rows. They are parallel
+where it fills the `光害 (SQM)` / `app Bortle` / `LP Bortle` / `LP Zone` rows. They are parallel
 implementations — change one, mirror the others. The difference is only what each
 shows: `astro-score_readable` needs three numbers and hides the working,
 `binary-tile` is nothing but the working, and the map reads one point per click and
