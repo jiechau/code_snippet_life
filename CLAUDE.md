@@ -1051,6 +1051,49 @@ drawn below its own gate, and (under the old altitude-only penalty, no longer tr
 every moon digit carrying a saturated `moonPenalty()`.
 Re-run it when touching either page.
 
+### astro-score_map.html
+
+**`astro-score_daily.html`'s cell, one date, on a map.** It is a fifteenth demo page and
+is **not yet counted** in the duplication table's "N of the 14" figures — read it as
+follows when editing a row there:
+
+- **Copied verbatim from `astro-score_daily.html`**: the whole block from the
+  `* Astronomy` banner through `modelsFromParams()` (astronomy, score, bands,
+  `blocksByDate()`, `seriesKey()`), spliced in unchanged, comments and all — so it is in
+  the Meeus, `GC_`/`M42_`, `astroScore()` and block-folding rows exactly as the daily page
+  is. `blocksCell()` is the daily copy building a `<div class="blocks">` instead of a
+  `<td>`, and the cell CSS is the daily `td.blocks` CSS with the `td` dropped. Change a
+  cell on one page, change it on the other.
+- **From `pure_math/galactic_center.html`**: the time + location form —
+  `zoneOffsetHours()`/`nowValue()`/`utcFromForm()`/`placeFromForm()`/`offsetFromForm()`,
+  the `.timerow`, the **now** button. The time box's **date** is the day every card shows;
+  the time of day only labels it.
+- **Request**: `buildUrl`/`fetchForecast`/`settledPool`/`reverseGeocode` verbatim, but
+  `defaultParams(lat, lon, date)` sends **`start_date=end_date`** instead of
+  `forecast_days`/`past_days` — one day, ~1 KB a place. Open-Meteo allows ~92 days back
+  to 16 ahead and answers outside that with an HTTP 400 whose `reason` the cards and the
+  meta line show as-is. `cachedForecast()` keeps **successes only** for 10 minutes keyed by
+  URL, which is what makes a pill click free: it puts 輸入 on a saved spot's exact
+  coordinates, whose URL is already cached.
+- **Location box = 輸入 (`PLACES[0]`)**, as on the daily page: the submit handler does
+  `setInputPlace()`, geo/map-pick only fill the box (the daily page's short copies plus
+  `markActivePlace()`). It **does** have pills, but for `PLACES.slice(1)` only — a 輸入
+  pill would always be pressed. When 輸入 moves the map re-centres on it; a date change
+  leaves the view alone.
+- **The map** uses `places.js`'s Mercator four and `MAP_*` constants (imported, not
+  copied) over **Esri `Canvas/World_Light_Gray_Base`** (keyless, max z16) — not OSM, for
+  `light_pollution_map.html`'s reason, and light rather than dark because the cards are
+  white. Handlers are the `pickOnMap()` shape with two differences: a tap **raises a card**
+  and moves nothing, and **pointer capture waits until the press is a drag**, because a
+  captured press delivers its click to the map and a tap on a card's name would never
+  open the link; a click after a drag is swallowed instead.
+- **`layoutCards()`** runs once per zoom level in world pixels (a pan only translates, so
+  cards cannot shuffle under the finger): 輸入 first, then pins in order of how few
+  neighbours they have, each card taking the free spot needing the **shortest leader
+  line** while covering no other card and no other pin. At the fit-all zoom over Taiwan
+  most cards go out on lines — 22 cards of ~75×150 px over a 330 px island — and that is
+  expected; zoom in to untangle.
+
 `milkyway.py` scores each upcoming hour for Milky Way astrophotography at a `lat,lon`.
 No API key — Open-Meteo's free tier is keyless (10,000 calls/day), so there is nothing to
 read from `config.yml`. It queries `hourly=` cloud/moisture variables with

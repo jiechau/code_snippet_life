@@ -47,6 +47,12 @@ here mainly when changing those constants; the adjustable form is
   night is clear*. (`astro-score_daily_full.html`, its old name, now redirects
   here.)
 
+- [AstroScore map](https://jiechau.github.io/code_snippet_life/astro_score/astro-score_map.html)
+  — the daily grid's cell for **one date**, drawn on a map at every saved spot:
+  pick a time (its date is the day shown) and the 輸入 location, and each place
+  gets its two night blocks, strips, altitude digits and moon phase where it
+  actually is. *Where, tonight* beside the daily page's *which place, which night*.
+
 - [Astro Bookmark](https://jiechau.github.io/code_snippet_life/astro_score/astro-bookmark.html)
   — outbound links only: CWA's 月相圖, two light-pollution maps, NCDR's
   即時降雨預警, and CWA's 雷達回波圖, windy, CWA's 一週 / 一週 town / 降水預報. Nothing here computes or fetches anything; it is the

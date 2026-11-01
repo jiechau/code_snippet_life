@@ -1,0 +1,2172 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex, nocache">
+    <title>AstroScore map &mdash; astro_score</title>
+    <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+    <style>
+        :root {
+            --fg: #333;
+            --muted: #777;
+            --line: #e3e6ea;
+            --accent: #2196F3;
+            --err: #c0392b;
+            --ok: #1e8449;
+            --grid: #eef1f4;
+            /* The strip and mark hues, verbatim from astro-score_daily.html. */
+            --milky: #8e44ad;
+            --clear: #2f6fb3;
+            --orion: #e2711d;
+            --moon: #41607d;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            color: var(--fg);
+            margin: 0;
+            padding: 24px 12px 60px;
+        }
+        .container {
+            background: white;
+            padding: 28px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+        h1 { margin: 0 0 4px; font-size: 1.6rem; }
+        p.sub { margin: 0 0 22px; color: var(--muted); font-size: 0.9rem; }
+        p.sub a { color: var(--accent); }
+        p.sub code { background: #f0f2f5; padding: 1px 5px; border-radius: 4px; }
+        a.back { color: var(--accent); text-decoration: none; font-size: 0.9rem; }
+        a.back:hover { text-decoration: underline; }
+
+        /* The folded key -- a short one: the full reading of a cell is
+           astro-score_daily.html's, and this page links there for it. */
+        .rule {
+            margin: 0;
+            padding: 12px 16px;
+            border-left: 3px solid var(--ok);
+            border-radius: 0 8px 8px 0;
+            background: #f2f8f5;
+            font-size: 0.85rem;
+        }
+        .rule ul { margin: 0; padding-left: 20px; color: var(--muted); }
+        .rule li { margin: 3px 0; }
+        details.explain { margin: 0 0 22px; }
+        details.explain > summary { font-weight: 600; }
+        details.explain[open] > summary { margin-bottom: 10px; }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+            gap: 14px;
+        }
+        .field { display: flex; flex-direction: column; }
+        .field.wide { grid-column: 1 / -1; }
+        label { font-size: 0.8rem; font-weight: 600; margin-bottom: 5px; }
+        label .hint { font-weight: 400; color: var(--muted); }
+        input {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.85rem;
+            padding: 8px 10px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: #fbfcfd;
+            color: var(--fg);
+        }
+        input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+        /* time and location: pure_math/galactic_center.html's two rows. */
+        .timerow { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+        .timerow input { width: auto; min-width: 200px; flex: 0 0 auto; }
+        .locrow { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+        .locrow input { width: 200px; flex: 0 0 auto; }
+        .locrow .locname { margin-bottom: 0; white-space: nowrap; }
+        .places { display: flex; gap: 6px; flex-wrap: wrap; flex-basis: 100%; }
+        .place {
+            font: inherit;
+            font-size: 0.85rem;
+            font-weight: 600;
+            padding: 6px 12px;
+            border-radius: 999px;
+            border: 1px solid var(--line);
+            background: #f7f9fb;
+            color: var(--accent);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .place:hover { border-color: var(--accent); background: #eaf4fd; }
+        .place[aria-pressed="true"] {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
+        .place.geo { color: var(--fg); }
+        .place.geo:disabled { opacity: 0.55; cursor: default; }
+        .geonote { font-size: 0.8rem; color: var(--muted); }
+        .geonote.error { color: var(--err); }
+
+        .actions { margin-top: 18px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        button {
+            font: inherit;
+            font-weight: 600;
+            padding: 9px 22px;
+            border-radius: 8px;
+            border: 2px solid var(--accent);
+            background: var(--accent);
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        button:hover:not(:disabled) { background: #1976d2; border-color: #1976d2; }
+        button:disabled { opacity: 0.55; cursor: default; }
+        button.secondary { background: white; color: var(--accent); }
+        button.secondary:hover:not(:disabled) { background: var(--accent); color: white; }
+        button.tiny { font-size: 0.85rem; padding: 6px 12px; border-radius: 999px; border-width: 1px; }
+
+        .result { margin-top: 26px; border-top: 1px solid var(--line); padding-top: 20px; }
+        .meta {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.8rem;
+            color: var(--muted);
+            margin-bottom: 12px;
+        }
+        .meta.error { color: var(--err); }
+
+        .tabrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+        .tablabel { font-size: 0.78rem; font-weight: 600; color: var(--muted); }
+        .tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+        .tab {
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+            padding: 7px 14px;
+            border-radius: 999px;
+            border: 1px solid var(--line);
+            background: #f7f9fb;
+            color: var(--muted);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .tab:hover { border-color: var(--accent); color: var(--accent); background: #f7f9fb; }
+        .tab[aria-selected="true"] {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
+
+        /* ---- The map ---------------------------------------------------- */
+        /* touch-action: none, or a drag on a phone scrolls the page instead of
+           panning. Every layer below is a positioned child of this box. */
+        .map {
+            position: relative;
+            height: min(72vh, 680px);
+            min-height: 320px;
+            overflow: hidden;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            background: #e8ebef;
+            cursor: grab;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .map.dragging { cursor: grabbing; }
+        .maptile { position: absolute; width: 256px; height: 256px; }
+        /* Leader lines from a pin to its card, when the card had to be moved
+           off its pin to stay clear of the others. */
+        .leaders { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
+        .leaders line { stroke: #57606a; stroke-width: 1; }
+        .pin {
+            position: absolute;
+            width: 8px; height: 8px;
+            margin: -4px 0 0 -4px;
+            border-radius: 50%;
+            background: #24292f;
+            box-shadow: 0 0 0 2px white;
+            pointer-events: none;
+            z-index: 2;
+        }
+        .pin.input { background: var(--accent); }
+        /* One place's info block: its name over the day's cell. White, so it
+           reads the same over any tile. */
+        .card {
+            position: absolute;
+            z-index: 3;
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid #c9d1d9;
+            border-radius: 6px;
+            padding: 2px 4px 1px;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+            text-align: center;
+            white-space: nowrap;
+        }
+        .card.input { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 1px 4px rgba(0,0,0,0.18); }
+        .card.front { z-index: 4; }
+        .card.stale { opacity: 0.45; }
+        .card .name { display: block; font-size: 0.7rem; font-weight: 700; line-height: 1.25; }
+        .card a.name { color: inherit; text-decoration: underline dotted; text-underline-offset: 2px; }
+        .card .api {
+            display: block;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.6rem;
+            color: var(--muted);
+            line-height: 1.2;
+        }
+        .card .wait { display: block; font-size: 0.8rem; color: var(--muted); padding: 2px 0; }
+        .card .err {
+            display: block;
+            max-width: 110px;
+            white-space: normal;
+            font-size: 0.62rem;
+            color: var(--err);
+        }
+        .mapzoom {
+            position: absolute; right: 10px; top: 10px; z-index: 5;
+            display: flex; flex-direction: column; gap: 4px;
+        }
+        .mapzoom button {
+            width: 32px; height: 32px; padding: 0;
+            font-size: 1.1rem; line-height: 1;
+            border: 1px solid var(--line); border-radius: 8px;
+            background: rgba(255, 255, 255, 0.95); color: var(--fg);
+        }
+        .mapzoom button:hover:not(:disabled) { background: white; border-color: var(--accent); color: var(--accent); }
+        .mapzoom button.fit { font-size: 0.8rem; }
+        .mapinfo, .mapattr {
+            position: absolute; bottom: 0; z-index: 5;
+            padding: 2px 6px;
+            background: rgba(255, 255, 255, 0.85);
+            font-size: 0.7rem; color: var(--muted);
+        }
+        .mapinfo { left: 0; border-radius: 0 6px 0 0; }
+        .mapattr { right: 0; border-radius: 6px 0 0 0; max-width: 70%; text-align: right; }
+        .mapattr a { color: var(--accent); }
+
+        /* ---- The cell: astro-score_daily.html's td.blocks, as a div ----- */
+        /* Same rows, same sizes, same colours; only the selectors lose their
+           td. font-size: 0 kills stray inline gaps between the two stacks. */
+        .blocks { display: block; font-size: 0; padding: 2px 0 0; }
+        .bar {
+            display: inline-block;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 1.5rem;
+            line-height: 1;
+            width: 1ch;
+            letter-spacing: 0;
+            vertical-align: baseline;
+            color: var(--ok);
+        }
+        .bar.nodata { color: #c3ccd5; font-size: 1rem; }
+        .stack {
+            display: inline-block;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 1.5rem;
+            width: 1ch;
+            letter-spacing: 0;
+            vertical-align: top;
+        }
+        .stack .bar { display: block; width: auto; height: 1em; position: relative; }
+        .stack .bar .fill { position: absolute; left: 0; right: 0; bottom: 0; background: var(--ok); }
+        .under { display: block; font-size: 1.5rem; height: 0.5em; }
+        .mark {
+            display: block;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.65rem;
+            line-height: 1;
+            height: 1em;
+            letter-spacing: 0;
+            text-align: center;
+        }
+        .mark.gc { color: var(--milky); }
+        .mark.m42 { color: var(--orion); }
+        .mark.moon { color: var(--moon); }
+        .blocks .phase { display: block; font-size: 1rem; line-height: 1.15; text-align: center; }
+        .blocks .phase .glyph { display: inline-block; }
+
+        details { margin-top: 18px; }
+        summary { cursor: pointer; font-size: 0.85rem; color: var(--muted); }
+        summary:hover { color: var(--accent); }
+        .url {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.78rem;
+            word-break: break-all;
+            background: #f7f9fb;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin: 10px 0;
+        }
+        .url a { color: var(--accent); text-decoration: none; }
+        .url a:hover { text-decoration: underline; }
+        .url .who { color: var(--fg); font-weight: 700; display: block; margin-bottom: 2px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a class="back" href="index.html">&larr; astro_score</a>
+        <h1>AstroScore <span style="color:#777;font-weight:400;">map</span></h1>
+        <p class="sub">
+            One day, every saved spot, on a map. Each place carries the same cell
+            <a href="astro-score_daily.html">astro-score_daily.html</a> draws for it &mdash; the two
+            night blocks (<span class="blockwin">00&ndash;05 &middot; 19&ndash;23</span>) with their
+            <strong style="color:#1e8449;">AstroScore</strong> bars, the clear / Milky Way / Orion
+            strips, the A* / M42 / moon altitude digits and the moon phase &mdash; but for the
+            <b>one date</b> in the time box rather than a fortnight of columns, laid out where the
+            place actually is. The daily grid answers <em>which place, which night</em>; this
+            answers <em>where, tonight</em>. The blue-ringed card is 輸入, the one that follows the
+            location box. Four forecast models come back in every request; the tabs pick which one
+            the bars are scored from. No API key needed.
+        </p>
+
+        <details class="explain">
+            <summary>how to read a card (說明)</summary>
+            <div class="rule">
+                <ul>
+                    <li>Each card is one date at one place: left stack = the small hours
+                        (<span class="blockwin">00&ndash;05</span>) <em>after</em> midnight starting that date,
+                        right stack = that evening. A night therefore spans <b>two dates</b> &mdash;
+                        tonight is the right stack today and the left stack tomorrow.</li>
+                    <li><b style="color:#1e8449;">Green bar</b> = the block's best AstroScore hour
+                        (full &gt; 90, &frac34; &gt; 70, &frac12; &gt; 50, &frac14; &gt; 30, blank at or below);
+                        a faint <b style="color:#c3ccd5;">&middot;</b> means no forecast for that block.</li>
+                    <li>Strips under it, top to bottom: <b style="color:#2f6fb3;">ClearScore</b> (best dark-hour
+                        100 &minus; Cloud), <b style="color:#8e44ad;">MilkyScore</b> (A* altitude &times; AstroScore),
+                        <b style="color:#e2711d;">OrionScore</b> (the same for M42). Deeper is better.</li>
+                    <li>Digits: tens of degrees the body reached while dark &mdash;
+                        <b style="color:#8e44ad;">A*</b>, <b style="color:#e2711d;">M42</b>, and
+                        <b style="color:#41607d;">moon</b>, where high is <em>bad</em>. Then the phase glyph.</li>
+                    <li>Hover a cell for the exact numbers; the full key is on
+                        <a href="astro-score_daily.html">astro-score_daily.html</a>. Click a card to
+                        bring it to the front; click its name to open the hour-by-hour page for it.</li>
+                    <li>Cards are nudged off their pin (with a line back to it) when they would
+                        cover another; zoom in to untangle a cluster.</li>
+                </ul>
+            </div>
+        </details>
+
+        <form id="form">
+            <div class="grid">
+                <div class="field wide">
+                    <label for="when">time <span class="hint">local time at 輸入 &mdash; <span id="zone">UTC+8</span>, from its longitude; its <b>date</b> picks the day every card shows</span></label>
+                    <div class="timerow">
+                        <input type="datetime-local" id="when" step="60">
+                        <button type="button" class="secondary tiny" id="now">now</button>
+                    </div>
+                </div>
+                <div class="field wide">
+                    <label for="location">location <span class="hint">lat,lon &mdash; the <strong>輸入</strong> card; or pick a spot, the device, or a point on the map</span></label>
+                    <div class="locrow">
+                        <label class="locname" for="location">輸入:</label>
+                        <input id="location" name="location" spellcheck="false">
+                        <button type="button" class="place geo" id="geo" title="device GPS → the 輸入 card">📍 使用目前位置</button>
+                        <button type="button" class="place geo" id="mappick" title="OpenStreetMap → the 輸入 card">🗺️ 在地圖上點選</button>
+                        <span class="geonote" id="geonote"></span>
+                        <div class="places" id="places"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="actions">
+                <button type="submit" id="submit">Fetch</button>
+                <button type="button" class="secondary" id="reset">Reset defaults</button>
+            </div>
+        </form>
+
+        <div class="result" id="result">
+            <div class="meta" id="meta"></div>
+            <div class="tabrow">
+                <span class="tablabel">cloud source (雲量來源)</span>
+                <div id="tabs" class="tabs"></div>
+            </div>
+            <div class="map" id="map">
+                <div id="tiles"></div>
+                <svg class="leaders" id="leaders"></svg>
+                <div id="marks"></div>
+                <div class="mapzoom">
+                    <button type="button" id="zin" title="zoom in">+</button>
+                    <button type="button" id="zout" title="zoom out">&minus;</button>
+                    <button type="button" class="fit" id="zfit" title="show every place">⤢</button>
+                </div>
+                <div class="mapinfo" id="mapinfo"></div>
+                <div class="mapattr">Basemap &copy; <a href="https://www.esri.com/" target="_blank" rel="noopener">Esri</a>,
+                    &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors</div>
+            </div>
+            <details id="raw" hidden>
+                <summary>request URLs</summary>
+                <div class="url" id="url"></div>
+            </details>
+        </div>
+    </div>
+
+<script src="../places.js"></script>
+<script>
+"use strict";
+
+/* ------------------------------------------------------------------ *
+ * Request core -- buildUrl/fetchForecast are byte-for-byte the other
+ * Open-Meteo pages'. What differs is the parameter object: one DATE
+ * rather than a forecast_days span, since a card shows one day.
+ * ------------------------------------------------------------------ */
+
+const FORECAST_URL = "https://api.open-meteo.com/v1/forecast";
+
+// cloud_cover alone, as on astro-score_daily.html: astroScore() reads nothing else.
+const HOURLY_VARS = ["cloud_cover"];
+
+// All four models, in the shared order -- keep in step with every other
+// Open-Meteo page and milkyway.py.
+const MODELS = ["ecmwf_ifs025", "gfs_global", "jma_seamless", "icon_global"];
+
+// Which model the score comes from until a tab is clicked: MODELS[0].
+const DEFAULT_MODEL = "ecmwf_ifs025";
+
+/**
+ * The request for one spot on one local date.
+ *
+ * start_date = end_date asks for exactly that day's 24 hours -- the only thing a
+ * card draws -- instead of astro-score_daily.html's forecast_days span, so a
+ * response is ~1 KB rather than ~18. Open-Meteo accepts dates from about 92
+ * days back to 16 ahead and answers anything outside with HTTP 400 and its own
+ * reason ("out of allowed range from ... to ..."), which the page shows as is.
+ * timezone=auto, as everywhere, so the 24 hours are local wall time.
+ */
+function defaultParams(lat, lon, date) {
+    return {
+        latitude: lat,
+        longitude: lon,
+        hourly: HOURLY_VARS.join(","),
+        models: MODELS.join(","),
+        timezone: "auto",
+        start_date: date,
+        end_date: date,
+    };
+}
+
+/**
+ * The full GET URL for a parameter object.
+ *
+ * Commas are left literal so the hourly/models lists stay readable and match
+ * Open-Meteo's own documented examples; encodeURIComponent would otherwise
+ * turn them into %2C. Spaces become "+" to match Python's urlencode.
+ */
+function buildUrl(params) {
+    const query = Object.entries(params)
+        .map(([key, value]) => {
+            const enc = (s) => encodeURIComponent(String(s))
+                .replace(/%2C/g, ",")
+                .replace(/%20/g, "+");
+            return `${enc(key)}=${enc(value)}`;
+        })
+        .join("&");
+    return `${FORECAST_URL}?${query}`;
+}
+
+/**
+ * Call the API and return {body, url, status, ok, bytes, seconds}.
+ *
+ * Errors are returned rather than thrown: Open-Meteo answers a bad request
+ * with HTTP 400 and a JSON body like
+ * {"error": true, "reason": "Latitude must be in range of -90 to 90°..."},
+ * which is far more useful to see than a stack trace.
+ */
+async function fetchForecast(params, timeoutMs = 30000) {
+    const url = buildUrl(params);
+    const started = performance.now();
+    const resp = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+    const text = await resp.text();
+    const seconds = (performance.now() - started) / 1000;
+
+    let body;
+    try {
+        body = JSON.parse(text);
+    } catch {
+        body = { error: true, reason: "response was not JSON", text: text };
+    }
+    body.get_para = url;
+
+    return {
+        body,
+        url,
+        status: resp.status,
+        ok: resp.ok,
+        contentType: resp.headers.get("Content-Type"),
+        bytes: new TextEncoder().encode(text).length,
+        seconds,
+    };
+}
+
+// Successful responses, by URL, for FETCH_TTL_MS. This page refetches on every
+// change of either box, and most changes leave most URLs alone: moving 輸入 (a
+// pill, the GPS, the map picker) changes one place's URL out of all of them, so
+// without this a pill click would cost a whole round to redraw one card. And a
+// pill puts 輸入 on a saved spot's exact coordinates, whose URL is already
+// here. Ten minutes is well inside how often the models update. Successes only:
+// a timeout or a 429 deserves a retry, not a cached failure.
+const FETCH_TTL_MS = 10 * 60 * 1000;
+const fetchCache = new Map();
+
+/** fetchForecast() through the cache; resolves with an extra `cached` flag. */
+async function cachedForecast(params) {
+    const url = buildUrl(params);
+    const hit = fetchCache.get(url);
+    if (hit && Date.now() - hit.at < FETCH_TTL_MS) return { ...hit.result, cached: true };
+    const result = await fetchForecast(params);
+    if (result.ok && result.body.hourly) fetchCache.set(url, { at: Date.now(), result });
+    return { ...result, cached: false };
+}
+
+/** BigDataCloud's reverse geocoder: keyless, CORS-enabled, free client-side. */
+const GEOCODE_URL = "https://api.bigdatacloud.net/data/reverse-geocode-client";
+const geocodeCache = new Map();
+
+/**
+ * Turn a lat,lon into a readable place name for the meta line, e.g.
+ * 中華民國/宜蘭縣/南澳鄉/蘇澳鎮 -- countryName, principalSubdivision, city and
+ * locality, in that order. Byte-for-byte the same function as
+ * astro-score_readable.html's; change one and change the other.
+ *
+ * The coordinates are the requested ones, not the response's: Open-Meteo answers
+ * with the nearest grid point (24.625, 121.75 for a spot at 24.5145, 121.8277),
+ * which is up to ~6 km away and can sit in a different township. Sparse areas
+ * and open water leave some of the four fields empty, and the last two can
+ * repeat each other, so blanks and duplicates are dropped rather than shown.
+ *
+ * This is a label, never data: any failure resolves to "" and the meta line is
+ * left exactly as the forecast wrote it.
+ */
+async function reverseGeocode(lat, lon, timeoutMs = 10000) {
+    const key = `${lat},${lon}`;
+    if (geocodeCache.has(key)) return geocodeCache.get(key);
+
+    const url = `${GEOCODE_URL}?latitude=${encodeURIComponent(lat)}` +
+        `&longitude=${encodeURIComponent(lon)}&localityLanguage=zh`;
+    let name = "";
+    try {
+        const resp = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+        if (resp.ok) {
+            const body = await resp.json();
+            name = [body.countryName, body.principalSubdivision, body.city, body.locality]
+                .filter((part, i, all) => part && all.indexOf(part) === i)
+                .join("/");
+        }
+    } catch {
+        // Timed out or offline. The forecast itself is unaffected, so stay quiet.
+    }
+    geocodeCache.set(key, name);
+    return name;
+}
+
+/**
+ * Name the 輸入 card on the meta line, and only that one -- the saved spots carry
+ * names already. Deferred and never awaited, guarded on PLACES[0] still being
+ * that coordinate: astro-score_daily.html's loadInputPlaceName(), verbatim.
+ */
+function loadInputPlaceName(lat, lon) {
+    reverseGeocode(lat, lon).then((name) => {
+        if (!name || PLACES[0][1] !== lat || PLACES[0][2] !== lon) return;
+        inputPlaceName = name;
+        setMeta();
+    });
+}
+
+// How many of the per-place requests may be in flight at once. Load-bearing, as
+// on astro-score_daily.html: Open-Meteo answers a burst with HTTP 429.
+const FETCH_POOL = 4;
+
+/**
+ * Promise.allSettled with a concurrency limit.
+ *
+ * Same return shape as allSettled -- {status: "fulfilled", value} or
+ * {status: "rejected", reason} per item, in input order, never rejecting -- so
+ * one place failing still costs exactly one row.
+ */
+async function settledPool(items, limit, fn) {
+    const out = new Array(items.length);
+    let next = 0;
+    const worker = async () => {
+        while (true) {
+            const i = next;
+            next += 1;
+            if (i >= items.length) return;
+            out[i] = await fn(items[i], i).then(
+                (value) => ({ status: "fulfilled", value }),
+                (reason) => ({ status: "rejected", reason }),
+            );
+        }
+    };
+    await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+    return out;
+}
+
+/* Everything from here to modelsFromParams() is copied VERBATIM from
+ * astro-score_daily.html -- astronomy, score, block folding -- comments
+ * included, so some of them talk about that page's grid. Keep in step. */
+
+/* ------------------------------------------------------------------ *
+ * Astronomy: low-precision solar/lunar positions (Meeus, "Astronomical
+ * Algorithms"), ported from milkyway.py -- same series, same terms, so
+ * the two agree to well under a degree. Sun is good to ~0.01 deg, moon
+ * to ~0.3 deg in longitude: far more than enough to say "is it dark"
+ * and "is the moon up", which is exactly what the score asks.
+ *
+ * Verbatim from astro-score_readable.html apart from the galactic core,
+ * which this page has no row for. Open-Meteo offers only sunrise/sunset
+ * and daily=moon_phase, so these angles are computed locally.
+ * ------------------------------------------------------------------ */
+
+const DEG = Math.PI / 180;
+const sin = (d) => Math.sin(d * DEG);
+const cos = (d) => Math.cos(d * DEG);
+const clamp1 = (x) => Math.min(1, Math.max(-1, x));
+const mod360 = (x) => ((x % 360) + 360) % 360;
+
+// Galactic center, J2000: RA 17h45m40.04s, Dec -29deg00'28" -- the same pair
+// milkyway.py uses, and for the same reason: precession since J2000 moves it by
+// well under a degree, far below the accuracy of the moon series below. Fixed
+// equatorial coordinates, so only the sidereal time makes its altitude move.
+const GC_RA = 266.41683;
+const GC_DEC = -29.00781;
+
+// Orion Nebula (M42, NGC 1976), J2000: RA 05h35m17.3s, Dec -05deg23'28" -- the
+// winter counterpart to the core above, and the subject of the orange strip.
+// Same treatment for the same reason: a fixed equatorial pair, precession since
+// J2000 far below the accuracy of everything around it, so only the sidereal
+// time moves it. pure_math/orion_nebula_m42.html prints every step.
+const M42_RA = 83.82208;
+const M42_DEC = -5.39111;
+
+/**
+ * Julian Day from a UTC timestamp in milliseconds.
+ *
+ * The Unix epoch is JD 2440587.5 by definition, which makes this exactly
+ * equivalent to milkyway.py's calendar-based julian_day() without repeating
+ * the Gregorian bookkeeping.
+ */
+function julianDay(utcMs) {
+    return utcMs / 86400000 + 2440587.5;
+}
+
+/** Mean obliquity of the ecliptic, in degrees. */
+function obliquity(jd) {
+    return 23.439291 - 0.0130042 * ((jd - 2451545.0) / 36525);
+}
+
+/** Ecliptic (lon, lat) in degrees -> {ra, dec} in degrees. */
+function eclipticToEquatorial(lon, lat, eps) {
+    const x = cos(lat) * cos(lon);
+    const y = cos(eps) * cos(lat) * sin(lon) - sin(eps) * sin(lat);
+    const z = sin(eps) * cos(lat) * sin(lon) + cos(eps) * sin(lat);
+    return {
+        ra: mod360(Math.atan2(y, x) / DEG),
+        dec: Math.asin(clamp1(z)) / DEG,
+    };
+}
+
+/** Solar right ascension, declination and ecliptic longitude, in degrees. */
+function sunPosition(jd) {
+    const n = jd - 2451545.0;
+    const meanLon = mod360(280.460 + 0.9856474 * n);
+    const meanAnom = mod360(357.528 + 0.9856003 * n);
+    const eclLon = mod360(
+        meanLon + 1.915 * sin(meanAnom) + 0.020 * sin(2 * meanAnom),
+    );
+    const { ra, dec } = eclipticToEquatorial(eclLon, 0.0, obliquity(jd));
+    return { ra, dec, eclLon };
+}
+
+/** Lunar right ascension, declination, distance (km) and ecliptic longitude. */
+function moonPosition(jd) {
+    const t = (jd - 2451545.0) / 36525;
+    const lp = mod360(218.3164477 + 481267.88123421 * t);   // mean longitude
+    const d = mod360(297.8501921 + 445267.1114034 * t);     // elongation
+    const m = mod360(357.5291092 + 35999.0502909 * t);      // sun anomaly
+    const mp = mod360(134.9633964 + 477198.8675055 * t);    // moon anomaly
+    const f = mod360(93.2720950 + 483202.0175233 * t);      // arg of latitude
+
+    const eclLon = mod360(
+        lp
+        + 6.289 * sin(mp)
+        + 1.274 * sin(2 * d - mp)
+        + 0.658 * sin(2 * d)
+        + 0.214 * sin(2 * mp)
+        - 0.186 * sin(m)
+        - 0.114 * sin(2 * f)
+        + 0.059 * sin(2 * d - 2 * mp)
+        + 0.057 * sin(2 * d - m - mp)
+        + 0.053 * sin(2 * d + mp)
+        + 0.046 * sin(2 * d - m)
+        - 0.041 * sin(m - mp)
+        - 0.035 * sin(d)
+        - 0.031 * sin(m + mp),
+    );
+    const eclLat =
+        5.128 * sin(f)
+        + 0.281 * sin(mp + f)
+        - 0.278 * sin(f - mp)
+        - 0.173 * sin(2 * d - f)
+        + 0.055 * sin(2 * d + f - mp)
+        - 0.046 * sin(2 * d - f - mp)
+        + 0.033 * sin(2 * d + f)
+        + 0.017 * sin(2 * mp + f);
+    const dist =
+        385000.56
+        - 20905.355 * cos(mp)
+        - 3699.111 * cos(2 * d - mp)
+        - 2955.968 * cos(2 * d)
+        - 569.925 * cos(2 * mp);
+
+    const { ra, dec } = eclipticToEquatorial(eclLon, eclLat, obliquity(jd));
+    return { ra, dec, dist, eclLon };
+}
+
+/** Local apparent sidereal time in degrees. */
+function localSiderealTime(jd, lonDeg) {
+    const t = (jd - 2451545.0) / 36525;
+    const gmst =
+        280.46061837
+        + 360.98564736629 * (jd - 2451545.0)
+        + 0.000387933 * t * t;
+    return mod360(gmst + lonDeg);
+}
+
+/** Equatorial (ra, dec) -> {alt, az} in degrees, azimuth measured from north. */
+function altAz(ra, dec, lat, lst) {
+    const ha = mod360(lst - ra);
+    const sinAlt = sin(lat) * sin(dec) + cos(lat) * cos(dec) * cos(ha);
+    const alt = Math.asin(clamp1(sinAlt)) / DEG;
+    const az = mod360(
+        Math.atan2(
+            -cos(dec) * sin(ha),
+            sin(dec) * cos(lat) - sin(lat) * cos(dec) * cos(ha),
+        ) / DEG,
+    );
+    return { alt, az };
+}
+
+/**
+ * Sun, moon, galactic core and M42 altitude for one hour, at the grid point the
+ * forecast is for.
+ *
+ * Both deep-sky targets are display-only on astro-score_readable.html --
+ * astroScore() does not read them there and does not here either. They are in
+ * this page because the two strips under each bar multiply them by the score (see
+ * milkyScore / orionScore), so a clear moonless night with both below the horizon
+ * still scores 觀星 100 with no colour under it at all.
+ *
+ * Both are fixed points, so the second one costs one altAz() call an hour and no
+ * new series: the sidereal time is already computed.
+ *
+ * It also returns the moon-sun elongation, for the phase glyph under each cell.
+ * The glyph is drawn from that elongation, not from moonIllumination(): see
+ * moonGlyph(). The illuminated fraction is returned too, but only because
+ * moonPenalty() reads it -- the score scales the moon's height by how lit it is.
+ */
+function astroAt(utcMs, lat, lon) {
+    const jd = julianDay(utcMs);
+    const lst = localSiderealTime(jd, lon);
+    const sun = sunPosition(jd);
+    const moon = moonPosition(jd);
+    return {
+        sunAlt: altAz(sun.ra, sun.dec, lat, lst).alt,
+        moonAlt: altAz(moon.ra, moon.dec, lat, lst).alt,
+        gcAlt: altAz(GC_RA, GC_DEC, lat, lst).alt,
+        m42Alt: altAz(M42_RA, M42_DEC, lat, lst).alt,
+        // Elongation in ecliptic longitude, 0..360: 0 new, 90 first quarter, 180
+        // full, 270 last quarter. Free -- both longitudes were computed for the
+        // positions above -- and it is the whole of what a phase glyph needs,
+        // carrying waxing/waning in the same number as the fraction lit.
+        moonElong: mod360(moon.eclLon - sun.eclLon),
+        // Lit percentage, 0..100, for moonPenalty(). The same as
+        // astro-score_readable.html's, so the two pages score alike.
+        moonIllum: moonIllumination(sun.ra, sun.dec, moon.ra, moon.dec, moon.dist) * 100,
+    };
+}
+
+/** Great-circle angle between two equatorial positions, in degrees. */
+function angularSeparation(ra1, dec1, ra2, dec2) {
+    const cosSep = sin(dec1) * sin(dec2) + cos(dec1) * cos(dec2) * cos(ra1 - ra2);
+    return Math.acos(clamp1(cosSep)) / DEG;
+}
+
+/** Illuminated fraction of the lunar disk, 0..1. */
+function moonIllumination(sunRa, sunDec, moonRa, moonDec, moonDist) {
+    const elong = angularSeparation(sunRa, sunDec, moonRa, moonDec);
+    const auKm = 149597870.7;
+    // Phase angle of the moon as seen from Earth (Meeus 48.2).
+    const phase = Math.atan2(
+        auKm * sin(elong),
+        moonDist - auKm * cos(elong),
+    );
+    return (1 + Math.cos(phase)) / 2;
+}
+
+/* ------------------------------------------------------------------ *
+ * The score -- identical to astro-score_readable.html.
+ * ------------------------------------------------------------------ */
+
+// Sun this far below the horizon or lower counts as dark. -10° is well into
+// nautical twilight: the sky is not yet fully dark at -10, so this is generous
+// on purpose, and the hour either side of it is the one to distrust.
+const DARK_SUN_ALT = -10;
+
+// Moon altitude at which MoonHeight tops out. Below it the factor ramps in
+// linearly from the horizon: a moon 5° up lights far less of the sky than one at
+// 30°, and rounding both to "moon is up" threw away the best hour of many nights.
+const MOON_FULL_ALT = 30;
+
+/**
+ * How high the moon is, as a factor 0..100: 0 at or below the horizon, 100 from
+ * MOON_FULL_ALT up, linear in between.
+ */
+function moonHeight(moonAlt) {
+    if (moonAlt <= 0) return 0;
+    return Math.min(100, (moonAlt / MOON_FULL_ALT) * 100);
+}
+
+/**
+ * How much the moon spoils the sky, 0..100: MoonHeight scaled by the illuminated
+ * fraction, moonIllum in percent (0 new .. 100 full). So a full moon at 30° or
+ * higher is the whole penalty, a half moon there costs 50, and a new moon costs
+ * nothing at any height.
+ */
+function moonPenalty(moonAlt, moonIllum) {
+    return moonHeight(moonAlt) * Number(moonIllum) / 100;
+}
+
+// How high a fixed target has to get, during a block's dark hours, for that
+// block to earn its visibility mark. Not the horizon: at 10° you are already
+// looking through more than five atmospheres of haze, and real horizons have a
+// ridge or a tree line in them, so a target that never clears it was not
+// observable whatever the sky did.
+//
+// Unlike DARK_SUN_ALT and MOON_FULL_ALT this has no counterpart on
+// astro-score_readable.html or in milkyway.py: neither draws a visibility mark,
+// and astroScore() reads none of the three targets' altitudes anyway.
+const TARGET_UP_ALT = 10;
+
+// The moon's own mark gate: the slate digit is drawn once the moon clears it in
+// the dark. The same 10° as TARGET_UP_ALT, but a constant of its own, and no
+// longer tied to the penalty -- MoonPenalty now ramps to MOON_FULL_ALT (30°) and
+// is scaled by phase, so a slate digit says how high the moon got, not that the
+// score was zeroed. Read it beside the phase glyph.
+const MOON_UP_ALT = 10;
+
+/**
+ * 觀星, 0..100 -- deliberately much simpler than milkyway.py's sky_quality().
+ *
+ * Daylight or twilight is out flat; what is left is the clear fraction of the
+ * sky, scaled down by how high and how lit the moon is. Null cloud cover scores nothing
+ * rather than 100.
+ */
+function astroScore(sunAlt, moonAlt, moonIllum, cover) {
+    if (cover === null || cover === undefined) return null;
+    if (sunAlt > DARK_SUN_ALT) return 0;
+    return (100 - Number(cover)) * (100 - moonPenalty(moonAlt, moonIllum)) / 100;
+}
+
+/* ------------------------------------------------------------------ *
+ * Folding hours into blocks
+ * ------------------------------------------------------------------ */
+
+// Two blocks per day, in the order they are drawn in a cell: the small hours of
+// this date (DAY_*) and its evening (NIGHT_*), local wall-clock hours, both ends
+// inclusive. Hours outside both windows are not looked at at all -- not scored,
+// not measured for the marks -- since this page is for astrophotography and a
+// daytime hour has nothing to say. So the left glyph is "after midnight" and the
+// right one is "this evening". Edit the four numbers to move the windows; the
+// labels, the corner cell and the legend follow.
+const DAY_START_HR = 0;
+const DAY_END_HR = 5;
+const NIGHT_START_HR = 19;
+const NIGHT_END_HR = 23;
+const BLOCK_WINDOWS = [[DAY_START_HR, DAY_END_HR], [NIGHT_START_HR, NIGHT_END_HR]];
+const BLOCKS = BLOCK_WINDOWS.length;
+const pad2 = (h) => String(h).padStart(2, "0");
+const BLOCK_LABELS = BLOCK_WINDOWS.map(([a, b]) => `${pad2(a)}-${pad2(b)}`);
+
+/** How many hours block b covers. */
+function blockHours(b) {
+    const [start, end] = BLOCK_WINDOWS[b];
+    return end - start + 1;
+}
+
+/** The block a local hour 0..23 falls in, or -1 if it is in neither window. */
+function blockOf(hour) {
+    return BLOCK_WINDOWS.findIndex(([start, end]) => hour >= start && hour <= end);
+}
+
+// Block peak -> glyph. Highest threshold first, so the first match wins; a peak
+// at or below the last threshold has no glyph and the cell shows a gap. Bands are
+// on the 觀星 scale directly (0..100), because the block's value is the best
+// single hour in it rather than a total. Strictly greater, as specified: a peak of
+// exactly 90 draws ▆, not █.
+const BARS = [
+    [90, "█"],   // FULL BLOCK
+    [70, "▆"],   // LOWER THREE QUARTERS BLOCK
+    [50, "▄"],   // LOWER HALF BLOCK
+    [30, "▂"],   // LOWER ONE QUARTER BLOCK
+];
+
+// The glyph's height as a fraction of the bar's 1em box. In the grid a bar is a
+// painted box of this height, not the glyph itself: a block glyph's ink runs to
+// the font's descent, which on some machines is below the 1em box, so it spilled
+// over the blue strip under it -- the same reason the strips are boxes. The
+// glyphs stay the vocabulary of the legend and the cell's aria-label.
+const BAR_FILL = { "█": 1, "▆": 0.75, "▄": 0.5, "▂": 0.25 };
+
+// Drawn where a block scored no hour at all -- past a model's horizon Open-Meteo
+// returns nulls, and blocksByDate() declines to score them, so the block keeps
+// peak 0 and would otherwise draw the same blank as a hopeless night. A missing
+// forecast and a washed-out sky are not the same answer, and at the 16-day
+// default the last column of the ecmwf_ifs025 grid -- and most of the right half
+// of the icon_global one -- is the first kind. One faint middle dot says
+// "nothing to score" without competing with the bars; the cell title still
+// carries the (0/12 hr) count behind it.
+const NO_DATA_GLYPH = "·";   // MIDDLE DOT
+
+/**
+ * The mark drawn on a block's own row under the two strips: the **tens digit**
+ * of how high that target got while the block was dark, so 6 is "reached the
+ * sixties", 3 "reached the thirties".
+ *
+ * A digit rather than the bare presence mark this used to be, and it costs
+ * nothing: the altitude was already being measured to decide whether to draw
+ * anything at all, so printing its leading digit says *how well* in the same
+ * character that used to say only *yes*. It reads down a column as well as
+ * across one -- 6 6 6 5 5 4 is a target sinking week by week, which a row of
+ * asterisks could not show -- and it separates the two subjects at a glance,
+ * since over Taiwan M42 marks in the 5s and 6s where A* marks in the 2s and 3s.
+ *
+ * One digit and never two, hence the tens place alone: the mark shares the 1ch
+ * a block column is wide with the bar above it, and 10 degrees of resolution is
+ * already finer than the question deserves -- the difference between 61 and 68
+ * changes no decision, the difference between 61 and 21 changes the target.
+ *
+ * The range is 1..9 and never 0, because a block only earns a mark at all once
+ * the target is past TARGET_UP_ALT (10 deg); 90 deg would floor to 9. So a blank
+ * is unambiguous -- it means "never got 10 deg up in the dark", not "got up a
+ * little". The exact altitude behind a digit is in the cell's title.
+ *
+ * One function for both marks, exactly as .under serves both strips: the
+ * same measurement of two different subjects, differing in hue and in nothing
+ * else.
+ */
+function upMark(alt) {
+    return String(Math.floor(alt / 10));
+}
+
+// The eight phase glyphs in elongation order, one 45° octant each, starting at
+// new moon. They are the view facing south (🌒 lit on the right), used as-is
+// wherever you are: the glyph only picks the *shape*, and glyphRotation() below
+// turns it so the lit side points at the sun as seen on the meridian. For these
+// shapes a half-turn is the same as a mirror, so a southern observer gets the
+// right picture from the rotation and nothing needs flipping.
+const MOON_GLYPHS = ["🌑", "🌒", "🌓", "🌔", "🌕", "🌖", "🌗", "🌘"];
+
+// The same eight as names, in milkyway.py's vocabulary (its MOON_PHASE_NAMES,
+// which pure_math/moon_phase.html ports) so the tooltip and that page say the
+// same words. They are reached differently, though, and can disagree by one step
+// within a degree or two of a boundary: moon_phase_name() picks from the
+// illuminated fraction plus a waxing test, this indexes the elongation octant
+// directly. Neither is more correct -- a phase name is a label on a continuum --
+// and nothing on either page computes from the answer.
+const MOON_NAMES = ["新月", "眉月", "上弦", "盈凸", "滿月", "虧凸", "下弦", "殘月"];
+
+/**
+ * Phase octant for a moon-sun elongation: 0 new, 2 first quarter, 4 full, 6 last.
+ *
+ * Rounded rather than floored, so each glyph is centred on its phase and covers
+ * ±22.5° of elongation either side -- 🌕 means "within a day and a bit of full",
+ * not "somewhere past full".
+ *
+ * Elongation in ecliptic *longitude*, which is the conventional phase angle and
+ * not astro-score_readable.html's moonIllumination(), whose angularSeparation()
+ * is the true one including the moon's ecliptic latitude. The two differ by at
+ * most that latitude, ±5.1°, which is a ninth of one octant: it can only matter
+ * within hours of a boundary, where the glyph either side is equally true.
+ */
+function moonOctant(elong) {
+    return Math.floor(mod360(elong) / 45 + 0.5) % 8;
+}
+
+/** The phase glyph for an elongation. */
+function moonGlyph(elong) {
+    return MOON_GLYPHS[moonOctant(elong)];
+}
+
+// brightLimbPA(), limbAsSeen(), moonHighest() and glyphRotation() are copied
+// verbatim from pure_math/moon_phase.html, whose 月相圖示 card shows the same
+// glyph with its working -- keep the two in step.
+
+/**
+ * Position angle of the moon's bright limb (Meeus 48.5): the direction from the
+ * moon's centre to the middle of its lit edge, in degrees measured from
+ * celestial north through east, as atlases quote it. It depends only on the two
+ * RA/Dec pairs -- not on the place or the hour angle -- so it is the same
+ * number for everyone at a given instant.
+ */
+function brightLimbPA(sunRa, sunDec, moonRa, moonDec) {
+    const y = cos(sunDec) * sin(sunRa - moonRa);
+    const x = sin(sunDec) * cos(moonDec) - cos(sunDec) * sin(moonDec) * cos(sunRa - moonRa);
+    return mod360(Math.atan2(y, x) / DEG);
+}
+
+/**
+ * The bright limb as a calendar draws it: degrees clockwise from "up", for an
+ * observer facing the moon on the meridian -- south from the northern
+ * hemisphere, north from the southern -- so 90 is to your right.
+ *
+ * Facing south, celestial north is up and west is on the right, and position
+ * angle runs north -> east, i.e. anticlockwise: clockwise = 360 - PA. Facing
+ * north, south is up and east is on the right: clockwise = 180 - PA. That is the
+ * half-turn that lights a waxing moon on the left down south. The equator is
+ * counted as north, like everything else here that has to pick a side.
+ */
+function limbAsSeen(pa, lat) {
+    return lat >= 0 ? mod360(360 - pa) : mod360(180 - pa);
+}
+
+/**
+ * The UTC ms at which the moon stands highest between dayStartMs and 24 h later.
+ *
+ * That is normally its upper transit, on the meridian. About once a month the
+ * transit falls just past midnight and the day has none; the highest point is
+ * then one end of the day, which is still the honest answer to "highest that
+ * day". A 10-minute sweep finds the peak, a 1-minute one around it refines it.
+ */
+function moonHighest(dayStartMs, lat, lon) {
+    const altAt = (ms) => {
+        const jd = julianDay(ms);
+        const m = moonPosition(jd);
+        return altAz(m.ra, m.dec, lat, localSiderealTime(jd, lon)).alt;
+    };
+    const best = (from, to, step) => {
+        let bestMs = from;
+        let bestAlt = -Infinity;
+        for (let ms = from; ms <= to; ms += step) {
+            const a = altAt(ms);
+            if (a > bestAlt) { bestAlt = a; bestMs = ms; }
+        }
+        return bestMs;
+    };
+    const dayEnd = dayStartMs + 86400000 - 60000;
+    const coarse = best(dayStartMs, dayEnd, 600000);
+    return best(Math.max(dayStartMs, coarse - 600000), Math.min(dayEnd, coarse + 600000), 60000);
+}
+
+/**
+ * The CSS rotation (clockwise degrees) that turns a phase glyph so its lit side
+ * points along limbAsSeen(). Waxing glyphs are drawn lit on the right (90°),
+ * waning ones on the left (270°); 🌑 and 🌕 have no lit side and are turned
+ * anyway, harmlessly.
+ */
+function glyphRotation(octant, limbAngle) {
+    const drawn = octant < 4 ? 90 : 270;
+    const r = mod360(limbAngle - drawn);
+    return r > 180 ? r - 360 : r;
+}
+
+/**
+ * The moon as a calendar draws it for one local date: {elong, peakMs, limb,
+ * facing, rotation}, all taken at the moment the moon is highest that day (its
+ * culmination), with the lit limb read facing the meridian -- south from the
+ * northern hemisphere, north from the southern. Same as moon_phase.html's card.
+ */
+function moonFace(dayStartMs, lat, lon) {
+    const peakMs = moonHighest(dayStartMs, lat, lon);
+    const jd = julianDay(peakMs);
+    const sun = sunPosition(jd);
+    const moon = moonPosition(jd);
+    const elong = astroAt(peakMs, lat, lon).moonElong;
+    const limb = limbAsSeen(brightLimbPA(sun.ra, sun.dec, moon.ra, moon.dec), lat);
+    const facing = lat >= 0 ? "南" : "北";
+    return { elong, peakMs, limb, facing, rotation: glyphRotation(moonOctant(elong), limb) };
+}
+
+/**
+ * ClearScore for one hour: the sky alone, 100 − cloud cover. The same Cloud
+ * astroScore() reads, without the moon, so the strip can tell a clear moonlit
+ * night (deep blue, short bar) from a cloudy one (no blue). Like the score,
+ * only dark hours count -- see blocksByDate.
+ */
+function clearScore(cover) {
+    return 100 - Number(cover);
+}
+
+// Block peak ClearScore -> the blue it is drawn in, deepest first. Strictly
+// greater, like BARS: exactly 60 draws nothing. Its own ladder, not
+// MILKY_BANDS': this one is a percentage, those are degrees.
+const CLEAR_BANDS = [
+    [90, "#0b3a75"],
+    [80, "#2f6fb3"],
+    [70, "#6fa3d8"],
+    [60, "#b7d3ee"],
+];
+
+/** The blue for a block's peak ClearScore, or null below the lowest band. */
+function clearColor(peak) {
+    for (const [threshold, color] of CLEAR_BANDS) {
+        if (peak > threshold) return color;
+    }
+    return null;
+}
+
+/**
+ * MilkyScore for one hour: 觀星 as a fraction, times the galactic core's
+ * altitude in degrees.
+ *
+ * The two things the bar cannot say together. 觀星 is "is the sky any good"
+ * (dark, moonless, clear) and knows nothing about where A* is; the core's
+ * altitude is "is the subject even up" and knows nothing about the sky. A
+ * perfect sky with the core below the horizon is 0, a core at 30 deg under
+ * total cloud is 0, and only both at once scores. Below the horizon the
+ * altitude is clamped to 0 rather than allowed to go negative -- a core 20 deg
+ * down is no more useful than one on the horizon.
+ *
+ * Degrees, not a percentage: the ceiling is the core's own transit altitude,
+ * 90 - |lat - GC_DEC| (gcMaxAlt on astro-score_readable.html), which over
+ * Taiwan is ~35.8 deg (大武崙砲台) to ~39.1 deg (龍磐公園). So a perfect night at a
+ * Taiwanese spot tops out near 39 and MILKY_BANDS' upper steps are headroom for
+ * lower latitudes rather than shades anyone here will see.
+ */
+function milkyScore(score, gcAlt) {
+    return (score / 100) * Math.max(0, gcAlt);
+}
+
+// Block peak MilkyScore -> the purple it is drawn in, deepest first and highest
+// threshold first, so the first match wins. Strictly greater, like BARS: a peak
+// of exactly 20 draws nothing. One ramp of one hue -- the strip says how good
+// the Milky Way is and nothing else, so it varies only in depth, and it is
+// purple rather than a second green so it is never read as a very short bar.
+const MILKY_BANDS = [
+    [50, "#3d0f6b"],
+    [40, "#5b21a3"],
+    [30, "#8e44ad"],
+    [20, "#bd8fd6"],
+];
+
+/** The purple for a block's peak MilkyScore, or null below the lowest band. */
+function milkyColor(peak) {
+    for (const [threshold, color] of MILKY_BANDS) {
+        if (peak > threshold) return color;
+    }
+    return null;
+}
+
+/**
+ * OrionScore for one hour: the same product again, for M42 instead of A*.
+ *
+ * Deliberately a second function rather than a dec argument threaded through
+ * milkyScore(): the two are read as separate answers to "is tonight worth it",
+ * and keeping them apart is what lets either ramp be retuned without touching
+ * the other.
+ *
+ * Why a second strip at all: the two targets are in opposite seasons. A* is a
+ * summer object from Taiwan and M42 a winter one, so through half the year the
+ * purple strip is blank on every row of the grid and the page has nothing to say
+ * beyond "the sky is clear". The orange strip is what that half of the year looks
+ * like. Where they overlap -- autumn evenings -- the deeper of the two is the
+ * target to point at.
+ */
+function orionScore(score, m42Alt) {
+    return (score / 100) * Math.max(0, m42Alt);
+}
+
+// Block peak OrionScore -> the orange it is drawn in. Same thresholds as
+// MILKY_BANDS on purpose: the two strips answer the same question about
+// different subjects, so a shared ladder is what makes "the orange is deeper
+// than the purple tonight" mean "M42 is the better target" rather than "these
+// are two differently stretched pictures".
+//
+// One consequence worth knowing, and the reverse of the note on MILKY_BANDS: at
+// dec −5° rather than −29°, M42 transits ~59° (大武崙砲台) to ~63° (龍磐公園) over
+// Taiwan, so the deepest orange **is** reachable here where the deepest purple
+// is not. A saturated orange strip is a genuinely excellent M42 night, not a
+// clipped scale.
+//
+// Orange rather than a second purple or a second green: it has to be read
+// against both at a glance, and it is the one hue that is neither.
+const ORION_BANDS = [
+    [50, "#7a3000"],
+    [40, "#b1480a"],
+    [30, "#e2711d"],
+    [20, "#f5b271"],
+];
+
+/** The orange for a block's peak OrionScore, or null below the lowest band. */
+function orionColor(peak) {
+    for (const [threshold, color] of ORION_BANDS) {
+        if (peak > threshold) return color;
+    }
+    return null;
+}
+
+/** The glyph for a block's peak 觀星, or "" below the lowest band. */
+function barFor(peak) {
+    for (const [threshold, glyph] of BARS) {
+        if (peak > threshold) return glyph;
+    }
+    return "";
+}
+
+/**
+ * One spot's response -> Map of "YYYY-MM-DD" -> one day record.
+ *
+ * A day record is {blocks, moon, offset}: the array of BLOCKS block records that
+ * the cell's stacks are drawn from, moonFace() for the date -- the phase and the
+ * lit limb's angle at that day's lunar culmination, a property of the *day*
+ * rather than of either block, so it hangs here rather than in both of them --
+ * and the response's UTC offset in seconds, to print the culmination as local
+ * time. See td.blocks .phase for why the glyph is not drawn per block.
+ *
+ * Each block record is {peak, clear, milky, orion, gcNight, m42Night, moonNight, hours,
+ * dark, scored}: the best 觀星 in the block, the best dark-hour ClearScore, the best MilkyScore and OrionScore in
+ * it, how high A*, M42 and the moon got while it was dark, how many of the block's
+ * hours the response actually carried, how many of those were dark, and how many
+ * carried a cloud figure rather than a null. A block short on either count can peak low for
+ * a reason that is not "cloudy", which the cell title spells out.
+ *
+ * A maximum, not a total: the question this grid answers is "is there an hour
+ * worth going out for", and one excellent hour is worth the drive even when the
+ * rest of the night is clouded in. A sum would average that hour away.
+ *
+ * Cloud comes from one model, the one the tabs have selected. A model that the
+ * response does not carry yields no key and so an empty map, which draws as a row
+ * of dashes rather than as a clear sky.
+ *
+ * Every hour present is scored, including hours already gone. This page hides
+ * past *days* rather than past hours (see visibleDates), so today's column is
+ * always a whole 24 hours and its blocks do not shrink through the day -- a
+ * column that is drawn is a column that is complete.
+ *
+ * hourly.time is local wall time (timezone=auto), so utc_offset_seconds turns it
+ * back into the UTC instant the astronomy expects, and the date/hour can be read
+ * straight off the string. Latitude/longitude come from the response, i.e. the
+ * grid point actually forecast rather than the point that was asked for.
+ */
+function blocksByDate(body, model, multi) {
+    const hourly = body.hourly;
+    const key = seriesKey(hourly, "cloud_cover", model, multi);
+    const days = new Map();
+    if (!key) return days;
+
+    const offset = Number(body.utc_offset_seconds) || 0;
+    const lat = Number(body.latitude);
+    const lon = Number(body.longitude);
+
+    hourly.time.forEach((t, i) => {
+        const date = t.slice(0, 10);
+        if (!days.has(date)) {
+            days.set(date, {
+                blocks: Array.from(
+                    { length: BLOCKS },
+                    // The three *Night fields start below any real altitude
+                    // rather than at null, so the running maximum needs no
+                    // first-value case; `dark` is what says whether any of them
+                    // was ever written to.
+                    () => ({
+                        peak: 0, clear: 0, milky: 0, orion: 0,
+                        gcNight: -90, m42Night: -90, moonNight: -90,
+                        hours: 0, dark: 0, scored: 0,
+                    }),
+                ),
+                moon: moonFace(Date.parse(`${date}T00:00:00Z`) - offset * 1000, lat, lon),
+                offset,
+            });
+        }
+        const b = blockOf(Number(t.slice(11, 13)));
+        if (b < 0) return;   // outside both windows: not looked at
+        const block = days.get(date).blocks[b];
+        block.hours += 1;
+        const utcMs = Date.parse(`${t}:00Z`) - offset * 1000;
+        const { sunAlt, moonAlt, moonIllum, gcAlt, m42Alt } = astroAt(utcMs, lat, lon);
+        // Visibility is taken before the cloud guard below, and deliberately so:
+        // whether a target was up in the dark is geometry, known for every hour
+        // the response carries whether or not that hour came with a cloud figure.
+        // So a mark can stand under a no-forecast dot at the far end of the grid,
+        // which is the correct answer -- the forecast ran out, the sky did not.
+        if (sunAlt <= DARK_SUN_ALT) {
+            block.dark += 1;
+            block.gcNight = Math.max(block.gcNight, gcAlt);
+            block.m42Night = Math.max(block.m42Night, m42Alt);
+            // The moon is measured exactly like the two targets and means the
+            // reverse of them -- see the .mark comment. Note that this maximum is
+            // *not* what moonPenalty() saw: the penalty is applied per hour, scaled
+            // by phase, and the block's peak 觀星 is the best of those hours, so a block can
+            // carry a moon digit and still peak high, when the good hour was one
+            // the moon had not yet risen for. The digit says how bad the worst of
+            // the block was, and the bar says how good the best of it was; both
+            // are true and they are answering different questions.
+            block.moonNight = Math.max(block.moonNight, moonAlt);
+        }
+        const score = astroScore(sunAlt, moonAlt, moonIllum, hourly[key][i]);
+        if (score === null) return;   // null cloud cover: no data, not a zero
+        block.peak = Math.max(block.peak, score);
+        // Dark hours only, the same gate astroScore() applies: a cloudless
+        // afternoon would otherwise paint the blue under a night that clouded in.
+        if (sunAlt <= DARK_SUN_ALT) block.clear = Math.max(block.clear, clearScore(hourly[key][i]));
+        // Maximum of the product, not the product of the maxima: the two peaks
+        // can fall in different hours, and an hour that was never good is not
+        // made good by another hour's core altitude.
+        block.milky = Math.max(block.milky, milkyScore(score, gcAlt));
+        block.orion = Math.max(block.orion, orionScore(score, m42Alt));
+        block.scored += 1;
+    });
+    return days;
+}
+
+/**
+ * The key a variable lives under for a given model, or null if absent.
+ *
+ * Verbatim from the other three Open-Meteo pages. Open-Meteo suffixes series keys
+ * with the model name only when two or more models are asked for; with one it
+ * returns a bare key, so both spellings have to be accepted -- clearing the
+ * models line in the extra params drops straight back to bare keys.
+ */
+function seriesKey(hourly, name, model, multi) {
+    if (multi && Object.hasOwn(hourly, `${name}_${model}`)) return `${name}_${model}`;
+    if (Object.hasOwn(hourly, name)) return name;
+    return null;
+}
+
+/**
+ * Which models the response carries, read back off the request rather than from
+ * MODELS -- the extra-params box can override models=, and reading the constant
+ * would then resolve the wrong keys.
+ */
+function modelsFromParams(params) {
+    const raw = String(params.models || "").trim();
+    return raw ? raw.split(",").map((m) => m.trim()).filter(Boolean) : [];
+}
+
+/* ------------------------------------------------------------------ *
+ * The card's cell
+ * ------------------------------------------------------------------ */
+
+/**
+ * One day at one place, as the block a card shows: astro-score_daily.html's
+ * blocksCell(), building a <div> rather than a <td> and otherwise line for line
+ * the same -- two stacks (bar, three strips, three marks) and the phase glyph
+ * under both, with the same tooltip. Keep the two in step.
+ */
+function blocksCell(place, date, day) {
+    const { blocks, moon: face, offset } = day;
+    const { elong } = face;
+    const td = document.createElement("div");
+    td.className = "blocks";
+    const detail = [];
+    for (let b = 0; b < BLOCKS; b += 1) {
+        const {
+            peak, clear, milky, orion, gcNight, m42Night, moonNight, hours, dark, scored,
+        } = blocks[b];
+        const stack = document.createElement("span");
+        stack.className = "stack";
+        const span = document.createElement("span");
+        span.className = scored ? "bar" : "bar nodata";
+        if (scored) {
+            const glyph = barFor(peak);
+            if (glyph) {
+                const fill = document.createElement("span");
+                fill.className = "fill";
+                fill.style.height = `${BAR_FILL[glyph] * 100}%`;
+                span.appendChild(fill);
+                span.setAttribute("aria-label", glyph);
+            }
+        } else {
+            span.textContent = NO_DATA_GLYPH;
+        }
+        stack.appendChild(span);
+        for (const paint of [clearColor(clear), milkyColor(milky), orionColor(orion)]) {
+            const under = document.createElement("span");
+            under.className = "under";
+            if (paint) under.style.backgroundColor = paint;
+            stack.appendChild(under);
+        }
+        const marks = [
+            ["gc", gcNight, TARGET_UP_ALT],
+            ["m42", m42Night, TARGET_UP_ALT],
+            ["moon", moonNight, MOON_UP_ALT],
+        ];
+        for (const [cls, night, gate] of marks) {
+            const mark = document.createElement("span");
+            mark.className = `mark ${cls}`;
+            if (dark && night > gate) mark.textContent = upMark(night);
+            stack.appendChild(mark);
+        }
+        td.appendChild(stack);
+        const short = scored < blockHours(b) ? ` (${scored}/${hours || blockHours(b)} hr)` : "";
+        const upText = (night) => (dark ? `${night.toFixed(0).padStart(3)}°` : "  --");
+        detail.push(
+            `${BLOCK_LABELS[b]}  peak ${String(Math.round(peak)).padStart(3)}`
+            + `  clear ${String(Math.round(clear)).padStart(3)}`
+            + `  milky ${milky.toFixed(1).padStart(4)}`
+            + `  orion ${orion.toFixed(1).padStart(4)}`
+            + `  A* max ${upText(gcNight)}  M42 max ${upText(m42Night)}`
+            + `  moon max ${upText(moonNight)}${short}`,
+        );
+    }
+    const moon = document.createElement("span");
+    moon.className = "phase";
+    const glyph = document.createElement("span");
+    glyph.className = "glyph";
+    glyph.textContent = moonGlyph(elong);
+    glyph.style.transform = `rotate(${face.rotation.toFixed(1)}deg)`;
+    moon.appendChild(glyph);
+    td.appendChild(moon);
+    const culm = new Date(face.peakMs + offset * 1000).toISOString().slice(11, 16);
+    td.title = `${place} — ${formatDate(date)}\n${detail.join("\n")}`
+        + `\n${moonGlyph(elong)} ${MOON_NAMES[moonOctant(elong)]}`
+        + `  (elongation ${elong.toFixed(0)}°)`
+        + `\nculmination ${culm}，亮邊朝太陽 ${face.limb.toFixed(0)}° (面向${face.facing}方)`;
+    return td;
+}
+
+/** "2026-08-17" -> "08/17". */
+function formatDate(date) {
+    return `${date.slice(5, 7)}/${date.slice(8, 10)}`;
+}
+
+const WEEKDAYS = ["日", "一", "二", "三", "四", "五", "六"];
+/** "2026-11-01" -> "日". A calendar date has no zone; UTC is only the arithmetic. */
+function weekday(date) {
+    return WEEKDAYS[new Date(`${date}T00:00:00Z`).getUTCDay()];
+}
+
+/* ------------------------------------------------------------------ *
+ * The map
+ *
+ * The same hand-rolled slippy map as pickOnMap() and
+ * light_pollution/light_pollution_map.html: places.js's Mercator four
+ * (mapWorldX/mapWorldY/mapLatAt/mapLonAt) plus a grid of <img> tiles,
+ * imported rather than copied. The pan/pinch/wheel handlers are the same
+ * shape as theirs and not byte-identical: a tap here raises a card rather
+ * than moving anything, and pointer capture waits until the press has
+ * become a drag, so a tap on a card's name still reaches the link.
+ *
+ * Basemap: Esri's light-gray canvas, keyless and CORS-clean like the dark
+ * one light_pollution_map.html opens on -- not OSM, whose volunteer tiles
+ * are for one-screen lookups like pickOnMap()'s, not a map that pans. Light
+ * rather than dark because the cards are white with dark digits.
+ * ------------------------------------------------------------------ */
+
+const BASE_TILE_URL = (z, x, y) =>
+    `https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/${z}/${y}/${x}`;
+const BASE_MAX_ZOOM = 16;   // the deepest the light-gray canvas is published
+const CARD_GAP = 6;         // px between a pin and the card sitting on it
+const FIT_MARGIN = 70;      // px kept clear round the places when fitting the view
+const LAYOUT_STEP = 10;     // px between the offsets layoutCards() tries
+const LAYOUT_REACH = 400;   // px: how far from its pin a card may be pushed
+
+const mapEl = document.getElementById("map");
+const tilesEl = document.getElementById("tiles");
+const marksEl = document.getElementById("marks");
+const leadersEl = document.getElementById("leaders");
+
+let view = { lat: DEFAULT_LAT, lon: DEFAULT_LON, z: 8 };
+const tiles = new Map();
+// One entry per PLACES row: {pin, card, lat, lon, w, h, ax, ay, x, y}. Positions
+// are world pixels at layoutZoom; render() only subtracts the view's corner, so a
+// pan never re-runs the layout and the cards cannot shuffle under the finger.
+let markers = [];
+let layoutZoom = null;
+
+/** The view's top-left corner in world pixels at its own zoom. */
+function viewCorner() {
+    return [
+        mapWorldX(view.lon, view.z) - mapEl.clientWidth / 2,
+        mapWorldY(view.lat, view.z) - mapEl.clientHeight / 2,
+    ];
+}
+
+/**
+ * Place every card at the current zoom, greedily (see the order below).
+ *
+ * First choice is centred on top of its pin; then right, left, below; then
+ * the nearest free spot further out. A spot is taken if it overlaps no card already placed
+ * and no other place's pin -- a card hiding a pin would leave that place with
+ * no visible card *and* no visible location. Anything that ends up off its pin
+ * gets a leader line in render(). At the zoom that fits all of Taiwan the
+ * Taipei spots sit within a few pixels of each other, so some cards do go out
+ * on lines; zooming in is the cure, and the layout re-runs per zoom level.
+ */
+function layoutCards() {
+    const z = view.z;
+    for (const m of markers) {
+        m.ax = mapWorldX(m.lon, z);
+        m.ay = mapWorldY(m.lat, z);
+    }
+    const pins = markers.map((m) => ({ x: m.ax - 5, y: m.ay - 5, w: 10, h: 10, owner: m }));
+    const placed = [];
+    const hits = (r) => placed.some((p) => r.x < p.x + p.w + 2 && p.x < r.x + r.w + 2
+                                         && r.y < p.y + p.h + 2 && p.y < r.y + r.h + 2);
+    // 輸入 first, then the loneliest pins: a pin with no neighbour within a card's
+    // size can almost always keep its card on top of it, and placing the
+    // clustered ones last means a crowd pushes its own members out instead of
+    // pushing an isolated spot's card to the far side of the island.
+    const crowd = (m) => markers.filter((o) => o !== m
+        && Math.abs(o.ax - m.ax) < m.w + CARD_GAP && Math.abs(o.ay - m.ay) < m.h + CARD_GAP).length;
+    const order = [markers[0], ...markers.slice(1)
+        .map((m) => [crowd(m), m]).sort((a, b) => a[0] - b[0]).map(([, m]) => m)];
+    for (const m of order) {
+        const { ax, ay, w, h } = m;
+        // The four spots touching the pin first, then a grid of offsets ordered
+        // by the length of the leader line each would need -- so a card goes to
+        // the nearest free spot rather than out along a fixed ray, which kept
+        // the lines short and stopped them crossing the island.
+        const candidates = [
+            [ax - w / 2, ay - CARD_GAP - h],
+            [ax + CARD_GAP, ay - h / 2],
+            [ax - CARD_GAP - w, ay - h / 2],
+            [ax - w / 2, ay + CARD_GAP],
+        ];
+        const grid = [];
+        for (let dy = -LAYOUT_REACH; dy <= LAYOUT_REACH; dy += LAYOUT_STEP) {
+            for (let dx = -LAYOUT_REACH; dx <= LAYOUT_REACH; dx += LAYOUT_STEP) {
+                const x = ax + dx - w / 2, y = ay + dy - h / 2;
+                const lead = Math.hypot(mapClamp(ax, x, x + w) - ax, mapClamp(ay, y, y + h) - ay);
+                grid.push([lead, Math.hypot(dx, dy), x, y]);
+            }
+        }
+        grid.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+        for (const [, , x, y] of grid) candidates.push([x, y]);
+        let spot = candidates[0];
+        for (const [x, y] of candidates) {
+            const rect = { x, y, w, h };
+            const coversPin = pins.some((p) => p.owner !== m
+                && x < p.x + p.w && p.x < x + w && y < p.y + p.h && p.y < y + h);
+            if (!coversPin && !hits(rect)) { spot = [x, y]; break; }
+        }
+        [m.x, m.y] = spot;
+        placed.push({ x: m.x, y: m.y, w, h });
+    }
+    layoutZoom = z;
+}
+
+/** Draw tiles, pins, cards and leader lines for the current view. */
+function renderMap() {
+    const w = mapEl.clientWidth;
+    const h = mapEl.clientHeight;
+    if (!w || !h) return;
+    const z = view.z;
+    const [left, top] = viewCorner();
+    const n = 2 ** z;
+
+    const wanted = new Set();
+    for (let ty = Math.floor(top / MAP_TILE_SIZE); ty <= Math.floor((top + h) / MAP_TILE_SIZE); ty++) {
+        if (ty < 0 || ty >= n) continue;
+        for (let tx = Math.floor(left / MAP_TILE_SIZE); tx <= Math.floor((left + w) / MAP_TILE_SIZE); tx++) {
+            const key = `${z}/${tx}/${ty}`;
+            wanted.add(key);
+            let img = tiles.get(key);
+            if (!img) {
+                img = new Image();
+                img.className = "maptile";
+                img.alt = "";
+                img.draggable = false;
+                img.src = BASE_TILE_URL(z, ((tx % n) + n) % n, ty);
+                tilesEl.appendChild(img);
+                tiles.set(key, img);
+            }
+            img.style.left = `${Math.round(tx * MAP_TILE_SIZE - left)}px`;
+            img.style.top = `${Math.round(ty * MAP_TILE_SIZE - top)}px`;
+        }
+    }
+    for (const [key, img] of tiles) {
+        if (!wanted.has(key)) { img.remove(); tiles.delete(key); }
+    }
+
+    if (layoutZoom !== z) layoutCards();
+    const lines = [];
+    for (const m of markers) {
+        const px = m.ax - left, py = m.ay - top;
+        const cx = m.x - left, cy = m.y - top;
+        m.pin.style.left = `${Math.round(px)}px`;
+        m.pin.style.top = `${Math.round(py)}px`;
+        m.card.style.left = `${Math.round(cx)}px`;
+        m.card.style.top = `${Math.round(cy)}px`;
+        // The nearest point of the card to its pin; a line only when the card
+        // was pushed clear of it.
+        const nx = mapClamp(px, cx, cx + m.w);
+        const ny = mapClamp(py, cy, cy + m.h);
+        if (Math.hypot(nx - px, ny - py) > CARD_GAP + 2) {
+            lines.push(`<line x1="${px.toFixed(1)}" y1="${py.toFixed(1)}" x2="${nx.toFixed(1)}" y2="${ny.toFixed(1)}"/>`);
+        }
+    }
+    leadersEl.innerHTML = lines.join("");
+
+    document.getElementById("mapinfo").textContent = `zoom ${z}`;
+    document.getElementById("zin").disabled = z >= BASE_MAX_ZOOM;
+    document.getElementById("zout").disabled = z <= MAP_MIN_ZOOM;
+}
+
+/** Screen point (relative to the map) -> the coordinate under it. */
+function mapPointAt(px, py) {
+    const [left, top] = viewCorner();
+    return { lat: mapLatAt(top + py, view.z), lon: mapWrapLon(mapLonAt(left + px, view.z)) };
+}
+
+function panBy(dx, dy) {
+    const size = MAP_TILE_SIZE * 2 ** view.z;
+    const x = mapWorldX(view.lon, view.z) - dx;
+    const y = mapClamp(mapWorldY(view.lat, view.z) - dy, 0, size);
+    view = { lat: mapLatAt(y, view.z), lon: mapWrapLon(mapLonAt(x, view.z)), z: view.z };
+    renderMap();
+}
+
+/** Zoom about a screen point, so whatever is under it stays under it. */
+function zoomTo(next, ax, ay) {
+    const target = mapClamp(next, MAP_MIN_ZOOM, BASE_MAX_ZOOM);
+    if (target === view.z) return;
+    const w = mapEl.clientWidth, h = mapEl.clientHeight;
+    const anchorX = ax === undefined ? w / 2 : ax;
+    const anchorY = ay === undefined ? h / 2 : ay;
+    const held = mapPointAt(anchorX, anchorY);
+    const x = mapWorldX(held.lon, target) + (w / 2 - anchorX);
+    const y = mapWorldY(held.lat, target) + (h / 2 - anchorY);
+    view = { lat: mapLatAt(y, target), lon: mapWrapLon(mapLonAt(x, target)), z: target };
+    renderMap();
+}
+
+/** The deepest whole zoom at which every place fits, centred on them all. */
+function fitAll() {
+    const w = mapEl.clientWidth, h = mapEl.clientHeight;
+    const lats = PLACES.map((p) => p[1]), lons = PLACES.map((p) => p[2]);
+    const [s, n] = [Math.min(...lats), Math.max(...lats)];
+    const [west, east] = [Math.min(...lons), Math.max(...lons)];
+    let z = BASE_MAX_ZOOM;
+    while (z > MAP_MIN_ZOOM
+        && (mapWorldX(east, z) - mapWorldX(west, z) > w - 2 * FIT_MARGIN
+            || mapWorldY(s, z) - mapWorldY(n, z) > h - 2 * FIT_MARGIN)) {
+        z -= 1;
+    }
+    const cx = (mapWorldX(east, z) + mapWorldX(west, z)) / 2;
+    const cy = (mapWorldY(s, z) + mapWorldY(n, z)) / 2;
+    view = { lat: mapLatAt(cy, z), lon: mapLonAt(cx, z), z };
+    renderMap();
+}
+
+/** Centre on a coordinate, keeping the zoom. */
+function centreOn(lat, lon) {
+    view = { lat, lon, z: view.z };
+    renderMap();
+}
+
+/** Bring one card in front of the rest -- the cure for an overlap the layout missed. */
+function raiseCard(card) {
+    for (const m of markers) m.card.classList.toggle("front", m.card === card);
+}
+
+/* Pointer handling: one set of handlers for mouse, pen and touch. */
+(() => {
+    const pointers = new Map();
+    let dragged = false;
+    let pinchBase = 0;
+    let swallowClick = false;
+    const span = () => {
+        const [a, b] = [...pointers.values()];
+        return Math.hypot(a.x - b.x, a.y - b.y);
+    };
+    const mid = () => {
+        const [a, b] = [...pointers.values()];
+        const box = mapEl.getBoundingClientRect();
+        return [(a.x + b.x) / 2 - box.left, (a.y + b.y) / 2 - box.top];
+    };
+
+    mapEl.addEventListener("pointerdown", (event) => {
+        // The controls sit inside the map; their presses must not become taps
+        // or drags here (the same trap pickOnMap() documents).
+        if (event.target.closest(".mapzoom, .mapattr")) return;
+        pointers.set(event.pointerId, {
+            x: event.clientX, y: event.clientY, x0: event.clientX, y0: event.clientY,
+        });
+        dragged = false;
+        swallowClick = false;
+        pinchBase = pointers.size >= 2 ? span() : 0;
+    });
+
+    mapEl.addEventListener("pointermove", (event) => {
+        const was = pointers.get(event.pointerId);
+        if (!was) return;
+        const dx = event.clientX - was.x;
+        const dy = event.clientY - was.y;
+        pointers.set(event.pointerId, { ...was, x: event.clientX, y: event.clientY });
+        if (!dragged && Math.hypot(event.clientX - was.x0, event.clientY - was.y0) > MAP_DRAG_SLOP) {
+            dragged = true;
+            mapEl.classList.add("dragging");
+            // Captured only now, not on pointerdown: a captured press has its
+            // click delivered to the map, so capturing early would stop a tap
+            // on a card's name from ever opening the link.
+            try { mapEl.setPointerCapture(event.pointerId); } catch { /* fine */ }
+        }
+        if (!dragged) return;
+        if (pointers.size >= 2) {
+            const s = span();
+            if (!pinchBase || !s) return;
+            if (s / pinchBase > MAP_PINCH_STEP) { zoomTo(view.z + 1, ...mid()); pinchBase = s; }
+            else if (pinchBase / s > MAP_PINCH_STEP) { zoomTo(view.z - 1, ...mid()); pinchBase = s; }
+            return;
+        }
+        panBy(dx, dy);
+    });
+
+    function release(event) {
+        if (!pointers.delete(event.pointerId)) return;
+        if (pointers.size < 2) pinchBase = 0;
+        if (pointers.size > 0) return;
+        mapEl.classList.remove("dragging");
+        if (dragged) {
+            swallowClick = true;   // a drag that ended on a link is not a click on it
+            return;
+        }
+        const card = event.target.closest && event.target.closest(".card");
+        if (card) raiseCard(card);
+    }
+    mapEl.addEventListener("pointerup", release);
+    mapEl.addEventListener("pointercancel", release);
+    mapEl.addEventListener("click", (event) => {
+        if (!swallowClick) return;
+        swallowClick = false;
+        event.preventDefault();
+        event.stopPropagation();
+    }, true);
+
+    mapEl.addEventListener("wheel", (event) => {
+        event.preventDefault();
+        const box = mapEl.getBoundingClientRect();
+        zoomTo(view.z + (event.deltaY < 0 ? 1 : -1), event.clientX - box.left, event.clientY - box.top);
+    }, { passive: false });
+
+    mapEl.addEventListener("dblclick", (event) => {
+        if (event.target.closest(".mapzoom, .mapattr, .card")) return;
+        const box = mapEl.getBoundingClientRect();
+        zoomTo(view.z + 1, event.clientX - box.left, event.clientY - box.top);
+    });
+
+    document.getElementById("zin").addEventListener("click", () => zoomTo(view.z + 1));
+    document.getElementById("zout").addEventListener("click", () => zoomTo(view.z - 1));
+    document.getElementById("zfit").addEventListener("click", fitAll);
+    window.addEventListener("resize", renderMap);
+})();
+
+/* ------------------------------------------------------------------ *
+ * Cards
+ * ------------------------------------------------------------------ */
+
+/**
+ * One card per PLACES row, rebuilt from scratch: pin, name, and either the day's
+ * cell, "…" while the first fetch is in flight, or the API's own reason.
+ *
+ * `results` is null before anything has landed. Rebuilding invalidates the
+ * layout, since a card's size depends on what it holds.
+ */
+function buildMarkers(results, date) {
+    marksEl.textContent = "";
+    const multi = results ? modelsFromParams(results.find((r) => r.body)?.params || {}).length >= 2 : false;
+    markers = PLACES.map(([place, lat, lon, bortle, short], index) => {
+        const pin = document.createElement("div");
+        pin.className = index === 0 ? "pin input" : "pin";
+        const card = document.createElement("div");
+        card.className = index === 0 ? "card input" : "card";
+
+        // A saved spot's name opens the hour-by-hour page on that spot, in a new
+        // tab, exactly as astro-score_daily.html's row labels do. 輸入 stays text.
+        const name = document.createElement(index > 0 ? "a" : "span");
+        name.className = "name";
+        name.textContent = place;
+        name.title = index > 0
+            ? `${lat}, ${lon}  bortle=${bortle.toFixed(1)}  ${short}`
+            : `${lat}, ${lon}`;
+        if (index > 0) {
+            name.href = `astro-score_readable.html#lat=${lat}&lon=${lon}`;
+            name.target = "_blank";
+            name.draggable = false;
+        }
+        card.appendChild(name);
+        if (index > 0) {
+            const api = document.createElement("span");
+            api.className = "api";
+            api.textContent = `bortle=${bortle.toFixed(1)}`;
+            card.appendChild(api);
+        }
+
+        const r = results ? results[index] : null;
+        if (!r) {
+            const wait = document.createElement("span");
+            wait.className = "wait";
+            wait.textContent = "…";
+            card.appendChild(wait);
+        } else if (!r.body) {
+            const err = document.createElement("span");
+            err.className = "err";
+            err.textContent = r.error;
+            card.appendChild(err);
+        } else {
+            const day = blocksByDate(r.body, activeModel, multi).get(date);
+            if (day) {
+                card.appendChild(blocksCell(place, date, day));
+            } else {
+                const none = document.createElement("span");
+                none.className = "wait";
+                none.textContent = "-";
+                card.appendChild(none);
+            }
+        }
+        marksEl.appendChild(pin);
+        marksEl.appendChild(card);
+        return { pin, card, lat, lon, w: 0, h: 0, ax: 0, ay: 0, x: 0, y: 0 };
+    });
+    for (const m of markers) {
+        m.w = m.card.offsetWidth;
+        m.h = m.card.offsetHeight;
+    }
+    layoutZoom = null;
+    renderMap();
+}
+
+/* ------------------------------------------------------------------ *
+ * The form -- pure_math/galactic_center.html's time and location rows
+ * ------------------------------------------------------------------ */
+
+/**
+ * The zone offset a longitude implies, in whole hours east of UTC: the solar
+ * zone, not the legal one -- see pure_math/galactic_center.html, whence this and
+ * the three functions under it come verbatim. Every spot in places.js lands on
+ * +8. It only labels the time box; what a card shows is the box's *date*.
+ */
+function zoneOffsetHours(lon) {
+    return Math.round(lon / 15);
+}
+
+/** "now" at the location, to the minute, in the YYYY-MM-DDTHH:MM the input wants. */
+function nowValue(offsetHours) {
+    const ms = Date.now() + offsetHours * 3600000;
+    return new Date(ms - (ms % 60000)).toISOString().slice(0, 16);
+}
+
+/** The time box read as a UTC instant, in ms. */
+function utcFromForm(offsetHours) {
+    const raw = document.getElementById("when").value.trim();
+    if (!raw) throw new Error("No time given — pick one, or press now");
+    const ms = Date.parse(raw.length === 16 ? `${raw}:00Z` : `${raw}Z`);
+    if (!Number.isFinite(ms)) throw new Error(`Bad time "${raw}"`);
+    return ms - offsetHours * 3600000;
+}
+
+/** The location box read as {lat, lon}, falling back to the default spot. */
+function placeFromForm() {
+    const loc = document.getElementById("location").value.trim();
+    let lat = DEFAULT_LAT, lon = DEFAULT_LON;
+    if (loc) {
+        const [latS, lonS] = loc.split(",");
+        lat = Number(latS);
+        lon = Number(lonS);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+            throw new Error(`Bad location "${loc}": expected "lat,lon"`);
+        }
+    }
+    return { lat, lon };
+}
+
+/** The offset implied by the location box, or the default spot's if it will not parse. */
+function offsetFromForm() {
+    try {
+        return zoneOffsetHours(placeFromForm().lon);
+    } catch {
+        return zoneOffsetHours(DEFAULT_LON);
+    }
+}
+
+/** Show which offset the location's longitude implied, beside the time label. */
+function markZone(offsetHours) {
+    document.getElementById("zone").textContent = zoneLabel(offsetHours);
+}
+
+/** An offset in whole hours as "UTC+8" / "UTC−5". */
+const zoneLabel = (h) => `UTC${h < 0 ? "−" : "+"}${Math.abs(h)}`;
+
+/**
+ * Highlight whichever saved spot matches the box -- and after a hand edit, none.
+ */
+function markActivePlace() {
+    const current = document.getElementById("location").value.trim();
+    for (const button of document.querySelectorAll("#places .place")) {
+        button.setAttribute("aria-pressed", String(button.dataset.coords === current));
+    }
+}
+
+/**
+ * One pill per saved spot -- PLACES[1..], not 輸入 itself, since the box *is* 輸入
+ * here (as on astro-score_daily.html) and its pill would always be pressed. A
+ * pill puts 輸入 on that spot and refetches, which costs nothing: the spot's own
+ * URL is already in fetchCache. The map then centres there.
+ */
+function buildPlaces() {
+    const box = document.getElementById("places");
+    box.replaceChildren();
+    for (const [name, lat, lon] of PLACES.slice(1)) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "place";
+        button.textContent = name;
+        button.dataset.coords = `${lat},${lon}`;
+        button.title = `${lat}, ${lon}`;
+        button.addEventListener("click", () => {
+            document.getElementById("location").value = button.dataset.coords;
+            markActivePlace();
+            document.getElementById("form").requestSubmit();
+        });
+        box.appendChild(button);
+    }
+}
+
+function resetDefaults() {
+    document.getElementById("location").value = `${DEFAULT_LAT},${DEFAULT_LON}`;
+    const offset = zoneOffsetHours(DEFAULT_LON);
+    document.getElementById("when").value = nowValue(offset);
+    markZone(offset);
+    markActivePlace();
+}
+
+/**
+ * 使用目前位置: the device's coordinates into the box, then refetch -- the submit
+ * handler copies the box into 輸入, as on astro-score_daily.html, so the typed,
+ * located and pointed-at routes are one write.
+ */
+async function useCurrentPosition() {
+    const button = document.getElementById("geo");
+    const note = document.getElementById("geonote");
+    button.disabled = true;
+    note.classList.remove("error");
+    note.textContent = "定位中...";
+    try {
+        const { lat, lon, accuracy } = await currentPosition();
+        document.getElementById("location").value = `${lat},${lon}`;
+        note.textContent = `±${Math.round(accuracy)} m`;
+        markActivePlace();
+        document.getElementById("form").requestSubmit();
+    } catch (err) {
+        note.classList.add("error");
+        note.textContent = err.message;
+    } finally {
+        button.disabled = false;
+    }
+}
+
+/** 在地圖上點選: the same write as 使用目前位置, from pickOnMap() (places.js). */
+async function pickFromMap() {
+    const button = document.getElementById("mappick");
+    const note = document.getElementById("geonote");
+    button.disabled = true;
+    try {
+        const [latS, lonS] = document.getElementById("location").value.trim().split(",");
+        const lat = Number(latS), lon = Number(lonS);
+        const picked = await pickOnMap(
+            Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon } : {},
+        );
+        if (!picked) return;   // 取消
+        document.getElementById("location").value = `${picked.lat},${picked.lon}`;
+        note.classList.remove("error");
+        note.textContent = "";
+        markActivePlace();
+        document.getElementById("form").requestSubmit();
+    } finally {
+        button.disabled = false;
+    }
+}
+
+/* ------------------------------------------------------------------ *
+ * Wiring
+ * ------------------------------------------------------------------ */
+
+let lastResults = null;   // one entry per PLACES row, from the most recent fetch
+let lastDate = null;      // the local date those results are for
+let lastStats = null;     // {seconds, bytes, fetched, cached}
+let activeModel = DEFAULT_MODEL;
+let inputPlaceName = "";
+let shownInput = null;    // "lat,lon" of 輸入 as last drawn, to tell when it moved
+
+/** Model tabs -- astro-score_daily.html's renderTabs(), re-rendering the cards. */
+function renderTabs() {
+    const tabs = document.getElementById("tabs");
+    tabs.textContent = "";
+    if (!lastResults) return;
+    const first = lastResults.find((r) => r.body);
+    if (!first) return;
+    const models = modelsFromParams(first.params);
+    const names = models.length ? models : ["default"];
+    if (!names.includes(activeModel)) {
+        activeModel = names.includes(DEFAULT_MODEL) ? DEFAULT_MODEL : names[0];
+    }
+    for (const name of names) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "tab";
+        button.textContent = name.replace(/_.*$/, "");
+        button.title = name;
+        button.setAttribute("aria-selected", String(name === activeModel));
+        button.addEventListener("click", () => {
+            activeModel = name;
+            renderTabs();
+            buildMarkers(lastResults, lastDate);
+            setMeta();
+        });
+        tabs.appendChild(button);
+    }
+}
+
+function setMeta() {
+    if (!lastResults || !lastStats) return;
+    const ok = lastResults.filter((r) => r.body);
+    if (!ok.length) return;
+    const failed = lastResults.length - ok.length;
+    const meta = document.getElementById("meta");
+    meta.classList.remove("error");
+    meta.textContent =
+        `${lastDate} (${weekday(lastDate)})  ${ok.length}/${lastResults.length} places  ` +
+        `${lastStats.fetched} fetched, ${lastStats.cached} cached  ${lastStats.bytes} bytes  ` +
+        `${lastStats.seconds.toFixed(2)}s  ` +
+        `— ${ok[0].body.timezone} (${ok[0].body.timezone_abbreviation}), ` +
+        `scoring ${activeModel} of ${modelsFromParams(ok[0].params).length || 1}` +
+        (failed ? `  — ${failed} failed, see the cards` : "");
+    if (inputPlaceName) {
+        meta.appendChild(document.createElement("br"));
+        meta.appendChild(document.createTextNode(`${PLACES[0][0]}: ${inputPlaceName}`));
+    }
+}
+
+function showError(message) {
+    const meta = document.getElementById("meta");
+    meta.textContent = message;
+    meta.classList.add("error");
+}
+
+/** One labelled link per request, so every URL stays inspectable. */
+function setUrls(results) {
+    const urlEl = document.getElementById("url");
+    urlEl.textContent = "";
+    for (const r of results) {
+        const who = document.createElement("span");
+        who.className = "who";
+        who.textContent = r.place;
+        urlEl.appendChild(who);
+        const a = document.createElement("a");
+        a.href = r.url;
+        a.target = "_blank";
+        a.rel = "noopener";
+        a.textContent = r.url;
+        urlEl.appendChild(a);
+        urlEl.appendChild(document.createElement("br"));
+    }
+    document.getElementById("raw").hidden = false;
+}
+
+document.getElementById("form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const button = document.getElementById("submit");
+
+    // Location first, as on galactic_center.html: the time box is local to it.
+    // Both parsed before anything is sent, so a bad value costs a line of text.
+    let date, requests;
+    try {
+        const { lat, lon } = placeFromForm();
+        const offset = zoneOffsetHours(lon);
+        markZone(offset);
+        date = new Date(utcFromForm(offset) + offset * 3600000).toISOString().slice(0, 10);
+        setInputPlace(lat, lon);
+        requests = PLACES.map(([, plat, plon]) => defaultParams(plat, plon, date));
+    } catch (err) {
+        showError(err.message);
+        return;
+    }
+
+    button.disabled = true;
+    const meta = document.getElementById("meta");
+    meta.classList.remove("error");
+    meta.textContent = `fetching ${PLACES.length} places for ${date}, ${FETCH_POOL} at a time...`;
+    // The cards on screen describe the previous request until the new one lands.
+    for (const m of markers) m.card.classList.add("stale");
+
+    inputPlaceName = "";
+    loadInputPlaceName(PLACES[0][1], PLACES[0][2]);
+
+    const started = performance.now();
+    const settled = await settledPool(requests, FETCH_POOL, (p) => cachedForecast(p));
+    const seconds = (performance.now() - started) / 1000;
+
+    let fetched = 0, cached = 0, bytes = 0;
+    const results = PLACES.map(([place, lat, lon], i) => {
+        const outcome = settled[i];
+        if (outcome.status === "rejected") {
+            const err = outcome.reason;
+            fetched += 1;
+            return {
+                place, lat, lon, params: requests[i], url: buildUrl(requests[i]), body: null,
+                error: `request failed: ${err.name === "TimeoutError" ? "timed out" : err.message}`,
+            };
+        }
+        const r = outcome.value;
+        if (r.cached) cached += 1; else { fetched += 1; bytes += r.bytes; }
+        if (!r.ok || !r.body.hourly) {
+            return {
+                place, lat, lon, params: requests[i], url: r.url, body: null,
+                error: `HTTP ${r.status} — ${r.body.reason || "no hourly data in response"}`,
+            };
+        }
+        return { place, lat, lon, params: requests[i], url: r.url, body: r.body, error: null };
+    });
+
+    setUrls(results);
+    lastResults = results;
+    lastDate = date;
+    lastStats = { seconds, bytes, fetched, cached };
+    renderTabs();
+    buildMarkers(results, date);
+
+    // Follow 輸入 when it has moved -- a pill, the GPS, the picker or a typed
+    // coordinate -- but not on a change of date, which should leave the view be.
+    const inputKey = `${PLACES[0][1]},${PLACES[0][2]}`;
+    if (shownInput !== null && shownInput !== inputKey) {
+        centreOn(PLACES[0][1], PLACES[0][2]);
+        raiseCard(markers[0].card);
+    }
+    shownInput = inputKey;
+
+    if (results.some((r) => r.body)) setMeta();
+    else showError(`all ${results.length} requests failed — ${results[0].error}`);
+    button.disabled = false;
+});
+
+document.getElementById("reset").addEventListener("click", () => {
+    resetDefaults();
+    document.getElementById("form").requestSubmit();
+});
+document.getElementById("now").addEventListener("click", () => {
+    document.getElementById("when").value = nowValue(offsetFromForm());
+    document.getElementById("form").requestSubmit();
+});
+document.getElementById("location").addEventListener("input", markActivePlace);
+document.getElementById("geo").addEventListener("click", useCurrentPosition);
+document.getElementById("mappick").addEventListener("click", pickFromMap);
+document.getElementById("when").addEventListener("change", () => document.getElementById("form").requestSubmit());
+document.getElementById("location").addEventListener("change", () => document.getElementById("form").requestSubmit());
+
+for (const el of document.querySelectorAll(".blockwin")) {
+    el.textContent = el.closest("li")
+        ? `${pad2(DAY_START_HR)}–${pad2(DAY_END_HR)}`
+        : BLOCK_WINDOWS.map(([a, b]) => `${pad2(a)}–${pad2(b)}`).join(" · ");
+}
+buildPlaces();
+resetDefaults();
+buildMarkers(null, null);
+fitAll();
+// Fetch once on load, like astro-score_daily.html: every field has a usable
+// default, and the map with nothing on it answers nothing.
+document.getElementById("form").requestSubmit();
+</script>
+</body>
+</html>
