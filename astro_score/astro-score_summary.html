@@ -126,7 +126,6 @@
         .summary .verdict.poor { color: var(--err); }
         .summary .rest { color: var(--muted); font-size: 0.85rem; }
         .summary .night { border-top: 1px solid var(--line); padding-top: 4px; }
-        .summary .note { color: var(--muted); font-size: 0.8rem; }
 
     </style>
 </head>
@@ -1054,9 +1053,6 @@ function renderSummary() {
         box.appendChild(p);
     });
 
-    box.appendChild(el("p", "note",
-        `雲量來源：${activeModel}。預報越遠越不準，第 4 天以後的排名當參考就好，出發前再看一次。` +
-        "逐時細節在 astro-score_readable.html，整週的格子在 astro-score_daily.html。"));
 }
 
 /* ------------------------------------------------------------------ *
