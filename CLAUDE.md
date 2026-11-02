@@ -1111,9 +1111,13 @@ follows when editing a row there:
 
 **`astro-score_daily.html` in words**, Traditional Chinese, for tonight and the
 six nights after it — a sixteenth demo page, also **not yet counted** in the
-duplication table. Its inputs are `astro-score_map.html`'s (time box + 輸入
-location, pills for `PLACES.slice(1)`, geo, map pick) and its form/request
-functions are that page's copies; the astronomy and score block is the daily
+duplication table. Its inputs are `astro-score_map.html`'s **minus the pills** (time box + 輸入
+location, geo, map pick), and it has **no 雲量來源 tabs and no meta line** —
+the page is for reading, so cloud is fixed to `DEFAULT_MODEL` and `#meta`
+shows only while fetching or on failure (`setStatus()`). 輸入's reverse-geocoded
+name goes into the ① sentence (就您所在的位置（臺北市內湖區）來看) instead,
+redrawn by `loadInputPlaceName()` when it lands. Its form/request functions are
+the map page's copies; the astronomy and score block is the daily
 page's, verbatim, plus `MOON_NAMES`/`moonOctant()`/`moonGlyph()` and
 `clearScore()`. Change those on the daily page, change them here.
 
@@ -1134,6 +1138,12 @@ Two steps per night, in that order, and the order is the point:
   geometry before the null-cloud guard, so a night past the model horizon is
   not mislabelled moonlit. 輸入 is dropped from the ranking when it sits on a
   saved spot's exact coordinates.
+- **Tonight is three numbered lines**: ① the moon sentence, ② `clearVerdict()`
+  of the top spot's mean ClearScore (>90 雲很少, <80 雲太多, else 看運氣), ③
+  `astroVerdict()` of that spot's **best-hour AstroScore** (`astro` in
+  `clearByNight()`, moon penalty included; >90 非常適合, <70 不適合, else 看運氣).
+  Thresholds are the user's; keep them. Each later night is **one line**
+  (top three spots + `verdict()`), with no moon sentence.
 
 "Tonight" is the time box's date, or the day before **before 06:00**
 (`TONIGHT_FROM_HR`) — a morning visit plans the coming evening. The request is

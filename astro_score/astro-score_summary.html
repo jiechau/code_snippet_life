@@ -80,7 +80,6 @@
         .locrow { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
         .locrow input { width: 200px; flex: 0 0 auto; }
         .locrow .locname { margin-bottom: 0; white-space: nowrap; }
-        .places { display: flex; gap: 6px; flex-wrap: wrap; flex-basis: 100%; }
         .place {
             font: inherit;
             font-size: 0.85rem;
@@ -131,29 +130,6 @@
         }
         .meta.error { color: var(--err); }
 
-        .tabrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
-        .tablabel { font-size: 0.78rem; font-weight: 600; color: var(--muted); }
-        .tabs { display: flex; gap: 6px; flex-wrap: wrap; }
-        .tab {
-            font-size: 0.8rem;
-            font-weight: 700;
-            letter-spacing: 0.03em;
-            text-transform: uppercase;
-            padding: 7px 14px;
-            border-radius: 999px;
-            border: 1px solid var(--line);
-            background: #f7f9fb;
-            color: var(--muted);
-            cursor: pointer;
-            transition: all 0.15s ease;
-        }
-        .tab:hover { border-color: var(--accent); color: var(--accent); background: #f7f9fb; }
-        .tab[aria-selected="true"] {
-            background: var(--accent);
-            border-color: var(--accent);
-            color: white;
-        }
-
         /* ---- The summary: words only ----------------------------------- */
         .summary h2 { font-size: 1.15rem; margin: 26px 0 8px; }
         .summary h2:first-child { margin-top: 4px; }
@@ -195,7 +171,8 @@
             <b>tonight</b>, where to go, and <b>the coming week</b>, which night and where. Two steps,
             in that order: first the <b>moon</b> decides <em>when</em> you can shoot, then the
             <b style="color:#2f6fb3;">ClearScore</b> (100 &minus; Cloud) in those hours ranks every spot in
-            <code>places.js</code>. Same request, same four models, same tabs as the daily page.
+            <code>places.js</code>, and the best-hour <strong style="color:#1e8449;">AstroScore</strong> gives the overall verdict.
+            Cloud from <code>ecmwf_ifs025</code>, the daily page's default tab.
             No API key needed.
         </p>
 
@@ -222,14 +199,13 @@
                     </div>
                 </div>
                 <div class="field wide">
-                    <label for="location">location <span class="hint">lat,lon &mdash; <strong>輸入</strong>, ranked with the saved spots; or pick a spot, the device, or a point on the map</span></label>
+                    <label for="location">location <span class="hint">lat,lon &mdash; <strong>輸入</strong>, ranked with the saved spots; or the device, or a point on the map</span></label>
                     <div class="locrow">
                         <label class="locname" for="location">輸入:</label>
                         <input id="location" name="location" spellcheck="false">
                         <button type="button" class="place geo" id="geo" title="device GPS → 輸入">📍 使用目前位置</button>
                         <button type="button" class="place geo" id="mappick" title="OpenStreetMap → 輸入">🗺️ 在地圖上點選</button>
                         <span class="geonote" id="geonote"></span>
-                        <div class="places" id="places"></div>
                     </div>
                 </div>
             </div>
@@ -241,11 +217,7 @@
         </form>
 
         <div class="result" id="result">
-            <div class="meta" id="meta"></div>
-            <div class="tabrow">
-                <span class="tablabel">cloud source (雲量來源)</span>
-                <div id="tabs" class="tabs"></div>
-            </div>
+            <div class="meta" id="meta" hidden></div>
             <div class="summary" id="summary"></div>
             <details id="raw" hidden>
                 <summary>request URLs</summary>
@@ -428,15 +400,16 @@ async function reverseGeocode(lat, lon, timeoutMs = 10000) {
 }
 
 /**
- * Name 輸入 on the meta line, and only that one -- the saved spots carry
- * names already. Deferred and never awaited, guarded on PLACES[0] still being
- * that coordinate: astro-score_daily.html's loadInputPlaceName(), verbatim.
+ * Name 輸入 in the ① sentence (就您所在的位置（…）來看), and only that one -- the
+ * saved spots carry names already. Deferred and never awaited, guarded on
+ * PLACES[0] still being that coordinate: astro-score_daily.html's
+ * loadInputPlaceName(), redrawing the summary rather than a meta line.
  */
 function loadInputPlaceName(lat, lon) {
     reverseGeocode(lat, lon).then((name) => {
         if (!name || PLACES[0][1] !== lat || PLACES[0][2] !== lon) return;
         inputPlaceName = name;
-        setMeta();
+        renderSummary();
     });
 }
 
@@ -898,6 +871,11 @@ function spokenDate(date) {
     return `${date.slice(5, 7)}/${date.slice(8, 10)}（${wd}）`;
 }
 
+/** The phase as a sentence: "月相：🌗 下弦，亮度約 41%。" */
+function moonPhaseText(sky) {
+    return `月相：${moonGlyph(sky.elong)} ${MOON_NAMES[moonOctant(sky.elong)]}，亮度約 ${Math.round(sky.illum)}%。`;
+}
+
 /**
  * Step one, in words: what the moon allows on this night.
  *
@@ -909,8 +887,7 @@ function spokenDate(date) {
  */
 function moonSentence(sky, offsetSec) {
     const t = (ms) => spokenTime(ms, offsetSec);
-    const name = MOON_NAMES[moonOctant(sky.elong)];
-    const lead = `月相：${moonGlyph(sky.elong)} ${name}，亮度約 ${Math.round(sky.illum)}%。`;
+    const lead = "";   // the phase is said separately, by moonPhaseText()
     if (sky.dusk === null) return `${lead}這裡今晚天色不會全暗，沒有可以拍的時段。`;
     const night = `天黑 ${t(sky.dusk)} 到天亮前 ${t(sky.dawn)}`;
     const hours = windowHours(sky);
@@ -943,10 +920,10 @@ function moonSentence(sky, offsetSec) {
 
 /**
  * One spot's response -> Map of night date -> {mean, best, bestAt, hours,
- * moonlit, offset}: the average and best ClearScore over the hours that are
+ * moonlit, astro, offset}: the average and best ClearScore over the hours that are
  * shootable at that spot (dark, moon down or ignorable), how many hours carried
  * a cloud figure, and whether the moon was up all night so the dark hours had
- * to stand in instead. Hours are taken at the spot's own coordinates; a null
+ * to stand in instead, plus the night's best-hour AstroScore. Hours are taken at the spot's own coordinates; a null
  * cloud figure is skipped, not scored 100.
  */
 function clearByNight(body, lat, lon, model, multi) {
@@ -962,7 +939,7 @@ function clearByNight(body, lat, lon, model, multi) {
         // Noon to noon: the small hours belong to the night before.
         const date = hour < 12 ? addDays(t.slice(0, 10), -1) : t.slice(0, 10);
         if (!nights.has(date)) {
-            nights.set(date, { shoot: [], dark: [], moonless: 0, offset });
+            nights.set(date, { shoot: [], dark: [], moonless: 0, astro: null, offset });
             const mid = astroAt(nightStartMs(date, offset) + 12 * 3600000, lat, lon);
             ignoreByNight.set(date, mid.moonIllum < MOON_IGNORE_ILLUM);
         }
@@ -978,6 +955,8 @@ function clearByNight(body, lat, lon, model, multi) {
         const clear = clearOf(hourly[key][i]);
         if (clear === null) return;
         n.dark.push({ clear, utcMs });
+        // AstroScore as the daily page's bar reads it: the night's best hour.
+        n.astro = Math.max(n.astro ?? 0, astroScore(a.sunAlt, a.moonAlt, a.moonIllum, hourly[key][i]));
         if (moonless) n.shoot.push({ clear, utcMs });
     });
 
@@ -994,6 +973,7 @@ function clearByNight(body, lat, lon, model, multi) {
             bestAt: best.utcMs,
             hours: hours.length,
             moonlit,
+            astro: n.astro,
             offset,
         });
     }
@@ -1006,7 +986,27 @@ function byClear(a, b) {
         ((a.bortle ?? 99) - (b.bortle ?? 99));
 }
 
-/** How a mean ClearScore reads, and the class it is printed in. */
+/** Tonight's sky, from the recommended spot's mean ClearScore. */
+function clearVerdict(mean) {
+    if (mean > 90) return ["今晚天空雲很少，很適合拍照。", "good"];
+    if (mean < 80) return ["天空雲太多，不適合拍照。", "poor"];
+    return ["今晚雲量中等，拍照看運氣。", ""];
+}
+
+/** The overall word, from that spot's best-hour AstroScore (moon included). */
+function astroVerdict(peak) {
+    if (peak > 90) return ["總體來說，今晚非常適合拍照！", "good"];
+    if (peak < 70) return ["總體來說，今晚不適合拍照！", "poor"];
+    return ["總體來說，今晚拍照要看運氣。", ""];
+}
+
+/** "臺北市內湖區" out of "中華民國/臺北市/內湖區": the country is understood. */
+function shortPlaceName(name) {
+    const parts = name.split("/");
+    return (parts.length > 1 ? parts.slice(1) : parts).join("");
+}
+
+/** How a mean ClearScore reads in the week list, and the class it is printed in. */
 function verdict(mean) {
     if (mean >= 80) return ["非常晴朗，值得出發。", "good"];
     if (mean >= 60) return ["大致晴朗，可以去。", "good"];
@@ -1053,7 +1053,7 @@ function el(tag, className, text) {
     return node;
 }
 
-/** Write the whole summary for lastResults, lastDate and activeModel. */
+/** Write the whole summary for lastResults and lastDate, scored on DEFAULT_MODEL. */
 function renderSummary() {
     const box = document.getElementById("summary");
     box.replaceChildren();
@@ -1062,6 +1062,7 @@ function renderSummary() {
     const first = lastResults.find((r) => r.body);
     if (!first) return;
     const multi = modelsFromParams(first.params).length > 1;
+    const activeModel = DEFAULT_MODEL;
     const spots = rankable(lastResults).map((r) => ({
         ...r, nights: clearByNight(r.body, r.lat, r.lon, activeModel, multi),
     }));
@@ -1073,14 +1074,17 @@ function renderSummary() {
 
     // ---- Tonight ----
     box.appendChild(el("h2", "", `今晚 ${spokenDate(lastDate)}`));
-    box.appendChild(el("p", "moonline", `① 先看月亮 — ${moonSentence(skies[0], inOffset)}`));
+    const where = inputPlaceName ? `（${shortPlaceName(inputPlaceName)}）` : "";
+    box.appendChild(el("p", "moonline",
+        `① 就您所在的位置${where}來看，${moonSentence(skies[0], inOffset)}${moonPhaseText(skies[0])}`));
     const tonight = rankNight(spots, lastDate);
     if (!tonight.length) {
-        box.appendChild(el("p", "", "② 這個雲量來源沒有今晚的預報，換一個分頁看看。"));
+        box.appendChild(el("p", "", "② 今晚沒有雲量預報可以參考。"));
     } else {
-        const [text, cls] = verdict(tonight[0].c.mean);
-        const p = el("p", "", `② 再看晴空 — 今晚最推薦去 ${tonight[0].place}，`);
-        p.appendChild(el("span", `verdict ${cls}`, text));
+        const top = tonight[0];
+        const [clearText, clearCls] = clearVerdict(top.c.mean);
+        const p = el("p", "", `② 再看晴空，最推薦去 ${top.place}（平均晴空 ${Math.round(top.c.mean)}%）：`);
+        p.appendChild(el("span", `verdict ${clearCls}`, clearText));
         box.appendChild(p);
         const ol = el("ol");
         for (const r of tonight.slice(0, 5)) ol.appendChild(el("li", "", spotPhrase(r, true)));
@@ -1089,27 +1093,32 @@ function renderSummary() {
             box.appendChild(el("p", "rest",
                 `其他地點依序：${tonight.slice(5).map((r) => spotPhrase(r, false)).join("、")}。`));
         }
+        if (top.c.astro !== null) {
+            const [astroText, astroCls] = astroVerdict(top.c.astro);
+            const p3 = el("p", "", "③ ");
+            p3.appendChild(el("span", `verdict ${astroCls}`, astroText));
+            p3.appendChild(document.createTextNode(
+                `（${top.place} 今晚 AstroScore 最高 ${Math.round(top.c.astro)}，已把月光算進去）`));
+            box.appendChild(p3);
+        }
     }
 
-    // ---- The week ----
+    // ---- The week: one line a night ----
     box.appendChild(el("h2", "", `未來一週 ${spokenDate(dates[0])} – ${spokenDate(dates[NIGHTS - 1])}`));
     const bestPerNight = [];
     dates.forEach((date, i) => {
-        const div = el("div", "night");
-        div.appendChild(el("h3", "", `${spokenDate(date)} 晚上${i === 0 ? "（今晚）" : ""}`));
-        div.appendChild(el("p", "", moonSentence(skies[i], inOffset)));
+        const label = `${spokenDate(date)} 晚上${i === 0 ? "（今晚）" : ""}：`;
         const ranked = rankNight(spots, date);
         if (!ranked.length) {
-            div.appendChild(el("p", "rest", "這一晚超出這個雲量來源的預報範圍。"));
-        } else {
-            const [text, cls] = verdict(ranked[0].c.mean);
-            const p = el("p", "", `最晴的地點：${ranked.slice(0, 3).map((r) => spotPhrase(r, false)).join("、")}。`);
-            p.appendChild(el("span", `verdict ${cls}`, ` ${text}`));
-            div.appendChild(p);
-            const hours = windowHours(skies[i]);
-            if (hours >= MIN_WINDOW_HOURS) bestPerNight.push({ date, hours, top: ranked[0] });
+            box.appendChild(el("p", "rest", `${label}超出預報範圍。`));
+            return;
         }
-        box.appendChild(div);
+        const [text, cls] = verdict(ranked[0].c.mean);
+        const p = el("p", "", `${label}最晴的地點：${ranked.slice(0, 3).map((r) => spotPhrase(r, false)).join("、")}。 `);
+        p.appendChild(el("span", `verdict ${cls}`, text));
+        box.appendChild(p);
+        const hours = windowHours(skies[i]);
+        if (hours >= MIN_WINDOW_HOURS) bestPerNight.push({ date, hours, top: ranked[0] });
     });
 
     // ---- Pick of the week ----
@@ -1197,47 +1206,11 @@ function markZone(offsetHours) {
 /** An offset in whole hours as "UTC+8" / "UTC−5". */
 const zoneLabel = (h) => `UTC${h < 0 ? "−" : "+"}${Math.abs(h)}`;
 
-/**
- * Highlight whichever saved spot matches the box -- and after a hand edit, none.
- */
-function markActivePlace() {
-    const current = document.getElementById("location").value.trim();
-    for (const button of document.querySelectorAll("#places .place")) {
-        button.setAttribute("aria-pressed", String(button.dataset.coords === current));
-    }
-}
-
-/**
- * One pill per saved spot -- PLACES[1..], not 輸入 itself, since the box *is* 輸入
- * here (as on astro-score_daily.html) and its pill would always be pressed. A
- * pill puts 輸入 on that spot and refetches, which costs nothing: the spot's own
- * URL is already in fetchCache.
- */
-function buildPlaces() {
-    const box = document.getElementById("places");
-    box.replaceChildren();
-    for (const [name, lat, lon] of PLACES.slice(1)) {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = "place";
-        button.textContent = name;
-        button.dataset.coords = `${lat},${lon}`;
-        button.title = `${lat}, ${lon}`;
-        button.addEventListener("click", () => {
-            document.getElementById("location").value = button.dataset.coords;
-            markActivePlace();
-            document.getElementById("form").requestSubmit();
-        });
-        box.appendChild(button);
-    }
-}
-
 function resetDefaults() {
     document.getElementById("location").value = `${DEFAULT_LAT},${DEFAULT_LON}`;
     const offset = zoneOffsetHours(DEFAULT_LON);
     document.getElementById("when").value = nowValue(offset);
     markZone(offset);
-    markActivePlace();
 }
 
 /**
@@ -1255,7 +1228,6 @@ async function useCurrentPosition() {
         const { lat, lon, accuracy } = await currentPosition();
         document.getElementById("location").value = `${lat},${lon}`;
         note.textContent = `±${Math.round(accuracy)} m`;
-        markActivePlace();
         document.getElementById("form").requestSubmit();
     } catch (err) {
         note.classList.add("error");
@@ -1280,7 +1252,6 @@ async function pickFromMap() {
         document.getElementById("location").value = `${picked.lat},${picked.lon}`;
         note.classList.remove("error");
         note.textContent = "";
-        markActivePlace();
         document.getElementById("form").requestSubmit();
     } finally {
         button.disabled = false;
@@ -1293,61 +1264,22 @@ async function pickFromMap() {
 
 let lastResults = null;   // one entry per PLACES row, from the most recent fetch
 let lastDate = null;      // the local date of "tonight" for those results
-let lastStats = null;     // {seconds, bytes, fetched, cached}
-let activeModel = DEFAULT_MODEL;
 let inputPlaceName = "";
 
-/** Model tabs -- astro-score_daily.html's renderTabs(), rewriting the summary. */
-function renderTabs() {
-    const tabs = document.getElementById("tabs");
-    tabs.textContent = "";
-    if (!lastResults) return;
-    const first = lastResults.find((r) => r.body);
-    if (!first) return;
-    const models = modelsFromParams(first.params);
-    const names = models.length ? models : ["default"];
-    if (!names.includes(activeModel)) {
-        activeModel = names.includes(DEFAULT_MODEL) ? DEFAULT_MODEL : names[0];
-    }
-    for (const name of names) {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = "tab";
-        button.textContent = name.replace(/_.*$/, "");
-        button.title = name;
-        button.setAttribute("aria-selected", String(name === activeModel));
-        button.addEventListener("click", () => {
-            activeModel = name;
-            renderTabs();
-            renderSummary();
-            setMeta();
-        });
-        tabs.appendChild(button);
-    }
-}
-
-function setMeta() {
-    if (!lastResults || !lastStats) return;
-    const ok = lastResults.filter((r) => r.body);
-    if (!ok.length) return;
-    const failed = lastResults.filter((r) => !r.body);
+/**
+ * The status line: shown while fetching and on failure, hidden once the summary
+ * is up -- this page is for reading, and the request figures are in the URLs.
+ */
+function setStatus(message, isError = false) {
     const meta = document.getElementById("meta");
-    meta.classList.remove("error");
-    meta.textContent =
-        `${lastDate} + ${NIGHTS - 1} nights  ${ok.length}/${lastResults.length} places  ` +
-        `${lastStats.fetched} fetched, ${lastStats.cached} cached  ${lastStats.bytes} bytes  ` +
-        `${lastStats.seconds.toFixed(2)}s  ` +
-        `— ${ok[0].body.timezone} (${ok[0].body.timezone_abbreviation}), ` +
-        `scoring ${activeModel} of ${modelsFromParams(ok[0].params).length || 1}` +
-        (failed.length ? `  — failed: ${failed.map((r) => `${r.place} (${r.error})`).join("; ")}` : "");
-    if (inputPlaceName) {
-        meta.appendChild(document.createElement("br"));
-        meta.appendChild(document.createTextNode(`${PLACES[0][0]}: ${inputPlaceName}`));
-    }
+    meta.hidden = !message;
+    meta.classList.toggle("error", isError);
+    meta.textContent = message;
 }
 
 function showError(message) {
     const meta = document.getElementById("meta");
+    meta.hidden = false;
     meta.textContent = message;
     meta.classList.add("error");
 }
@@ -1404,30 +1336,23 @@ document.getElementById("form").addEventListener("submit", async (event) => {
     }
 
     button.disabled = true;
-    const meta = document.getElementById("meta");
-    meta.classList.remove("error");
-    meta.textContent = `fetching ${PLACES.length} places, ${NIGHTS} nights from ${date}, ${FETCH_POOL} at a time...`;
+    setStatus(`fetching ${PLACES.length} places, ${NIGHTS} nights from ${date}, ${FETCH_POOL} at a time...`);
 
     inputPlaceName = "";
     loadInputPlaceName(PLACES[0][1], PLACES[0][2]);
 
-    const started = performance.now();
     const settled = await settledPool(requests, FETCH_POOL, (p) => cachedForecast(p));
-    const seconds = (performance.now() - started) / 1000;
 
-    let fetched = 0, cached = 0, bytes = 0;
     const results = PLACES.map(([place, lat, lon], i) => {
         const outcome = settled[i];
         if (outcome.status === "rejected") {
             const err = outcome.reason;
-            fetched += 1;
             return {
                 place, lat, lon, params: requests[i], url: buildUrl(requests[i]), body: null,
                 error: `request failed: ${err.name === "TimeoutError" ? "timed out" : err.message}`,
             };
         }
         const r = outcome.value;
-        if (r.cached) cached += 1; else { fetched += 1; bytes += r.bytes; }
         if (!r.ok || !r.body.hourly) {
             return {
                 place, lat, lon, params: requests[i], url: r.url, body: null,
@@ -1440,12 +1365,12 @@ document.getElementById("form").addEventListener("submit", async (event) => {
     setUrls(results);
     lastResults = results;
     lastDate = date;
-    lastStats = { seconds, bytes, fetched, cached };
-    renderTabs();
     renderSummary();
 
-    if (results.some((r) => r.body)) setMeta();
-    else showError(`all ${results.length} requests failed — ${results[0].error}`);
+    const failed = results.filter((r) => !r.body);
+    if (failed.length === results.length) showError(`all ${results.length} requests failed — ${results[0].error}`);
+    else if (failed.length) showError(`${failed.length} 個地點沒有資料：${failed.map((r) => `${r.place} (${r.error})`).join("; ")}`);
+    else setStatus("");
     button.disabled = false;
 });
 
@@ -1457,13 +1382,11 @@ document.getElementById("now").addEventListener("click", () => {
     document.getElementById("when").value = nowValue(offsetFromForm());
     document.getElementById("form").requestSubmit();
 });
-document.getElementById("location").addEventListener("input", markActivePlace);
 document.getElementById("geo").addEventListener("click", useCurrentPosition);
 document.getElementById("mappick").addEventListener("click", pickFromMap);
 document.getElementById("when").addEventListener("change", () => document.getElementById("form").requestSubmit());
 document.getElementById("location").addEventListener("change", () => document.getElementById("form").requestSubmit());
 
-buildPlaces();
 resetDefaults();
 // Fetch once on load, like astro-score_daily.html: every field has a usable
 // default, and an empty summary answers nothing.
