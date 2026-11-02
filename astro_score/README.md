@@ -50,8 +50,8 @@ here mainly when changing those constants; the adjustable form is
 - [AstroScore map](https://jiechau.github.io/code_snippet_life/astro_score/astro-score_map.html)
   — the daily grid's cell for **one date**, drawn on a map at every saved spot:
   pick a time (its date is the day shown) and the 輸入 location, and each place
-  gets its two night blocks, strips, altitude digits and moon phase where it
-  actually is. *Where, tonight* beside the daily page's *which place, which night*.
+  gets its two night blocks — AstroScore bar and ClearScore strip only, the rest
+  in the hover text — where it actually is. *Where, tonight* beside the daily page's *which place, which night*.
 
 - [Astro Bookmark](https://jiechau.github.io/code_snippet_life/astro_score/astro-bookmark.html)
   — outbound links only: CWA's 月相圖, two light-pollution maps, NCDR's

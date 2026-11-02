@@ -1062,8 +1062,12 @@ follows when editing a row there:
   `blocksByDate()`, `seriesKey()`), spliced in unchanged, comments and all — so it is in
   the Meeus, `GC_`/`M42_`, `astroScore()` and block-folding rows exactly as the daily page
   is. `blocksCell()` is the daily copy building a `<div class="blocks">` instead of a
-  `<td>`, and the cell CSS is the daily `td.blocks` CSS with the `td` dropped. Change a
-  cell on one page, change it on the other.
+  `<td>`, **cut down to the green bar and the blue ClearScore strip** — the Milky/Orion
+  strips, the three altitude digits and the phase glyph made every card twice as tall
+  and the island unreadable, so they live only in the cell's `title` here. The cell
+  CSS is the daily `td.blocks` CSS with the `td` dropped and the `.mark`/`.phase`
+  rules gone. Change the bar or the blue strip on one page, change it on the other;
+  don't put the dropped rows back on the map.
 - **From `pure_math/galactic_center.html`**: the time + location form —
   `zoneOffsetHours()`/`nowValue()`/`utcFromForm()`/`placeFromForm()`/`offsetFromForm()`,
   the `.timerow`, the **now** button. The time box's **date** is the day every card shows;

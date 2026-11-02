@@ -175,6 +175,11 @@
             user-select: none;
             -webkit-user-select: none;
         }
+        /* On a PC the phone height leaves Taiwan a strip; three times it gives
+           the cards room to sit on their own pins. Phones keep the short box. */
+        @media (min-width: 900px) and (pointer: fine) {
+            .map { height: min(216vh, 2040px); }
+        }
         .map.dragging { cursor: grabbing; }
         .maptile { position: absolute; width: 256px; height: 256px; }
         /* Leader lines from a pin to its card, when the card had to be moved
@@ -273,20 +278,6 @@
         .stack .bar { display: block; width: auto; height: 1em; position: relative; }
         .stack .bar .fill { position: absolute; left: 0; right: 0; bottom: 0; background: var(--ok); }
         .under { display: block; font-size: 1.5rem; height: 0.5em; }
-        .mark {
-            display: block;
-            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-            font-size: 0.65rem;
-            line-height: 1;
-            height: 1em;
-            letter-spacing: 0;
-            text-align: center;
-        }
-        .mark.gc { color: var(--milky); }
-        .mark.m42 { color: var(--orion); }
-        .mark.moon { color: var(--moon); }
-        .blocks .phase { display: block; font-size: 1rem; line-height: 1.15; text-align: center; }
-        .blocks .phase .glyph { display: inline-block; }
 
         details { margin-top: 18px; }
         summary { cursor: pointer; font-size: 0.85rem; color: var(--muted); }
@@ -311,11 +302,11 @@
         <a class="back" href="index.html">&larr; astro_score</a>
         <h1>AstroScore <span style="color:#777;font-weight:400;">map</span></h1>
         <p class="sub">
-            One day, every saved spot, on a map. Each place carries the same cell
+            One day, every saved spot, on a map. Each place carries a cut-down copy of the cell
             <a href="astro-score_daily.html">astro-score_daily.html</a> draws for it &mdash; the two
-            night blocks (<span class="blockwin">00&ndash;05 &middot; 19&ndash;23</span>) with their
-            <strong style="color:#1e8449;">AstroScore</strong> bars, the clear / Milky Way / Orion
-            strips, the A* / M42 / moon altitude digits and the moon phase &mdash; but for the
+            night blocks (<span class="blockwin">00&ndash;05 &middot; 19&ndash;23</span>), each just its
+            <strong style="color:#1e8449;">AstroScore</strong> bar and blue ClearScore strip (the rest
+            of the daily cell is in the hover text) &mdash; but for the
             <b>one date</b> in the time box rather than a fortnight of columns, laid out where the
             place actually is. The daily grid answers <em>which place, which night</em>; this
             answers <em>where, tonight</em>. The blue-ringed card is 輸入, the one that follows the
@@ -334,13 +325,11 @@
                     <li><b style="color:#1e8449;">Green bar</b> = the block's best AstroScore hour
                         (full &gt; 90, &frac34; &gt; 70, &frac12; &gt; 50, &frac14; &gt; 30, blank at or below);
                         a faint <b style="color:#c3ccd5;">&middot;</b> means no forecast for that block.</li>
-                    <li>Strips under it, top to bottom: <b style="color:#2f6fb3;">ClearScore</b> (best dark-hour
-                        100 &minus; Cloud), <b style="color:#8e44ad;">MilkyScore</b> (A* altitude &times; AstroScore),
-                        <b style="color:#e2711d;">OrionScore</b> (the same for M42). Deeper is better.</li>
-                    <li>Digits: tens of degrees the body reached while dark &mdash;
-                        <b style="color:#8e44ad;">A*</b>, <b style="color:#e2711d;">M42</b>, and
-                        <b style="color:#41607d;">moon</b>, where high is <em>bad</em>. Then the phase glyph.</li>
-                    <li>Hover a cell for the exact numbers; the full key is on
+                    <li>Strip under it: <b style="color:#2f6fb3;">ClearScore</b> (best dark-hour
+                        100 &minus; Cloud, the moon left out). Deeper is better; deep blue under a short
+                        bar is a clear night lost to moonlight.</li>
+                    <li>Hover a cell for the exact numbers &mdash; MilkyScore, OrionScore, A*/M42/moon
+                        altitudes and the moon phase are there; the full cell is on
                         <a href="astro-score_daily.html">astro-score_daily.html</a>. Click a card to
                         bring it to the front; click its name to open the hour-by-hour page for it.</li>
                     <li>Cards are nudged off their pin (with a line back to it) when they would
@@ -1381,23 +1370,15 @@ function blocksCell(place, date, day) {
             span.textContent = NO_DATA_GLYPH;
         }
         stack.appendChild(span);
-        for (const paint of [clearColor(clear), milkyColor(milky), orionColor(orion)]) {
-            const under = document.createElement("span");
-            under.className = "under";
-            if (paint) under.style.backgroundColor = paint;
-            stack.appendChild(under);
-        }
-        const marks = [
-            ["gc", gcNight, TARGET_UP_ALT],
-            ["m42", m42Night, TARGET_UP_ALT],
-            ["moon", moonNight, MOON_UP_ALT],
-        ];
-        for (const [cls, night, gate] of marks) {
-            const mark = document.createElement("span");
-            mark.className = `mark ${cls}`;
-            if (dark && night > gate) mark.textContent = upMark(night);
-            stack.appendChild(mark);
-        }
+        // On the map a card is the bar and the ClearScore strip only: the
+        // Milky/Orion strips, the altitude digits and the phase glyph made
+        // every card twice as tall and the island unreadable. They are all
+        // still in the cell's title, and on astro-score_daily.html.
+        const under = document.createElement("span");
+        under.className = "under";
+        const paint = clearColor(clear);
+        if (paint) under.style.backgroundColor = paint;
+        stack.appendChild(under);
         td.appendChild(stack);
         const short = scored < blockHours(b) ? ` (${scored}/${hours || blockHours(b)} hr)` : "";
         const upText = (night) => (dark ? `${night.toFixed(0).padStart(3)}°` : "  --");
@@ -1410,14 +1391,6 @@ function blocksCell(place, date, day) {
             + `  moon max ${upText(moonNight)}${short}`,
         );
     }
-    const moon = document.createElement("span");
-    moon.className = "phase";
-    const glyph = document.createElement("span");
-    glyph.className = "glyph";
-    glyph.textContent = moonGlyph(elong);
-    glyph.style.transform = `rotate(${face.rotation.toFixed(1)}deg)`;
-    moon.appendChild(glyph);
-    td.appendChild(moon);
     const culm = new Date(face.peakMs + offset * 1000).toISOString().slice(11, 16);
     td.title = `${place} — ${formatDate(date)}\n${detail.join("\n")}`
         + `\n${moonGlyph(elong)} ${MOON_NAMES[moonOctant(elong)]}`
