@@ -1,0 +1,1473 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex, nocache">
+    <title>AstroScore summary &mdash; astro_score</title>
+    <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+    <style>
+        :root {
+            --fg: #333;
+            --muted: #777;
+            --line: #e3e6ea;
+            --accent: #2196F3;
+            --err: #c0392b;
+            --ok: #1e8449;
+            --grid: #eef1f4;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            color: var(--fg);
+            margin: 0;
+            padding: 24px 12px 60px;
+        }
+        .container {
+            background: white;
+            padding: 28px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+        h1 { margin: 0 0 4px; font-size: 1.6rem; }
+        p.sub { margin: 0 0 22px; color: var(--muted); font-size: 0.9rem; }
+        p.sub a { color: var(--accent); }
+        p.sub code { background: #f0f2f5; padding: 1px 5px; border-radius: 4px; }
+        a.back { color: var(--accent); text-decoration: none; font-size: 0.9rem; }
+        a.back:hover { text-decoration: underline; }
+
+        /* The folded key -- a short one: the full reading of a cell is
+           astro-score_daily.html's, and this page links there for it. */
+        .rule {
+            margin: 0;
+            padding: 12px 16px;
+            border-left: 3px solid var(--ok);
+            border-radius: 0 8px 8px 0;
+            background: #f2f8f5;
+            font-size: 0.85rem;
+        }
+        .rule ul { margin: 0; padding-left: 20px; color: var(--muted); }
+        .rule li { margin: 3px 0; }
+        details.explain { margin: 0 0 22px; }
+        details.explain > summary { font-weight: 600; }
+        details.explain[open] > summary { margin-bottom: 10px; }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+            gap: 14px;
+        }
+        .field { display: flex; flex-direction: column; }
+        .field.wide { grid-column: 1 / -1; }
+        label { font-size: 0.8rem; font-weight: 600; margin-bottom: 5px; }
+        label .hint { font-weight: 400; color: var(--muted); }
+        input {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.85rem;
+            padding: 8px 10px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: #fbfcfd;
+            color: var(--fg);
+        }
+        input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+        /* time and location: pure_math/galactic_center.html's two rows. */
+        .timerow { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+        .timerow input { width: auto; min-width: 200px; flex: 0 0 auto; }
+        .locrow { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+        .locrow input { width: 200px; flex: 0 0 auto; }
+        .locrow .locname { margin-bottom: 0; white-space: nowrap; }
+        .places { display: flex; gap: 6px; flex-wrap: wrap; flex-basis: 100%; }
+        .place {
+            font: inherit;
+            font-size: 0.85rem;
+            font-weight: 600;
+            padding: 6px 12px;
+            border-radius: 999px;
+            border: 1px solid var(--line);
+            background: #f7f9fb;
+            color: var(--accent);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .place:hover { border-color: var(--accent); background: #eaf4fd; }
+        .place[aria-pressed="true"] {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
+        .place.geo { color: var(--fg); }
+        .place.geo:disabled { opacity: 0.55; cursor: default; }
+        .geonote { font-size: 0.8rem; color: var(--muted); }
+        .geonote.error { color: var(--err); }
+
+        .actions { margin-top: 18px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        button {
+            font: inherit;
+            font-weight: 600;
+            padding: 9px 22px;
+            border-radius: 8px;
+            border: 2px solid var(--accent);
+            background: var(--accent);
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        button:hover:not(:disabled) { background: #1976d2; border-color: #1976d2; }
+        button:disabled { opacity: 0.55; cursor: default; }
+        button.secondary { background: white; color: var(--accent); }
+        button.secondary:hover:not(:disabled) { background: var(--accent); color: white; }
+        button.tiny { font-size: 0.85rem; padding: 6px 12px; border-radius: 999px; border-width: 1px; }
+
+        .result { margin-top: 26px; border-top: 1px solid var(--line); padding-top: 20px; }
+        .meta {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.8rem;
+            color: var(--muted);
+            margin-bottom: 12px;
+        }
+        .meta.error { color: var(--err); }
+
+        .tabrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+        .tablabel { font-size: 0.78rem; font-weight: 600; color: var(--muted); }
+        .tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+        .tab {
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+            padding: 7px 14px;
+            border-radius: 999px;
+            border: 1px solid var(--line);
+            background: #f7f9fb;
+            color: var(--muted);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .tab:hover { border-color: var(--accent); color: var(--accent); background: #f7f9fb; }
+        .tab[aria-selected="true"] {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
+
+        /* ---- The summary: words only ----------------------------------- */
+        .summary h2 { font-size: 1.15rem; margin: 26px 0 8px; }
+        .summary h2:first-child { margin-top: 4px; }
+        .summary h3 { font-size: 0.98rem; margin: 18px 0 4px; }
+        .summary p { margin: 6px 0; line-height: 1.7; }
+        .summary ol { margin: 6px 0; padding-left: 26px; line-height: 1.7; }
+        .summary .moonline { background: #f2f6fa; border-left: 3px solid #41607d; border-radius: 0 8px 8px 0; padding: 8px 12px; }
+        .summary .verdict { font-weight: 600; }
+        .summary .verdict.good { color: var(--ok); }
+        .summary .verdict.poor { color: var(--err); }
+        .summary .rest { color: var(--muted); font-size: 0.85rem; }
+        .summary .night { border-top: 1px solid var(--line); padding-top: 4px; }
+        .summary .note { color: var(--muted); font-size: 0.8rem; }
+
+        details { margin-top: 18px; }
+        summary { cursor: pointer; font-size: 0.85rem; color: var(--muted); }
+        summary:hover { color: var(--accent); }
+        .url {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.78rem;
+            word-break: break-all;
+            background: #f7f9fb;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin: 10px 0;
+        }
+        .url a { color: var(--accent); text-decoration: none; }
+        .url a:hover { text-decoration: underline; }
+        .url .who { color: var(--fg); font-weight: 700; display: block; margin-bottom: 2px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a class="back" href="index.html">&larr; astro_score</a>
+        <h1>AstroScore <span style="color:#777;font-weight:400;">summary</span></h1>
+        <p class="sub">
+            The grid of <a href="astro-score_daily.html">astro-score_daily.html</a> said in words:
+            <b>tonight</b>, where to go, and <b>the coming week</b>, which night and where. Two steps,
+            in that order: first the <b>moon</b> decides <em>when</em> you can shoot, then the
+            <b style="color:#2f6fb3;">ClearScore</b> (100 &minus; Cloud) in those hours ranks every spot in
+            <code>places.js</code>. Same request, same four models, same tabs as the daily page.
+            No API key needed.
+        </p>
+
+        <details class="explain">
+            <summary>how it decides (說明)</summary>
+            <div class="rule">
+                <ul>
+                    <li>一個「晚上」是當天中午到隔天中午；<b>天黑</b>是太陽低於地平線 10° 以下（和 AstroScore 的 <code>DARK_SUN_ALT</code> 相同）。</li>
+                    <li><b>可拍時段</b> = 天黑而且月亮在地平線以下。月亮亮度低於 15%（新月前後）時月光不算，整晚都算可拍。月出、月落時間以 <b>輸入</b> 的位置計算，台灣各地相差只有幾分鐘。</li>
+                    <li>每個地點只看<b>可拍時段</b>內每一小時的雲量，取 <b>平均晴空</b>（100 &minus; 雲量）排序；同分時看最晴的那一小時，再看 Bortle（越小越暗）。如果月亮整晚都在，就改用整個天黑時段，並且註明。</li>
+                    <li>Bortle 是 <code>places.js</code> 裡記下的數字；輸入沒有。</li>
+                    <li>時間框的<b>日期</b>就是「今晚」；清晨 6 點以前視為還在前一晚。</li>
+                </ul>
+            </div>
+        </details>
+
+        <form id="form">
+            <div class="grid">
+                <div class="field wide">
+                    <label for="when">time <span class="hint">local time at 輸入 &mdash; <span id="zone">UTC+8</span>, from its longitude; its <b>date</b> is &ldquo;tonight&rdquo; (before 06:00: last night)</span></label>
+                    <div class="timerow">
+                        <input type="datetime-local" id="when" step="60">
+                        <button type="button" class="secondary tiny" id="now">now</button>
+                    </div>
+                </div>
+                <div class="field wide">
+                    <label for="location">location <span class="hint">lat,lon &mdash; <strong>輸入</strong>, ranked with the saved spots; or pick a spot, the device, or a point on the map</span></label>
+                    <div class="locrow">
+                        <label class="locname" for="location">輸入:</label>
+                        <input id="location" name="location" spellcheck="false">
+                        <button type="button" class="place geo" id="geo" title="device GPS → 輸入">📍 使用目前位置</button>
+                        <button type="button" class="place geo" id="mappick" title="OpenStreetMap → 輸入">🗺️ 在地圖上點選</button>
+                        <span class="geonote" id="geonote"></span>
+                        <div class="places" id="places"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="actions">
+                <button type="submit" id="submit">Fetch</button>
+                <button type="button" class="secondary" id="reset">Reset defaults</button>
+            </div>
+        </form>
+
+        <div class="result" id="result">
+            <div class="meta" id="meta"></div>
+            <div class="tabrow">
+                <span class="tablabel">cloud source (雲量來源)</span>
+                <div id="tabs" class="tabs"></div>
+            </div>
+            <div class="summary" id="summary"></div>
+            <details id="raw" hidden>
+                <summary>request URLs</summary>
+                <div class="url" id="url"></div>
+            </details>
+        </div>
+    </div>
+
+<script src="../places.js"></script>
+<script>
+"use strict";
+
+// How many nights the summary covers, tonight included.
+const NIGHTS = 7;
+
+// Open-Meteo forecasts today plus 15 days; end_date past that is an HTTP 400.
+const FORECAST_MAX_DAYS = 16;
+
+/** "YYYY-MM-DD" plus n calendar days. */
+function addDays(date, n) {
+    const d = new Date(`${date}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + n);
+    return d.toISOString().slice(0, 10);
+}
+
+/* ------------------------------------------------------------------ *
+ * Request core -- buildUrl/fetchForecast are byte-for-byte the other
+ * Open-Meteo pages'. What differs is the parameter object: a
+ * start_date/end_date span of NIGHTS + 1 days, so the small hours of the
+ * last night are in the response too.
+ * ------------------------------------------------------------------ */
+
+const FORECAST_URL = "https://api.open-meteo.com/v1/forecast";
+
+// cloud_cover alone, as on astro-score_daily.html: astroScore() reads nothing else.
+const HOURLY_VARS = ["cloud_cover"];
+
+// All four models, in the shared order -- keep in step with every other
+// Open-Meteo page and milkyway.py.
+const MODELS = ["ecmwf_ifs025", "gfs_global", "jma_seamless", "icon_global"];
+
+// Which model the score comes from until a tab is clicked: MODELS[0].
+const DEFAULT_MODEL = "ecmwf_ifs025";
+
+/**
+ * The request for one spot: NIGHTS nights from the local date `date`.
+ *
+ * A night runs from noon to noon, so the span is NIGHTS + 1 calendar days --
+ * the last night's small hours fall on the day after it. ~9 KB a place across
+ * four models. The end is clamped to `lastDate`, the forecast's own last day
+ * (today + FORECAST_MAX_DAYS − 1), so a week starting ten days out still gets
+ * the nights that exist instead of an HTTP 400 for the ones that do not. Open-Meteo accepts dates from about 92 days back to 16 ahead
+ * and answers anything outside with HTTP 400 and its own reason, shown as is.
+ * timezone=auto, as everywhere, so hourly.time is local wall time.
+ */
+function defaultParams(lat, lon, date, lastDate) {
+    return {
+        latitude: lat,
+        longitude: lon,
+        hourly: HOURLY_VARS.join(","),
+        models: MODELS.join(","),
+        timezone: "auto",
+        start_date: date,
+        end_date: [addDays(date, NIGHTS), lastDate].sort()[0],
+    };
+}
+
+/**
+ * The full GET URL for a parameter object.
+ *
+ * Commas are left literal so the hourly/models lists stay readable and match
+ * Open-Meteo's own documented examples; encodeURIComponent would otherwise
+ * turn them into %2C. Spaces become "+" to match Python's urlencode.
+ */
+function buildUrl(params) {
+    const query = Object.entries(params)
+        .map(([key, value]) => {
+            const enc = (s) => encodeURIComponent(String(s))
+                .replace(/%2C/g, ",")
+                .replace(/%20/g, "+");
+            return `${enc(key)}=${enc(value)}`;
+        })
+        .join("&");
+    return `${FORECAST_URL}?${query}`;
+}
+
+/**
+ * Call the API and return {body, url, status, ok, bytes, seconds}.
+ *
+ * Errors are returned rather than thrown: Open-Meteo answers a bad request
+ * with HTTP 400 and a JSON body like
+ * {"error": true, "reason": "Latitude must be in range of -90 to 90°..."},
+ * which is far more useful to see than a stack trace.
+ */
+async function fetchForecast(params, timeoutMs = 30000) {
+    const url = buildUrl(params);
+    const started = performance.now();
+    const resp = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+    const text = await resp.text();
+    const seconds = (performance.now() - started) / 1000;
+
+    let body;
+    try {
+        body = JSON.parse(text);
+    } catch {
+        body = { error: true, reason: "response was not JSON", text: text };
+    }
+    body.get_para = url;
+
+    return {
+        body,
+        url,
+        status: resp.status,
+        ok: resp.ok,
+        contentType: resp.headers.get("Content-Type"),
+        bytes: new TextEncoder().encode(text).length,
+        seconds,
+    };
+}
+
+// Successful responses, by URL, for FETCH_TTL_MS. This page refetches on every
+// change of either box, and most changes leave most URLs alone: moving 輸入 (a
+// pill, the GPS, the map picker) changes one place's URL out of all of them, so
+// without this a pill click would cost a whole round to rewrite one sentence. And a
+// pill puts 輸入 on a saved spot's exact coordinates, whose URL is already
+// here. Ten minutes is well inside how often the models update. Successes only:
+// a timeout or a 429 deserves a retry, not a cached failure.
+const FETCH_TTL_MS = 10 * 60 * 1000;
+const fetchCache = new Map();
+
+/** fetchForecast() through the cache; resolves with an extra `cached` flag. */
+async function cachedForecast(params) {
+    const url = buildUrl(params);
+    const hit = fetchCache.get(url);
+    if (hit && Date.now() - hit.at < FETCH_TTL_MS) return { ...hit.result, cached: true };
+    const result = await fetchForecast(params);
+    if (result.ok && result.body.hourly) fetchCache.set(url, { at: Date.now(), result });
+    return { ...result, cached: false };
+}
+
+/** BigDataCloud's reverse geocoder: keyless, CORS-enabled, free client-side. */
+const GEOCODE_URL = "https://api.bigdatacloud.net/data/reverse-geocode-client";
+const geocodeCache = new Map();
+
+/**
+ * Turn a lat,lon into a readable place name for the meta line, e.g.
+ * 中華民國/宜蘭縣/南澳鄉/蘇澳鎮 -- countryName, principalSubdivision, city and
+ * locality, in that order. Byte-for-byte the same function as
+ * astro-score_readable.html's; change one and change the other.
+ *
+ * The coordinates are the requested ones, not the response's: Open-Meteo answers
+ * with the nearest grid point (24.625, 121.75 for a spot at 24.5145, 121.8277),
+ * which is up to ~6 km away and can sit in a different township. Sparse areas
+ * and open water leave some of the four fields empty, and the last two can
+ * repeat each other, so blanks and duplicates are dropped rather than shown.
+ *
+ * This is a label, never data: any failure resolves to "" and the meta line is
+ * left exactly as the forecast wrote it.
+ */
+async function reverseGeocode(lat, lon, timeoutMs = 10000) {
+    const key = `${lat},${lon}`;
+    if (geocodeCache.has(key)) return geocodeCache.get(key);
+
+    const url = `${GEOCODE_URL}?latitude=${encodeURIComponent(lat)}` +
+        `&longitude=${encodeURIComponent(lon)}&localityLanguage=zh`;
+    let name = "";
+    try {
+        const resp = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+        if (resp.ok) {
+            const body = await resp.json();
+            name = [body.countryName, body.principalSubdivision, body.city, body.locality]
+                .filter((part, i, all) => part && all.indexOf(part) === i)
+                .join("/");
+        }
+    } catch {
+        // Timed out or offline. The forecast itself is unaffected, so stay quiet.
+    }
+    geocodeCache.set(key, name);
+    return name;
+}
+
+/**
+ * Name 輸入 on the meta line, and only that one -- the saved spots carry
+ * names already. Deferred and never awaited, guarded on PLACES[0] still being
+ * that coordinate: astro-score_daily.html's loadInputPlaceName(), verbatim.
+ */
+function loadInputPlaceName(lat, lon) {
+    reverseGeocode(lat, lon).then((name) => {
+        if (!name || PLACES[0][1] !== lat || PLACES[0][2] !== lon) return;
+        inputPlaceName = name;
+        setMeta();
+    });
+}
+
+// How many of the per-place requests may be in flight at once. Load-bearing, as
+// on astro-score_daily.html: Open-Meteo answers a burst with HTTP 429.
+const FETCH_POOL = 4;
+
+/**
+ * Promise.allSettled with a concurrency limit.
+ *
+ * Same return shape as allSettled -- {status: "fulfilled", value} or
+ * {status: "rejected", reason} per item, in input order, never rejecting -- so
+ * one place failing still costs exactly one row.
+ */
+async function settledPool(items, limit, fn) {
+    const out = new Array(items.length);
+    let next = 0;
+    const worker = async () => {
+        while (true) {
+            const i = next;
+            next += 1;
+            if (i >= items.length) return;
+            out[i] = await fn(items[i], i).then(
+                (value) => ({ status: "fulfilled", value }),
+                (reason) => ({ status: "rejected", reason }),
+            );
+        }
+    };
+    await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+    return out;
+}
+
+/* Copied VERBATIM from astro-score_daily.html (via astro-score_map.html):
+ * the astronomy and the score, comments included. Keep in step. */
+
+/* ------------------------------------------------------------------ *
+ * Astronomy: low-precision solar/lunar positions (Meeus, "Astronomical
+ * Algorithms"), ported from milkyway.py -- same series, same terms, so
+ * the two agree to well under a degree. Sun is good to ~0.01 deg, moon
+ * to ~0.3 deg in longitude: far more than enough to say "is it dark"
+ * and "is the moon up", which is exactly what the score asks.
+ *
+ * Verbatim from astro-score_readable.html apart from the galactic core,
+ * which this page has no row for. Open-Meteo offers only sunrise/sunset
+ * and daily=moon_phase, so these angles are computed locally.
+ * ------------------------------------------------------------------ */
+
+const DEG = Math.PI / 180;
+const sin = (d) => Math.sin(d * DEG);
+const cos = (d) => Math.cos(d * DEG);
+const clamp1 = (x) => Math.min(1, Math.max(-1, x));
+const mod360 = (x) => ((x % 360) + 360) % 360;
+
+// Galactic center, J2000: RA 17h45m40.04s, Dec -29deg00'28" -- the same pair
+// milkyway.py uses, and for the same reason: precession since J2000 moves it by
+// well under a degree, far below the accuracy of the moon series below. Fixed
+// equatorial coordinates, so only the sidereal time makes its altitude move.
+const GC_RA = 266.41683;
+const GC_DEC = -29.00781;
+
+// Orion Nebula (M42, NGC 1976), J2000: RA 05h35m17.3s, Dec -05deg23'28" -- the
+// winter counterpart to the core above, and the subject of the orange strip.
+// Same treatment for the same reason: a fixed equatorial pair, precession since
+// J2000 far below the accuracy of everything around it, so only the sidereal
+// time moves it. pure_math/orion_nebula_m42.html prints every step.
+const M42_RA = 83.82208;
+const M42_DEC = -5.39111;
+
+/**
+ * Julian Day from a UTC timestamp in milliseconds.
+ *
+ * The Unix epoch is JD 2440587.5 by definition, which makes this exactly
+ * equivalent to milkyway.py's calendar-based julian_day() without repeating
+ * the Gregorian bookkeeping.
+ */
+function julianDay(utcMs) {
+    return utcMs / 86400000 + 2440587.5;
+}
+
+/** Mean obliquity of the ecliptic, in degrees. */
+function obliquity(jd) {
+    return 23.439291 - 0.0130042 * ((jd - 2451545.0) / 36525);
+}
+
+/** Ecliptic (lon, lat) in degrees -> {ra, dec} in degrees. */
+function eclipticToEquatorial(lon, lat, eps) {
+    const x = cos(lat) * cos(lon);
+    const y = cos(eps) * cos(lat) * sin(lon) - sin(eps) * sin(lat);
+    const z = sin(eps) * cos(lat) * sin(lon) + cos(eps) * sin(lat);
+    return {
+        ra: mod360(Math.atan2(y, x) / DEG),
+        dec: Math.asin(clamp1(z)) / DEG,
+    };
+}
+
+/** Solar right ascension, declination and ecliptic longitude, in degrees. */
+function sunPosition(jd) {
+    const n = jd - 2451545.0;
+    const meanLon = mod360(280.460 + 0.9856474 * n);
+    const meanAnom = mod360(357.528 + 0.9856003 * n);
+    const eclLon = mod360(
+        meanLon + 1.915 * sin(meanAnom) + 0.020 * sin(2 * meanAnom),
+    );
+    const { ra, dec } = eclipticToEquatorial(eclLon, 0.0, obliquity(jd));
+    return { ra, dec, eclLon };
+}
+
+/** Lunar right ascension, declination, distance (km) and ecliptic longitude. */
+function moonPosition(jd) {
+    const t = (jd - 2451545.0) / 36525;
+    const lp = mod360(218.3164477 + 481267.88123421 * t);   // mean longitude
+    const d = mod360(297.8501921 + 445267.1114034 * t);     // elongation
+    const m = mod360(357.5291092 + 35999.0502909 * t);      // sun anomaly
+    const mp = mod360(134.9633964 + 477198.8675055 * t);    // moon anomaly
+    const f = mod360(93.2720950 + 483202.0175233 * t);      // arg of latitude
+
+    const eclLon = mod360(
+        lp
+        + 6.289 * sin(mp)
+        + 1.274 * sin(2 * d - mp)
+        + 0.658 * sin(2 * d)
+        + 0.214 * sin(2 * mp)
+        - 0.186 * sin(m)
+        - 0.114 * sin(2 * f)
+        + 0.059 * sin(2 * d - 2 * mp)
+        + 0.057 * sin(2 * d - m - mp)
+        + 0.053 * sin(2 * d + mp)
+        + 0.046 * sin(2 * d - m)
+        - 0.041 * sin(m - mp)
+        - 0.035 * sin(d)
+        - 0.031 * sin(m + mp),
+    );
+    const eclLat =
+        5.128 * sin(f)
+        + 0.281 * sin(mp + f)
+        - 0.278 * sin(f - mp)
+        - 0.173 * sin(2 * d - f)
+        + 0.055 * sin(2 * d + f - mp)
+        - 0.046 * sin(2 * d - f - mp)
+        + 0.033 * sin(2 * d + f)
+        + 0.017 * sin(2 * mp + f);
+    const dist =
+        385000.56
+        - 20905.355 * cos(mp)
+        - 3699.111 * cos(2 * d - mp)
+        - 2955.968 * cos(2 * d)
+        - 569.925 * cos(2 * mp);
+
+    const { ra, dec } = eclipticToEquatorial(eclLon, eclLat, obliquity(jd));
+    return { ra, dec, dist, eclLon };
+}
+
+/** Local apparent sidereal time in degrees. */
+function localSiderealTime(jd, lonDeg) {
+    const t = (jd - 2451545.0) / 36525;
+    const gmst =
+        280.46061837
+        + 360.98564736629 * (jd - 2451545.0)
+        + 0.000387933 * t * t;
+    return mod360(gmst + lonDeg);
+}
+
+/** Equatorial (ra, dec) -> {alt, az} in degrees, azimuth measured from north. */
+function altAz(ra, dec, lat, lst) {
+    const ha = mod360(lst - ra);
+    const sinAlt = sin(lat) * sin(dec) + cos(lat) * cos(dec) * cos(ha);
+    const alt = Math.asin(clamp1(sinAlt)) / DEG;
+    const az = mod360(
+        Math.atan2(
+            -cos(dec) * sin(ha),
+            sin(dec) * cos(lat) - sin(lat) * cos(dec) * cos(ha),
+        ) / DEG,
+    );
+    return { alt, az };
+}
+
+/**
+ * Sun, moon, galactic core and M42 altitude for one hour, at the grid point the
+ * forecast is for.
+ *
+ * Both deep-sky targets are display-only on astro-score_readable.html --
+ * astroScore() does not read them there and does not here either. They are in
+ * this page because the two strips under each bar multiply them by the score (see
+ * milkyScore / orionScore), so a clear moonless night with both below the horizon
+ * still scores 觀星 100 with no colour under it at all.
+ *
+ * Both are fixed points, so the second one costs one altAz() call an hour and no
+ * new series: the sidereal time is already computed.
+ *
+ * It also returns the moon-sun elongation, for the phase glyph under each cell.
+ * The glyph is drawn from that elongation, not from moonIllumination(): see
+ * moonGlyph(). The illuminated fraction is returned too, but only because
+ * moonPenalty() reads it -- the score scales the moon's height by how lit it is.
+ */
+function astroAt(utcMs, lat, lon) {
+    const jd = julianDay(utcMs);
+    const lst = localSiderealTime(jd, lon);
+    const sun = sunPosition(jd);
+    const moon = moonPosition(jd);
+    return {
+        sunAlt: altAz(sun.ra, sun.dec, lat, lst).alt,
+        moonAlt: altAz(moon.ra, moon.dec, lat, lst).alt,
+        gcAlt: altAz(GC_RA, GC_DEC, lat, lst).alt,
+        m42Alt: altAz(M42_RA, M42_DEC, lat, lst).alt,
+        // Elongation in ecliptic longitude, 0..360: 0 new, 90 first quarter, 180
+        // full, 270 last quarter. Free -- both longitudes were computed for the
+        // positions above -- and it is the whole of what a phase glyph needs,
+        // carrying waxing/waning in the same number as the fraction lit.
+        moonElong: mod360(moon.eclLon - sun.eclLon),
+        // Lit percentage, 0..100, for moonPenalty(). The same as
+        // astro-score_readable.html's, so the two pages score alike.
+        moonIllum: moonIllumination(sun.ra, sun.dec, moon.ra, moon.dec, moon.dist) * 100,
+    };
+}
+
+/** Great-circle angle between two equatorial positions, in degrees. */
+function angularSeparation(ra1, dec1, ra2, dec2) {
+    const cosSep = sin(dec1) * sin(dec2) + cos(dec1) * cos(dec2) * cos(ra1 - ra2);
+    return Math.acos(clamp1(cosSep)) / DEG;
+}
+
+/** Illuminated fraction of the lunar disk, 0..1. */
+function moonIllumination(sunRa, sunDec, moonRa, moonDec, moonDist) {
+    const elong = angularSeparation(sunRa, sunDec, moonRa, moonDec);
+    const auKm = 149597870.7;
+    // Phase angle of the moon as seen from Earth (Meeus 48.2).
+    const phase = Math.atan2(
+        auKm * sin(elong),
+        moonDist - auKm * cos(elong),
+    );
+    return (1 + Math.cos(phase)) / 2;
+}
+
+/* ------------------------------------------------------------------ *
+ * The score -- identical to astro-score_readable.html.
+ * ------------------------------------------------------------------ */
+
+// Sun this far below the horizon or lower counts as dark. -10° is well into
+// nautical twilight: the sky is not yet fully dark at -10, so this is generous
+// on purpose, and the hour either side of it is the one to distrust.
+const DARK_SUN_ALT = -10;
+
+// Moon altitude at which MoonHeight tops out. Below it the factor ramps in
+// linearly from the horizon: a moon 5° up lights far less of the sky than one at
+// 30°, and rounding both to "moon is up" threw away the best hour of many nights.
+const MOON_FULL_ALT = 30;
+
+/**
+ * How high the moon is, as a factor 0..100: 0 at or below the horizon, 100 from
+ * MOON_FULL_ALT up, linear in between.
+ */
+function moonHeight(moonAlt) {
+    if (moonAlt <= 0) return 0;
+    return Math.min(100, (moonAlt / MOON_FULL_ALT) * 100);
+}
+
+/**
+ * How much the moon spoils the sky, 0..100: MoonHeight scaled by the illuminated
+ * fraction, moonIllum in percent (0 new .. 100 full). So a full moon at 30° or
+ * higher is the whole penalty, a half moon there costs 50, and a new moon costs
+ * nothing at any height.
+ */
+function moonPenalty(moonAlt, moonIllum) {
+    return moonHeight(moonAlt) * Number(moonIllum) / 100;
+}
+
+// How high a fixed target has to get, during a block's dark hours, for that
+// block to earn its visibility mark. Not the horizon: at 10° you are already
+// looking through more than five atmospheres of haze, and real horizons have a
+// ridge or a tree line in them, so a target that never clears it was not
+// observable whatever the sky did.
+//
+// Unlike DARK_SUN_ALT and MOON_FULL_ALT this has no counterpart on
+// astro-score_readable.html or in milkyway.py: neither draws a visibility mark,
+// and astroScore() reads none of the three targets' altitudes anyway.
+const TARGET_UP_ALT = 10;
+
+// The moon's own mark gate: the slate digit is drawn once the moon clears it in
+// the dark. The same 10° as TARGET_UP_ALT, but a constant of its own, and no
+// longer tied to the penalty -- MoonPenalty now ramps to MOON_FULL_ALT (30°) and
+// is scaled by phase, so a slate digit says how high the moon got, not that the
+// score was zeroed. Read it beside the phase glyph.
+const MOON_UP_ALT = 10;
+
+/**
+ * 觀星, 0..100 -- deliberately much simpler than milkyway.py's sky_quality().
+ *
+ * Daylight or twilight is out flat; what is left is the clear fraction of the
+ * sky, scaled down by how high and how lit the moon is. Null cloud cover scores nothing
+ * rather than 100.
+ */
+function astroScore(sunAlt, moonAlt, moonIllum, cover) {
+    if (cover === null || cover === undefined) return null;
+    if (sunAlt > DARK_SUN_ALT) return 0;
+    return (100 - Number(cover)) * (100 - moonPenalty(moonAlt, moonIllum)) / 100;
+}
+
+
+// The eight phase glyphs in elongation order, one 45° octant each, starting at
+// new moon -- the facing-south set astro-score_daily.html draws. Here a glyph
+// only leads a sentence, so it is not rotated.
+const MOON_GLYPHS = ["🌑", "🌒", "🌓", "🌔", "🌕", "🌖", "🌗", "🌘"];
+
+// The same eight as names, in milkyway.py's vocabulary (its MOON_PHASE_NAMES,
+// which pure_math/moon_phase.html ports) so the tooltip and that page say the
+// same words. They are reached differently, though, and can disagree by one step
+// within a degree or two of a boundary: moon_phase_name() picks from the
+// illuminated fraction plus a waxing test, this indexes the elongation octant
+// directly. Neither is more correct -- a phase name is a label on a continuum --
+// and nothing on either page computes from the answer.
+const MOON_NAMES = ["新月", "眉月", "上弦", "盈凸", "滿月", "虧凸", "下弦", "殘月"];
+
+/**
+ * Phase octant for a moon-sun elongation: 0 new, 2 first quarter, 4 full, 6 last.
+ *
+ * Rounded rather than floored, so each glyph is centred on its phase and covers
+ * ±22.5° of elongation either side -- 🌕 means "within a day and a bit of full",
+ * not "somewhere past full".
+ *
+ * Elongation in ecliptic *longitude*, which is the conventional phase angle and
+ * not astro-score_readable.html's moonIllumination(), whose angularSeparation()
+ * is the true one including the moon's ecliptic latitude. The two differ by at
+ * most that latitude, ±5.1°, which is a ninth of one octant: it can only matter
+ * within hours of a boundary, where the glyph either side is equally true.
+ */
+function moonOctant(elong) {
+    return Math.floor(mod360(elong) / 45 + 0.5) % 8;
+}
+
+/** The phase glyph for an elongation. */
+function moonGlyph(elong) {
+    return MOON_GLYPHS[moonOctant(elong)];
+}
+
+/**
+ * The key a variable lives under for a given model, or null if absent.
+ *
+ * Verbatim from the other three Open-Meteo pages. Open-Meteo suffixes series keys
+ * with the model name only when two or more models are asked for; with one it
+ * returns a bare key, so both spellings have to be accepted -- clearing the
+ * models line in the extra params drops straight back to bare keys.
+ */
+function seriesKey(hourly, name, model, multi) {
+    if (multi && Object.hasOwn(hourly, `${name}_${model}`)) return `${name}_${model}`;
+    if (Object.hasOwn(hourly, name)) return name;
+    return null;
+}
+
+/**
+ * Which models the response carries, read back off the request rather than from
+ * MODELS -- the extra-params box can override models=, and reading the constant
+ * would then resolve the wrong keys.
+ */
+function modelsFromParams(params) {
+    const raw = String(params.models || "").trim();
+    return raw ? raw.split(",").map((m) => m.trim()).filter(Boolean) : [];
+}
+
+/**
+ * ClearScore for one hour: the sky alone, 100 − cloud cover. The same Cloud
+ * astroScore() reads, without the moon, so the strip can tell a clear moonlit
+ * night (deep blue, short bar) from a cloudy one (no blue). Like the score,
+ * only dark hours count -- see blocksByDate.
+ */
+function clearScore(cover) {
+    return 100 - Number(cover);
+}
+
+/** The ClearScore of one hour, or null for a null cloud figure (no data, not 100). */
+function clearOf(cover) {
+    return cover === null || cover === undefined ? null : clearScore(cover);
+}
+
+/* ------------------------------------------------------------------ *
+ * The night -- when it is dark, and when the moon is out of the way
+ * ------------------------------------------------------------------ */
+
+// Sweep step for dusk, dawn, moonrise and moonset. Five minutes is finer than
+// the sentence needs ("晚上 10:20") and costs 289 astroAt() calls a night.
+const SWEEP_MIN = 5;
+
+// Below this lit percentage the moon is ignored, as on a moonless night: a
+// thin crescent near the sun costs moonPenalty() a few points at most.
+const MOON_IGNORE_ILLUM = 15;
+
+// Fewer shootable hours than this and a night is not offered as "the" night.
+const MIN_WINDOW_HOURS = 2;
+
+/** Local noon of `date` as a UTC instant: where a night starts. */
+function nightStartMs(date, offsetSec) {
+    return Date.parse(`${date}T12:00:00Z`) - offsetSec * 1000;
+}
+
+/**
+ * One night at one point: {dusk, dawn, windows, rise, set, upAtDusk, illum,
+ * elong, waxing} -- all instants UTC ms, or dusk null when the sun never gets
+ * to DARK_SUN_ALT. `windows` are the runs where it is dark *and* the moon is
+ * below the horizon (or too thin to count); rise/set are the first moonrise and
+ * moonset inside the dark, null when there is none.
+ */
+function nightSky(lat, lon, date, offsetSec) {
+    const start = nightStartMs(date, offsetSec);
+    const steps = (24 * 60) / SWEEP_MIN;
+    let dusk = null, dawn = null, rise = null, set = null, prevUp = null, upAtDusk = null;
+    const windows = [];
+    let open = null;
+    const mid = astroAt(start + 12 * 3600000, lat, lon);   // local midnight
+    const ignore = mid.moonIllum < MOON_IGNORE_ILLUM;
+    for (let k = 0; k <= steps; k++) {
+        const t = start + k * SWEEP_MIN * 60000;
+        const a = astroAt(t, lat, lon);
+        const dark = a.sunAlt <= DARK_SUN_ALT;
+        const up = a.moonAlt > 0;
+        if (dark) {
+            if (dusk === null) { dusk = t; upAtDusk = up; }
+            dawn = t;
+            if (prevUp !== null && up && !prevUp && rise === null) rise = t;
+            if (prevUp !== null && !up && prevUp && set === null) set = t;
+            prevUp = up;
+        }
+        const ok = dark && (!up || ignore);
+        if (ok && !open) open = { start: t, end: t };
+        else if (ok) open.end = t;
+        else if (open) { windows.push(open); open = null; }
+    }
+    if (open) windows.push(open);
+    return {
+        dusk, dawn, windows, rise, set, upAtDusk, ignore,
+        illum: mid.moonIllum,
+        elong: mid.moonElong,
+        waxing: mid.moonElong < 180,
+    };
+}
+
+/** Hours of shootable sky in a night's windows. */
+function windowHours(sky) {
+    return sky.windows.reduce((sum, w) => sum + (w.end - w.start) / 3600000, 0);
+}
+
+/** A UTC instant as spoken local time: "晚上 10:20", "凌晨 2:05", "傍晚 6:40". */
+function spokenTime(utcMs, offsetSec) {
+    const d = new Date(utcMs + offsetSec * 1000);
+    const h = d.getUTCHours();
+    const m = String(d.getUTCMinutes()).padStart(2, "0");
+    if (h < 5) return `凌晨 ${h}:${m}`;
+    if (h < 11) return `早上 ${h}:${m}`;
+    if (h < 13) return `中午 ${h}:${m}`;
+    if (h < 17) return `下午 ${h - 12}:${m}`;
+    if (h < 19) return `傍晚 ${h - 12}:${m}`;
+    return `晚上 ${h - 12}:${m}`;
+}
+
+/** An hour count as "約 3.5 小時". */
+const spokenHours = (h) => `約 ${Math.round(h * 2) / 2} 小時`;
+
+/** "11/02（一）" for a "YYYY-MM-DD". */
+function spokenDate(date) {
+    const wd = "日一二三四五六"[new Date(`${date}T00:00:00Z`).getUTCDay()];
+    return `${date.slice(5, 7)}/${date.slice(8, 10)}（${wd}）`;
+}
+
+/**
+ * Step one, in words: what the moon allows on this night.
+ *
+ * The two sentences the page exists for are the waning and the waxing ones --
+ * after full the moon rises later each night, so you shoot *until* it rises;
+ * before full it sets later each night, so you shoot *after* it sets. Every
+ * other case (new moon, full moon, a moon that is down all night) gets its own
+ * plain sentence.
+ */
+function moonSentence(sky, offsetSec) {
+    const t = (ms) => spokenTime(ms, offsetSec);
+    const name = MOON_NAMES[moonOctant(sky.elong)];
+    const lead = `月相：${moonGlyph(sky.elong)} ${name}，亮度約 ${Math.round(sky.illum)}%。`;
+    if (sky.dusk === null) return `${lead}這裡今晚天色不會全暗，沒有可以拍的時段。`;
+    const night = `天黑 ${t(sky.dusk)} 到天亮前 ${t(sky.dawn)}`;
+    const hours = windowHours(sky);
+    if (sky.ignore) {
+        return `${lead}接近新月，月光幾乎沒有影響，${night}，整晚都可以拍（${spokenHours(hours)}），是拍星空最好的日子。`;
+    }
+    if (!sky.windows.length) {
+        return `${lead}月亮從天黑到天亮（${t(sky.dusk)} – ${t(sky.dawn)}）都掛在天上，今晚不適合拍星空，可以改拍月光下的地景。`;
+    }
+    const whole = sky.windows.length === 1 &&
+        sky.windows[0].start === sky.dusk && sky.windows[0].end === sky.dawn;
+    if (whole) {
+        return sky.waxing
+            ? `${lead}月亮在天黑前就下山了，${night}，整晚都可以拍（${spokenHours(hours)}）。`
+            : `${lead}月亮要到天亮之後才升起，${night}，整晚都可以拍（${spokenHours(hours)}）。`;
+    }
+    if (!sky.waxing && !sky.upAtDusk && sky.rise !== null) {
+        return `${lead}因為是滿月後的日子，所以月亮每天會晚一點出來，今天只能拍照到 ${t(sky.rise)}（月出），從天黑 ${t(sky.dusk)} 開始，${spokenHours(hours)}。`;
+    }
+    if (sky.waxing && sky.upAtDusk && sky.set !== null) {
+        return `${lead}因為慢慢接近滿月，所以今天必須等到 ${t(sky.set)}（月落）之後才能開始拍照，可以拍到天亮前 ${t(sky.dawn)}，${spokenHours(hours)}。`;
+    }
+    const spans = sky.windows.map((w) => `${t(w.start)} – ${t(w.end)}`).join("、");
+    return `${lead}月亮會在夜裡出沒，可以拍的時段是 ${spans}（${spokenHours(hours)}）。`;
+}
+
+/* ------------------------------------------------------------------ *
+ * Step two -- every spot's clear sky inside those hours
+ * ------------------------------------------------------------------ */
+
+/**
+ * One spot's response -> Map of night date -> {mean, best, bestAt, hours,
+ * moonlit, offset}: the average and best ClearScore over the hours that are
+ * shootable at that spot (dark, moon down or ignorable), how many hours carried
+ * a cloud figure, and whether the moon was up all night so the dark hours had
+ * to stand in instead. Hours are taken at the spot's own coordinates; a null
+ * cloud figure is skipped, not scored 100.
+ */
+function clearByNight(body, lat, lon, model, multi) {
+    const hourly = body.hourly;
+    const key = seriesKey(hourly, "cloud_cover", model, multi);
+    const nights = new Map();
+    if (!key) return nights;
+    const offset = Number(body.utc_offset_seconds) || 0;
+    const ignoreByNight = new Map();
+
+    hourly.time.forEach((t, i) => {
+        const hour = Number(t.slice(11, 13));
+        // Noon to noon: the small hours belong to the night before.
+        const date = hour < 12 ? addDays(t.slice(0, 10), -1) : t.slice(0, 10);
+        if (!nights.has(date)) {
+            nights.set(date, { shoot: [], dark: [], moonless: 0, offset });
+            const mid = astroAt(nightStartMs(date, offset) + 12 * 3600000, lat, lon);
+            ignoreByNight.set(date, mid.moonIllum < MOON_IGNORE_ILLUM);
+        }
+        const utcMs = Date.parse(`${t}:00Z`) - offset * 1000;
+        const a = astroAt(utcMs, lat, lon);
+        if (a.sunAlt > DARK_SUN_ALT) return;
+        const n = nights.get(date);
+        const moonless = a.moonAlt <= 0 || ignoreByNight.get(date);
+        // Counted before the cloud guard: "the moon was up all night" is
+        // geometry, and must not be claimed for a night whose moonless hours
+        // merely fell past the model's horizon.
+        if (moonless) n.moonless += 1;
+        const clear = clearOf(hourly[key][i]);
+        if (clear === null) return;
+        n.dark.push({ clear, utcMs });
+        if (moonless) n.shoot.push({ clear, utcMs });
+    });
+
+    const out = new Map();
+    for (const [date, n] of nights) {
+        const moonlit = n.moonless === 0;
+        const hours = moonlit ? n.dark : n.shoot;
+        if (!hours.length) continue;
+        let best = hours[0];
+        for (const h of hours) if (h.clear > best.clear) best = h;
+        out.set(date, {
+            mean: hours.reduce((s, h) => s + h.clear, 0) / hours.length,
+            best: best.clear,
+            bestAt: best.utcMs,
+            hours: hours.length,
+            moonlit,
+            offset,
+        });
+    }
+    return out;
+}
+
+/** Better first: mean clear, then best hour, then the darker site. */
+function byClear(a, b) {
+    return (b.c.mean - a.c.mean) || (b.c.best - a.c.best) ||
+        ((a.bortle ?? 99) - (b.bortle ?? 99));
+}
+
+/** How a mean ClearScore reads, and the class it is printed in. */
+function verdict(mean) {
+    if (mean >= 80) return ["非常晴朗，值得出發。", "good"];
+    if (mean >= 60) return ["大致晴朗，可以去。", "good"];
+    if (mean >= 40) return ["雲偏多，要碰運氣。", ""];
+    return ["雲很多，不建議特地跑一趟。", "poor"];
+}
+
+/** One spot as a phrase: "合歡山（平均晴空 92%，最晴 100% 在 凌晨 2:00，Bortle 4.3）". */
+function spotPhrase(r, full) {
+    const pct = (v) => `${Math.round(v)}%`;
+    if (!full) return `${r.place}（${pct(r.c.mean)}）`;
+    const parts = [`平均晴空 ${pct(r.c.mean)}`,
+        `最晴 ${pct(r.c.best)} 在 ${spokenTime(r.c.bestAt, r.c.offset)}`];
+    if (r.bortle != null) parts.push(`Bortle ${r.bortle}`);
+    if (r.c.moonlit) parts.push("月亮整晚都在，以整個天黑時段計");
+    return `${r.place}（${parts.join("，")}）`;
+}
+
+/**
+ * The spots worth ranking: every place with a response, 輸入 left out when it
+ * sits exactly on a saved spot (a pill click) so the same place is not listed
+ * twice. Bortle is places.js's for saved spots and absent for 輸入, whose
+ * figure there describes the coordinate written in the file, not this one.
+ */
+function rankable(results) {
+    const saved = new Set(results.slice(1).map((r) => `${r.lat},${r.lon}`));
+    return results
+        .map((r, i) => ({ ...r, bortle: i === 0 ? null : PLACES[i][3] }))
+        .filter((r, i) => r.body && !(i === 0 && saved.has(`${r.lat},${r.lon}`)));
+}
+
+/** Ranked spots for one night under the active model. */
+function rankNight(spots, date) {
+    return spots
+        .map((r) => ({ ...r, c: r.nights.get(date) }))
+        .filter((r) => r.c)
+        .sort(byClear);
+}
+
+function el(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined) node.textContent = text;
+    return node;
+}
+
+/** Write the whole summary for lastResults, lastDate and activeModel. */
+function renderSummary() {
+    const box = document.getElementById("summary");
+    box.replaceChildren();
+    if (!lastResults) return;
+
+    const first = lastResults.find((r) => r.body);
+    if (!first) return;
+    const multi = modelsFromParams(first.params).length > 1;
+    const spots = rankable(lastResults).map((r) => ({
+        ...r, nights: clearByNight(r.body, r.lat, r.lon, activeModel, multi),
+    }));
+
+    const [, inLat, inLon] = PLACES[0];
+    const inOffset = zoneOffsetHours(inLon) * 3600;
+    const dates = Array.from({ length: NIGHTS }, (_, i) => addDays(lastDate, i));
+    const skies = dates.map((d) => nightSky(inLat, inLon, d, inOffset));
+
+    // ---- Tonight ----
+    box.appendChild(el("h2", "", `今晚 ${spokenDate(lastDate)}`));
+    box.appendChild(el("p", "moonline", `① 先看月亮 — ${moonSentence(skies[0], inOffset)}`));
+    const tonight = rankNight(spots, lastDate);
+    if (!tonight.length) {
+        box.appendChild(el("p", "", "② 這個雲量來源沒有今晚的預報，換一個分頁看看。"));
+    } else {
+        const [text, cls] = verdict(tonight[0].c.mean);
+        const p = el("p", "", `② 再看晴空 — 今晚最推薦去 ${tonight[0].place}，`);
+        p.appendChild(el("span", `verdict ${cls}`, text));
+        box.appendChild(p);
+        const ol = el("ol");
+        for (const r of tonight.slice(0, 5)) ol.appendChild(el("li", "", spotPhrase(r, true)));
+        box.appendChild(ol);
+        if (tonight.length > 5) {
+            box.appendChild(el("p", "rest",
+                `其他地點依序：${tonight.slice(5).map((r) => spotPhrase(r, false)).join("、")}。`));
+        }
+    }
+
+    // ---- The week ----
+    box.appendChild(el("h2", "", `未來一週 ${spokenDate(dates[0])} – ${spokenDate(dates[NIGHTS - 1])}`));
+    const bestPerNight = [];
+    dates.forEach((date, i) => {
+        const div = el("div", "night");
+        div.appendChild(el("h3", "", `${spokenDate(date)} 晚上${i === 0 ? "（今晚）" : ""}`));
+        div.appendChild(el("p", "", moonSentence(skies[i], inOffset)));
+        const ranked = rankNight(spots, date);
+        if (!ranked.length) {
+            div.appendChild(el("p", "rest", "這一晚超出這個雲量來源的預報範圍。"));
+        } else {
+            const [text, cls] = verdict(ranked[0].c.mean);
+            const p = el("p", "", `最晴的地點：${ranked.slice(0, 3).map((r) => spotPhrase(r, false)).join("、")}。`);
+            p.appendChild(el("span", `verdict ${cls}`, ` ${text}`));
+            div.appendChild(p);
+            const hours = windowHours(skies[i]);
+            if (hours >= MIN_WINDOW_HOURS) bestPerNight.push({ date, hours, top: ranked[0] });
+        }
+        box.appendChild(div);
+    });
+
+    // ---- Pick of the week ----
+    box.appendChild(el("h2", "", "這一週最推薦"));
+    // Rounded first, so a 99.6% night with twice the dark hours beats a 99.9% one.
+    bestPerNight.sort((a, b) =>
+        (Math.round(b.top.c.mean) - Math.round(a.top.c.mean)) || (b.hours - a.hours));
+    if (!bestPerNight.length) {
+        box.appendChild(el("p", "", `這一週沒有一個晚上有 ${MIN_WINDOW_HOURS} 小時以上沒有月亮的時段，可以等下一次新月前後再出發。`));
+    } else {
+        const ol = el("ol");
+        for (const { date, hours, top } of bestPerNight.slice(0, 3)) {
+            ol.appendChild(el("li", "",
+                `${spokenDate(date)} 晚上去 ${top.place}：可拍${spokenHours(hours)}，平均晴空 ${Math.round(top.c.mean)}%` +
+                (top.bortle != null ? `，Bortle ${top.bortle}` : "") + "。"));
+        }
+        box.appendChild(ol);
+        const pick = bestPerNight[0];
+        const [text] = verdict(pick.top.c.mean);
+        box.appendChild(el("p", "", `如果這週只能去一次，選 ${spokenDate(pick.date)} 的 ${pick.top.place}，${text}`));
+    }
+    box.appendChild(el("p", "note",
+        `雲量來源：${activeModel}。預報越遠越不準，第 4 天以後的排名當參考就好，出發前再看一次。` +
+        "逐時細節在 astro-score_readable.html，整週的格子在 astro-score_daily.html。"));
+}
+
+/* ------------------------------------------------------------------ *
+ * The form -- pure_math/galactic_center.html's time and location rows
+ * ------------------------------------------------------------------ */
+
+/**
+ * The zone offset a longitude implies, in whole hours east of UTC: the solar
+ * zone, not the legal one -- see pure_math/galactic_center.html, whence this and
+ * the three functions under it come verbatim. Every spot in places.js lands on
+ * +8. It only labels the time box; what the summary uses is the box's *date*.
+ */
+function zoneOffsetHours(lon) {
+    return Math.round(lon / 15);
+}
+
+/** "now" at the location, to the minute, in the YYYY-MM-DDTHH:MM the input wants. */
+function nowValue(offsetHours) {
+    const ms = Date.now() + offsetHours * 3600000;
+    return new Date(ms - (ms % 60000)).toISOString().slice(0, 16);
+}
+
+/** The time box read as a UTC instant, in ms. */
+function utcFromForm(offsetHours) {
+    const raw = document.getElementById("when").value.trim();
+    if (!raw) throw new Error("No time given — pick one, or press now");
+    const ms = Date.parse(raw.length === 16 ? `${raw}:00Z` : `${raw}Z`);
+    if (!Number.isFinite(ms)) throw new Error(`Bad time "${raw}"`);
+    return ms - offsetHours * 3600000;
+}
+
+/** The location box read as {lat, lon}, falling back to the default spot. */
+function placeFromForm() {
+    const loc = document.getElementById("location").value.trim();
+    let lat = DEFAULT_LAT, lon = DEFAULT_LON;
+    if (loc) {
+        const [latS, lonS] = loc.split(",");
+        lat = Number(latS);
+        lon = Number(lonS);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+            throw new Error(`Bad location "${loc}": expected "lat,lon"`);
+        }
+    }
+    return { lat, lon };
+}
+
+/** The offset implied by the location box, or the default spot's if it will not parse. */
+function offsetFromForm() {
+    try {
+        return zoneOffsetHours(placeFromForm().lon);
+    } catch {
+        return zoneOffsetHours(DEFAULT_LON);
+    }
+}
+
+/** Show which offset the location's longitude implied, beside the time label. */
+function markZone(offsetHours) {
+    document.getElementById("zone").textContent = zoneLabel(offsetHours);
+}
+
+/** An offset in whole hours as "UTC+8" / "UTC−5". */
+const zoneLabel = (h) => `UTC${h < 0 ? "−" : "+"}${Math.abs(h)}`;
+
+/**
+ * Highlight whichever saved spot matches the box -- and after a hand edit, none.
+ */
+function markActivePlace() {
+    const current = document.getElementById("location").value.trim();
+    for (const button of document.querySelectorAll("#places .place")) {
+        button.setAttribute("aria-pressed", String(button.dataset.coords === current));
+    }
+}
+
+/**
+ * One pill per saved spot -- PLACES[1..], not 輸入 itself, since the box *is* 輸入
+ * here (as on astro-score_daily.html) and its pill would always be pressed. A
+ * pill puts 輸入 on that spot and refetches, which costs nothing: the spot's own
+ * URL is already in fetchCache.
+ */
+function buildPlaces() {
+    const box = document.getElementById("places");
+    box.replaceChildren();
+    for (const [name, lat, lon] of PLACES.slice(1)) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "place";
+        button.textContent = name;
+        button.dataset.coords = `${lat},${lon}`;
+        button.title = `${lat}, ${lon}`;
+        button.addEventListener("click", () => {
+            document.getElementById("location").value = button.dataset.coords;
+            markActivePlace();
+            document.getElementById("form").requestSubmit();
+        });
+        box.appendChild(button);
+    }
+}
+
+function resetDefaults() {
+    document.getElementById("location").value = `${DEFAULT_LAT},${DEFAULT_LON}`;
+    const offset = zoneOffsetHours(DEFAULT_LON);
+    document.getElementById("when").value = nowValue(offset);
+    markZone(offset);
+    markActivePlace();
+}
+
+/**
+ * 使用目前位置: the device's coordinates into the box, then refetch -- the submit
+ * handler copies the box into 輸入, as on astro-score_daily.html, so the typed,
+ * located and pointed-at routes are one write.
+ */
+async function useCurrentPosition() {
+    const button = document.getElementById("geo");
+    const note = document.getElementById("geonote");
+    button.disabled = true;
+    note.classList.remove("error");
+    note.textContent = "定位中...";
+    try {
+        const { lat, lon, accuracy } = await currentPosition();
+        document.getElementById("location").value = `${lat},${lon}`;
+        note.textContent = `±${Math.round(accuracy)} m`;
+        markActivePlace();
+        document.getElementById("form").requestSubmit();
+    } catch (err) {
+        note.classList.add("error");
+        note.textContent = err.message;
+    } finally {
+        button.disabled = false;
+    }
+}
+
+/** 在地圖上點選: the same write as 使用目前位置, from pickOnMap() (places.js). */
+async function pickFromMap() {
+    const button = document.getElementById("mappick");
+    const note = document.getElementById("geonote");
+    button.disabled = true;
+    try {
+        const [latS, lonS] = document.getElementById("location").value.trim().split(",");
+        const lat = Number(latS), lon = Number(lonS);
+        const picked = await pickOnMap(
+            Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon } : {},
+        );
+        if (!picked) return;   // 取消
+        document.getElementById("location").value = `${picked.lat},${picked.lon}`;
+        note.classList.remove("error");
+        note.textContent = "";
+        markActivePlace();
+        document.getElementById("form").requestSubmit();
+    } finally {
+        button.disabled = false;
+    }
+}
+
+/* ------------------------------------------------------------------ *
+ * Wiring
+ * ------------------------------------------------------------------ */
+
+let lastResults = null;   // one entry per PLACES row, from the most recent fetch
+let lastDate = null;      // the local date of "tonight" for those results
+let lastStats = null;     // {seconds, bytes, fetched, cached}
+let activeModel = DEFAULT_MODEL;
+let inputPlaceName = "";
+
+/** Model tabs -- astro-score_daily.html's renderTabs(), rewriting the summary. */
+function renderTabs() {
+    const tabs = document.getElementById("tabs");
+    tabs.textContent = "";
+    if (!lastResults) return;
+    const first = lastResults.find((r) => r.body);
+    if (!first) return;
+    const models = modelsFromParams(first.params);
+    const names = models.length ? models : ["default"];
+    if (!names.includes(activeModel)) {
+        activeModel = names.includes(DEFAULT_MODEL) ? DEFAULT_MODEL : names[0];
+    }
+    for (const name of names) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "tab";
+        button.textContent = name.replace(/_.*$/, "");
+        button.title = name;
+        button.setAttribute("aria-selected", String(name === activeModel));
+        button.addEventListener("click", () => {
+            activeModel = name;
+            renderTabs();
+            renderSummary();
+            setMeta();
+        });
+        tabs.appendChild(button);
+    }
+}
+
+function setMeta() {
+    if (!lastResults || !lastStats) return;
+    const ok = lastResults.filter((r) => r.body);
+    if (!ok.length) return;
+    const failed = lastResults.filter((r) => !r.body);
+    const meta = document.getElementById("meta");
+    meta.classList.remove("error");
+    meta.textContent =
+        `${lastDate} + ${NIGHTS - 1} nights  ${ok.length}/${lastResults.length} places  ` +
+        `${lastStats.fetched} fetched, ${lastStats.cached} cached  ${lastStats.bytes} bytes  ` +
+        `${lastStats.seconds.toFixed(2)}s  ` +
+        `— ${ok[0].body.timezone} (${ok[0].body.timezone_abbreviation}), ` +
+        `scoring ${activeModel} of ${modelsFromParams(ok[0].params).length || 1}` +
+        (failed.length ? `  — failed: ${failed.map((r) => `${r.place} (${r.error})`).join("; ")}` : "");
+    if (inputPlaceName) {
+        meta.appendChild(document.createElement("br"));
+        meta.appendChild(document.createTextNode(`${PLACES[0][0]}: ${inputPlaceName}`));
+    }
+}
+
+function showError(message) {
+    const meta = document.getElementById("meta");
+    meta.textContent = message;
+    meta.classList.add("error");
+}
+
+/** One labelled link per request, so every URL stays inspectable. */
+function setUrls(results) {
+    const urlEl = document.getElementById("url");
+    urlEl.textContent = "";
+    for (const r of results) {
+        const who = document.createElement("span");
+        who.className = "who";
+        who.textContent = r.place;
+        urlEl.appendChild(who);
+        const a = document.createElement("a");
+        a.href = r.url;
+        a.target = "_blank";
+        a.rel = "noopener";
+        a.textContent = r.url;
+        urlEl.appendChild(a);
+        urlEl.appendChild(document.createElement("br"));
+    }
+    document.getElementById("raw").hidden = false;
+}
+
+// Before this local hour the night you are in started yesterday; from it on,
+// "tonight" is the coming one -- so a morning visit plans the evening ahead.
+const TONIGHT_FROM_HR = 6;
+
+/** "Tonight" for a local wall-clock instant, as a "YYYY-MM-DD". */
+function tonightOf(localMs) {
+    const d = new Date(localMs);
+    const date = d.toISOString().slice(0, 10);
+    return d.getUTCHours() < TONIGHT_FROM_HR ? addDays(date, -1) : date;
+}
+
+document.getElementById("form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const button = document.getElementById("submit");
+
+    // Location first, as on galactic_center.html: the time box is local to it.
+    // Both parsed before anything is sent, so a bad value costs a line of text.
+    let date, requests;
+    try {
+        const { lat, lon } = placeFromForm();
+        const offset = zoneOffsetHours(lon);
+        markZone(offset);
+        date = tonightOf(utcFromForm(offset) + offset * 3600000);
+        setInputPlace(lat, lon);
+        const horizon = addDays(nowValue(offset).slice(0, 10), FORECAST_MAX_DAYS - 1);
+        requests = PLACES.map(([, plat, plon]) => defaultParams(plat, plon, date, horizon));
+    } catch (err) {
+        showError(err.message);
+        return;
+    }
+
+    button.disabled = true;
+    const meta = document.getElementById("meta");
+    meta.classList.remove("error");
+    meta.textContent = `fetching ${PLACES.length} places, ${NIGHTS} nights from ${date}, ${FETCH_POOL} at a time...`;
+
+    inputPlaceName = "";
+    loadInputPlaceName(PLACES[0][1], PLACES[0][2]);
+
+    const started = performance.now();
+    const settled = await settledPool(requests, FETCH_POOL, (p) => cachedForecast(p));
+    const seconds = (performance.now() - started) / 1000;
+
+    let fetched = 0, cached = 0, bytes = 0;
+    const results = PLACES.map(([place, lat, lon], i) => {
+        const outcome = settled[i];
+        if (outcome.status === "rejected") {
+            const err = outcome.reason;
+            fetched += 1;
+            return {
+                place, lat, lon, params: requests[i], url: buildUrl(requests[i]), body: null,
+                error: `request failed: ${err.name === "TimeoutError" ? "timed out" : err.message}`,
+            };
+        }
+        const r = outcome.value;
+        if (r.cached) cached += 1; else { fetched += 1; bytes += r.bytes; }
+        if (!r.ok || !r.body.hourly) {
+            return {
+                place, lat, lon, params: requests[i], url: r.url, body: null,
+                error: `HTTP ${r.status} — ${r.body.reason || "no hourly data in response"}`,
+            };
+        }
+        return { place, lat, lon, params: requests[i], url: r.url, body: r.body, error: null };
+    });
+
+    setUrls(results);
+    lastResults = results;
+    lastDate = date;
+    lastStats = { seconds, bytes, fetched, cached };
+    renderTabs();
+    renderSummary();
+
+    if (results.some((r) => r.body)) setMeta();
+    else showError(`all ${results.length} requests failed — ${results[0].error}`);
+    button.disabled = false;
+});
+
+document.getElementById("reset").addEventListener("click", () => {
+    resetDefaults();
+    document.getElementById("form").requestSubmit();
+});
+document.getElementById("now").addEventListener("click", () => {
+    document.getElementById("when").value = nowValue(offsetFromForm());
+    document.getElementById("form").requestSubmit();
+});
+document.getElementById("location").addEventListener("input", markActivePlace);
+document.getElementById("geo").addEventListener("click", useCurrentPosition);
+document.getElementById("mappick").addEventListener("click", pickFromMap);
+document.getElementById("when").addEventListener("change", () => document.getElementById("form").requestSubmit());
+document.getElementById("location").addEventListener("change", () => document.getElementById("form").requestSubmit());
+
+buildPlaces();
+resetDefaults();
+// Fetch once on load, like astro-score_daily.html: every field has a usable
+// default, and an empty summary answers nothing.
+document.getElementById("form").requestSubmit();
+</script>
+</body>
+</html>

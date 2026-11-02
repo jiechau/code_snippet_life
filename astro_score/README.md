@@ -53,6 +53,18 @@ here mainly when changing those constants; the adjustable form is
   gets its two night blocks — AstroScore bar and ClearScore strip only, the rest
   in the hover text — where it actually is. *Where, tonight* beside the daily page's *which place, which night*.
 
+- [AstroScore summary](https://jiechau.github.io/code_snippet_life/astro_score/astro-score_summary.html)
+  — the daily grid said **in words** (Traditional Chinese), same time + 輸入
+  inputs as the map page. Two steps per night, tonight and the six after it:
+  first the **moon** decides *when* you can shoot (after full: shoot until
+  moonrise, 「今天只能拍照到 晚上 11:05」; before full: wait for moonset,
+  「今天必須等到 晚上 10:30 之後」; near new: all night; near full: not
+  tonight), then every `places.js` spot is ranked by its average **ClearScore**
+  (100 − Cloud) over exactly those moonless dark hours. Ends with the best
+  three nights of the week and where to go on each. One 8-day request per
+  place (clamped to Open-Meteo's 16-day horizon), all four models with 雲量來源
+  tabs. Moonrise/moonset are computed at 輸入 with the same Meeus series.
+
 - [Astro Bookmark](https://jiechau.github.io/code_snippet_life/astro_score/astro-bookmark.html)
   — outbound links only: CWA's 月相圖, two light-pollution maps, NCDR's
   即時降雨預警, and CWA's 雷達回波圖, windy, CWA's 一週 / 一週 town / 降水預報. Nothing here computes or fetches anything; it is the

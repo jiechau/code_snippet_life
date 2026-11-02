@@ -1107,6 +1107,43 @@ follows when editing a row there:
   most cards go out on lines — 22 cards of ~75×150 px over a 330 px island — and that is
   expected; zoom in to untangle.
 
+### astro-score_summary.html
+
+**`astro-score_daily.html` in words**, Traditional Chinese, for tonight and the
+six nights after it — a sixteenth demo page, also **not yet counted** in the
+duplication table. Its inputs are `astro-score_map.html`'s (time box + 輸入
+location, pills for `PLACES.slice(1)`, geo, map pick) and its form/request
+functions are that page's copies; the astronomy and score block is the daily
+page's, verbatim, plus `MOON_NAMES`/`moonOctant()`/`moonGlyph()` and
+`clearScore()`. Change those on the daily page, change them here.
+
+Two steps per night, in that order, and the order is the point:
+
+- **The moon sets the window** (`nightSky()`, a 5-minute sweep from local noon
+  to noon at 輸入): dark is `DARK_SUN_ALT`, a window is dark **and** moon below
+  the horizon, and under `MOON_IGNORE_ILLUM` (15%) lit the moon is ignored.
+  `moonSentence()` has the user's two sentences — waning: 「因為是滿月後的日子
+  ……今天只能拍照到 X（月出）」; waxing: 「因為慢慢接近滿月……必須等到 X（月落）
+  之後」 — plus near-new (all night), up-all-night (no window) and a generic
+  list of spans. Sentence times are computed at 輸入 only; across Taiwan they
+  differ by minutes.
+- **ClearScore ranks the spots** (`clearByNight()`): per spot, the mean of
+  `100 − cloud_cover` over the hours that are shootable *at that spot*; ties by
+  best hour, then `places.js` bortle. A night with no moonless dark hour at
+  all falls back to every dark hour and says so (`moonlit`) — counted from
+  geometry before the null-cloud guard, so a night past the model horizon is
+  not mislabelled moonlit. 輸入 is dropped from the ranking when it sits on a
+  saved spot's exact coordinates.
+
+"Tonight" is the time box's date, or the day before **before 06:00**
+(`TONIGHT_FROM_HR`) — a morning visit plans the coming evening. The request is
+`start_date` → `start_date + NIGHTS` (noon-to-noon nights need the next day's
+small hours), clamped to today + 15 (`FORECAST_MAX_DAYS`), past which
+Open-Meteo answers HTTP 400; nights beyond it still get their moon sentence and
+say they are outside the forecast. Checked by driving the whole inline script
+under a small DOM stub against the live API, and by sweeping `moonSentence()`
+across a full lunation.
+
 `milkyway.py` scores each upcoming hour for Milky Way astrophotography at a `lat,lon`.
 No API key — Open-Meteo's free tier is keyless (10,000 calls/day), so there is nothing to
 read from `config.yml`. It queries `hourly=` cloud/moisture variables with
