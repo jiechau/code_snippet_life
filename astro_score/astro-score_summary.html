@@ -124,6 +124,7 @@
         .summary .verdict { font-weight: 600; }
         .summary .verdict.good { color: var(--ok); }
         .summary .verdict.poor { color: var(--err); }
+        .summary a { color: var(--accent); }
         .summary .rest { color: var(--muted); font-size: 0.85rem; }
         .summary .night { border-top: 1px solid var(--line); padding-top: 4px; }
 
@@ -1053,6 +1054,18 @@ function renderSummary() {
         box.appendChild(p);
     });
 
+    // ---- Where to read more ----
+    box.appendChild(el("h2", "", "其他資訊："));
+    const more = el("p", "", "如果需要其他詳細資訊，可以參考 ");
+    const link = (href, text) => {
+        const a = el("a", "", text);
+        a.href = href;
+        return a;
+    };
+    more.appendChild(link("astro-score_daily.html", "觀星指數"));
+    more.appendChild(document.createTextNode(" 以及 "));
+    more.appendChild(link("astro-score_readable.html", "每小時數據"));
+    box.appendChild(more);
 }
 
 /* ------------------------------------------------------------------ *
