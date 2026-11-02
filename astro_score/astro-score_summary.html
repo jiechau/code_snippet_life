@@ -969,9 +969,32 @@ function spotPhrase(r, full) {
     if (!full) return `${r.place}（${pct(r.c.mean)}）`;
     const parts = [`平均晴空 ${pct(r.c.mean)}`,
         `最晴 ${pct(r.c.best)} 在 ${spokenTime(r.c.bestAt, r.c.offset)}`];
+    if (r.km != null && r.km >= 0.5) parts.push(`距離約 ${Math.round(r.km)} 公里`);
     if (r.bortle != null) parts.push(`Bortle ${r.bortle}`);
     if (r.c.moonlit) parts.push("月亮整晚都在，以整個天黑時段計");
     return `${r.place}（${parts.join("，")}）`;
+}
+
+// How many spots tonight's ② ranks: 輸入 plus the saved spots nearest to it.
+const NEAR_SPOTS = 6;
+
+/** Great-circle distance in km (haversine, mean Earth radius). */
+function distanceKm(lat1, lon1, lat2, lon2) {
+    const h = sin((lat2 - lat1) / 2) ** 2 + cos(lat1) * cos(lat2) * sin((lon2 - lon1) / 2) ** 2;
+    return 2 * 6371.0088 * Math.asin(Math.sqrt(h));
+}
+
+/**
+ * Tonight's candidates: every rankable spot tagged with its distance from 輸入,
+ * nearest first, cut to NEAR_SPOTS -- 輸入 itself (0 km) and the five nearest
+ * saved spots. When 輸入 sits on a saved spot, rankable() has already dropped
+ * 輸入 and that spot takes its 0 km place, so it is still 1 + 5.
+ */
+function nearestSpots(spots, lat, lon) {
+    return spots
+        .map((r) => ({ ...r, km: distanceKm(lat, lon, r.lat, r.lon) }))
+        .sort((a, b) => a.km - b.km)
+        .slice(0, NEAR_SPOTS);
 }
 
 /**
@@ -1026,22 +1049,18 @@ function renderSummary() {
     const where = inputPlaceName ? `（${shortPlaceName(inputPlaceName)}）` : "";
     box.appendChild(el("p", "",
         `① 就您所在的位置${where}來看，${moonSentence(skies[0], inOffset)}${moonPhaseText(skies[0])}`));
-    const tonight = rankNight(spots, lastDate);
+    const tonight = rankNight(nearestSpots(spots, inLat, inLon), lastDate);
     if (!tonight.length) {
         box.appendChild(el("p", "", "② 今晚沒有雲量預報可以參考。"));
     } else {
         const top = tonight[0];
         const [clearText, clearCls] = clearVerdict(top.c.mean);
-        const p = el("p", "", `② 再看晴空，最推薦去 ${top.place}（平均晴空 ${Math.round(top.c.mean)}%）：`);
+        const p = el("p", "", `② 再看晴空，依照您目前的位置，最推薦去 ${top.place}（平均晴空 ${Math.round(top.c.mean)}%）：`);
         p.appendChild(el("span", `verdict ${clearCls}`, clearText));
         box.appendChild(p);
         const ol = el("ol");
-        for (const r of tonight.slice(0, 5)) ol.appendChild(el("li", "", spotPhrase(r, true)));
+        for (const r of tonight) ol.appendChild(el("li", "", spotPhrase(r, true)));
         box.appendChild(ol);
-        if (tonight.length > 5) {
-            box.appendChild(el("p", "rest",
-                `其他地點依序：${tonight.slice(5).map((r) => spotPhrase(r, false)).join("、")}。`));
-        }
         if (top.c.astro !== null) {
             const [astroText, astroCls] = astroVerdict(top.c.astro);
             const p3 = el("p", "", "③ ");

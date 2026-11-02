@@ -1143,6 +1143,11 @@ Two steps per night, in that order, and the order is the point:
   of the top spot's mean ClearScore (>90 雲很少, <80 雲太多, else 看運氣), ③
   `astroVerdict()` of that spot's **best-hour AstroScore** (`astro` in
   `clearByNight()`, moon penalty included; >90 非常適合, <70 不適合, else 看運氣).
+  Tonight's ② ranks **only 輸入 + the 5 saved spots nearest it**
+  (`nearestSpots()`, haversine `distanceKm()`, `NEAR_SPOTS` = 6; when 輸入 sits
+  on a saved spot, that spot stands in for it at 0 km), worded
+  「依照您目前的位置，最推薦去 …」, each line giving its distance. The week
+  lines still rank every spot.
   Thresholds are the user's; keep them. Each later night is **one line**
   (top three spots + `verdict()`), with no moon sentence. There is no
   week's-pick section, no `.sub` intro, no `<details class="explain">` and no
