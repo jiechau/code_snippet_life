@@ -131,7 +131,6 @@
         .summary h3 { font-size: 0.98rem; margin: 18px 0 4px; }
         .summary p { margin: 6px 0; line-height: 1.7; }
         .summary ol { margin: 6px 0; padding-left: 26px; line-height: 1.7; }
-        .summary .moonline { background: #f2f6fa; border-left: 3px solid #41607d; border-radius: 0 8px 8px 0; padding: 8px 12px; }
         .summary .verdict { font-weight: 600; }
         .summary .verdict.good { color: var(--ok); }
         .summary .verdict.poor { color: var(--err); }
@@ -1025,7 +1024,7 @@ function renderSummary() {
     // ---- Tonight ----
     box.appendChild(el("h2", "", `今晚 ${spokenDate(lastDate)}`));
     const where = inputPlaceName ? `（${shortPlaceName(inputPlaceName)}）` : "";
-    box.appendChild(el("p", "moonline",
+    box.appendChild(el("p", "",
         `① 就您所在的位置${where}來看，${moonSentence(skies[0], inOffset)}${moonPhaseText(skies[0])}`));
     const tonight = rankNight(spots, lastDate);
     if (!tonight.length) {
