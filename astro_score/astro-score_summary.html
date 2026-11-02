@@ -1055,7 +1055,7 @@ function renderSummary() {
     } else {
         const top = tonight[0];
         const [clearText, clearCls] = clearVerdict(top.c.mean);
-        const p = el("p", "", `② 再看晴空，依照您目前的位置，最推薦去 ${top.place}（平均晴空 ${Math.round(top.c.mean)}%）：`);
+        const p = el("p", "", `② 再看晴空，依照您目前的位置，最好的選擇是 ${top.place}（平均晴空 ${Math.round(top.c.mean)}%）：`);
         p.appendChild(el("span", `verdict ${clearCls}`, clearText));
         box.appendChild(p);
         const ol = el("ol");

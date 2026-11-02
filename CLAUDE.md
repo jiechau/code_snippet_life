@@ -1146,7 +1146,7 @@ Two steps per night, in that order, and the order is the point:
   Tonight's ② ranks **only 輸入 + the 5 saved spots nearest it**
   (`nearestSpots()`, haversine `distanceKm()`, `NEAR_SPOTS` = 6; when 輸入 sits
   on a saved spot, that spot stands in for it at 0 km), worded
-  「依照您目前的位置，最推薦去 …」, each line giving its distance. The week
+  「依照您目前的位置，最好的選擇是 …」, each line giving its distance. The week
   lines still rank every spot.
   Thresholds are the user's; keep them. Each later night is **one line**
   (top three spots + `verdict()`), with no moon sentence. There is no
