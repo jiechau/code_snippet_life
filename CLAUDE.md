@@ -1079,6 +1079,15 @@ follows when editing a row there:
   meta line show as-is. `cachedForecast()` keeps **successes only** for 10 minutes keyed by
   URL, which is what makes a pill click free: it puts 輸入 on a saved spot's exact
   coordinates, whose URL is already cached.
+- **Copied verbatim from `astro-score_readable.html`**: the light-pollution atlas block,
+  from its `Light pollution` banner through `lpKey` — a fourth copy for the atlas row of
+  the duplication table. It is there for one number: the **輸入 card's bortle**, which is
+  computed (`loadInputBortle()`, `lpAppBortle()` of Lorenz's SQM — the readable page's
+  app Bortle) because 輸入 is wherever the user just pointed; every saved spot's card
+  shows the figure typed into `places.js`. Deferred and never awaited like the place
+  name, guarded on `PLACES[0]` still being that coordinate, and patched into the card in
+  place (re-measured, not rebuilt) so the layout does not reshuffle when it lands. Its
+  hover text carries SQM / LP Zone / LP Bortle. Lorenz's credit is in the card key.
 - **Location box = 輸入 (`PLACES[0]`)**, as on the daily page: the submit handler does
   `setInputPlace()`, geo/map-pick only fill the box (the daily page's short copies plus
   `markActivePlace()`). It **does** have pills, but for `PLACES.slice(1)` only — a 輸入
