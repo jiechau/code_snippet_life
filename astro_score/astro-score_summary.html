@@ -259,7 +259,7 @@ const HOURLY_VARS = ["cloud_cover"];
 // Open-Meteo page and milkyway.py.
 const MODELS = ["ecmwf_ifs025", "gfs_global", "jma_seamless", "icon_global"];
 
-// Which model the score comes from until a tab is clicked: MODELS[0].
+// Which model the cloud comes from -- fixed here, MODELS[0], the daily page's default tab.
 const DEFAULT_MODEL = "ecmwf_ifs025";
 
 /**
@@ -340,10 +340,8 @@ async function fetchForecast(params, timeoutMs = 30000) {
 
 // Successful responses, by URL, for FETCH_TTL_MS. This page refetches on every
 // change of either box, and most changes leave most URLs alone: moving 輸入 (a
-// pill, the GPS, the map picker) changes one place's URL out of all of them, so
-// without this a pill click would cost a whole round to rewrite one sentence. And a
-// pill puts 輸入 on a saved spot's exact coordinates, whose URL is already
-// here. Ten minutes is well inside how often the models update. Successes only:
+// typed coordinate, the GPS, the map picker) changes one place's URL out of all
+// of them, so without this every move would cost a whole round. Ten minutes is well inside how often the models update. Successes only:
 // a timeout or a 429 deserves a retry, not a cached failure.
 const FETCH_TTL_MS = 10 * 60 * 1000;
 const fetchCache = new Map();
