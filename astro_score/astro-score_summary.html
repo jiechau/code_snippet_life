@@ -1072,7 +1072,7 @@ function renderSummary() {
     }
 
     // ---- The week: one line a night ----
-    box.appendChild(el("h2", "", `未來一週 ${spokenDate(dates[0])} – ${spokenDate(dates[NIGHTS - 1])}`));
+    box.appendChild(el("h2", "", `未來一週  所有位置比較 ${spokenDate(dates[0])} – ${spokenDate(dates[NIGHTS - 1])}`));
     dates.forEach((date, i) => {
         const label = `${spokenDate(date)} 晚上${i === 0 ? "（今晚）" : ""}：`;
         const ranked = rankNight(spots, date);
