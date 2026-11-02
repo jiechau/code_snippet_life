@@ -820,9 +820,10 @@ today column (see `localToday()`).
 
 It **fetches once on load** — the script ends with a `requestSubmit()` after
 `resetDefaults()` — so the page opens on the grid rather than on an empty panel: every
-field holds a usable default and, unlike the readable page (where the location box *is*
-the question), there is no per-visit input to collect first. The cost is one full round,
-one request per `PLACES` entry, on every page load.
+field holds a usable default and there is no per-visit input to collect first. The cost
+is one full round, one request per `PLACES` entry, on every page load.
+`astro-score_readable.html` fetches once on load too — on the `#lat=…&lon=…` a link
+gave it (`applyHash()` only fills 輸入 and the box), otherwise on `places.js`'s 輸入.
 
 It issues **one request per spot**, `FETCH_POOL` (4) in flight at a time via
 `settledPool()` — allSettled's shape with a concurrency cap, so one failure still costs
@@ -1146,7 +1147,8 @@ Two steps per night, in that order, and the order is the point:
   (top three spots + `verdict()`), with no moon sentence. There is no
   week's-pick section, no `.sub` intro, no `<details class="explain">` and no
   request-URLs panel — all removed at the user's request; the page is the form
-  and the text.
+  and the text. The form itself sits in a `<details class="settings">`
+  (時間與地點設定), **closed by default**, so the page opens on the text.
 
 "Tonight" is the time box's date, or the day before **before 06:00**
 (`TONIGHT_FROM_HR`) — a morning visit plans the coming evening. The request is

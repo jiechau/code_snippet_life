@@ -1919,10 +1919,9 @@ document.getElementById("mappick").addEventListener("click", pickFromMap);
 
 /**
  * A link can name the place: #lat=…&lon=… (the shape light_pollution_map.html
- * writes) lands in 輸入 and fetches at once, since whoever followed it came for
- * that place. astro-score_daily.html's row names link here this way. Read once,
- * at load; anything unparseable or off the globe is ignored and the page opens
- * as it always has, on places.js's 輸入 and an empty panel.
+ * writes) lands in 輸入. astro-score_daily.html's row names link here this way.
+ * Read once, at load; anything unparseable or off the globe is ignored and the
+ * page opens on places.js's 輸入 instead. Either way the fetch below follows.
  */
 function applyHash() {
     let lat, lon;
@@ -1939,11 +1938,13 @@ function applyHash() {
     buildPlaces();   // the 輸入 pill carries coordinates in a dataset, so redraw it
     document.getElementById("location").value = `${lat},${lon}`;
     markActivePlace();
-    document.getElementById("form").requestSubmit();
 }
 
 resetDefaults();
 applyHash();
+// Fetch once on load, hash or no hash, so the page opens on a grid rather than
+// on an empty panel waiting for a click: without a hash that is places.js's 輸入.
+document.getElementById("form").requestSubmit();
 </script>
 </body>
 </html>

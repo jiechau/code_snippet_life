@@ -2404,8 +2404,8 @@ resetDefaults();
 // panel waiting for a click: every field already holds a usable default, and the
 // question this page answers ("which place, which night") has no per-visit input
 // to collect first. It costs one round -- one request per PLACES entry, pooled --
-// on every page load; the readable page does not do this, because there the
-// location box is the question and a default coordinate is only a guess at it.
+// on every page load. astro-score_readable.html now does the same with its one
+// request, on places.js's 輸入 or the #lat=…&lon=… a link gave it.
 document.getElementById("form").requestSubmit();
 </script>
 </body>
