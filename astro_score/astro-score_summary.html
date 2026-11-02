@@ -31,28 +31,12 @@
             max-width: 1100px;
             margin: 0 auto;
         }
-        h1 { margin: 0 0 4px; font-size: 1.6rem; }
+        h1 { margin: 0 0 18px; font-size: 1.6rem; }
         p.sub { margin: 0 0 22px; color: var(--muted); font-size: 0.9rem; }
         p.sub a { color: var(--accent); }
         p.sub code { background: #f0f2f5; padding: 1px 5px; border-radius: 4px; }
         a.back { color: var(--accent); text-decoration: none; font-size: 0.9rem; }
         a.back:hover { text-decoration: underline; }
-
-        /* The folded key -- a short one: the full reading of a cell is
-           astro-score_daily.html's, and this page links there for it. */
-        .rule {
-            margin: 0;
-            padding: 12px 16px;
-            border-left: 3px solid var(--ok);
-            border-radius: 0 8px 8px 0;
-            background: #f2f8f5;
-            font-size: 0.85rem;
-        }
-        .rule ul { margin: 0; padding-left: 20px; color: var(--muted); }
-        .rule li { margin: 3px 0; }
-        details.explain { margin: 0 0 22px; }
-        details.explain > summary { font-weight: 600; }
-        details.explain[open] > summary { margin-bottom: 10px; }
 
         .grid {
             display: grid;
@@ -144,51 +128,12 @@
         .summary .night { border-top: 1px solid var(--line); padding-top: 4px; }
         .summary .note { color: var(--muted); font-size: 0.8rem; }
 
-        details { margin-top: 18px; }
-        summary { cursor: pointer; font-size: 0.85rem; color: var(--muted); }
-        summary:hover { color: var(--accent); }
-        .url {
-            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-            font-size: 0.78rem;
-            word-break: break-all;
-            background: #f7f9fb;
-            border: 1px solid var(--line);
-            border-radius: 8px;
-            padding: 10px 12px;
-            margin: 10px 0;
-        }
-        .url a { color: var(--accent); text-decoration: none; }
-        .url a:hover { text-decoration: underline; }
-        .url .who { color: var(--fg); font-weight: 700; display: block; margin-bottom: 2px; }
     </style>
 </head>
 <body>
     <div class="container">
         <a class="back" href="index.html">&larr; astro_score</a>
         <h1>AstroScore <span style="color:#777;font-weight:400;">summary</span></h1>
-        <p class="sub">
-            The grid of <a href="astro-score_daily.html">astro-score_daily.html</a> said in words:
-            <b>tonight</b>, where to go, and <b>the coming week</b>, which night and where. Two steps,
-            in that order: first the <b>moon</b> decides <em>when</em> you can shoot, then the
-            <b style="color:#2f6fb3;">ClearScore</b> (100 &minus; Cloud) in those hours ranks every spot in
-            <code>places.js</code>, and the best-hour <strong style="color:#1e8449;">AstroScore</strong> gives the overall verdict.
-            Cloud from <code>ecmwf_ifs025</code>, the daily page's default tab.
-            No API key needed.
-        </p>
-
-        <details class="explain">
-            <summary>how it decides (說明)</summary>
-            <div class="rule">
-                <ul>
-                    <li>一個「晚上」是當天中午到隔天中午；<b>天黑</b>是太陽低於地平線 10° 以下（和 AstroScore 的 <code>DARK_SUN_ALT</code> 相同）。</li>
-                    <li><b>可拍時段</b> = 天黑而且月亮在地平線以下。月亮亮度低於 15%（新月前後）時月光不算，整晚都算可拍。月出、月落時間以 <b>輸入</b> 的位置計算，台灣各地相差只有幾分鐘。</li>
-                    <li>每個地點只看<b>可拍時段</b>內每一小時的雲量，取 <b>平均晴空</b>（100 &minus; 雲量）排序；同分時看最晴的那一小時，再看 Bortle（越小越暗）。如果月亮整晚都在，就改用整個天黑時段，並且註明。</li>
-                    <li>Bortle 是 <code>places.js</code> 裡記下的數字；輸入沒有。</li>
-                    <li>時間框的<b>日期</b>就是「今晚」；清晨 6 點以前視為還在前一晚。</li>
-                </ul>
-            </div>
-        </details>
-
         <form id="form">
             <div class="grid">
                 <div class="field wide">
@@ -219,10 +164,6 @@
         <div class="result" id="result">
             <div class="meta" id="meta" hidden></div>
             <div class="summary" id="summary"></div>
-            <details id="raw" hidden>
-                <summary>request URLs</summary>
-                <div class="url" id="url"></div>
-            </details>
         </div>
     </div>
 
@@ -793,9 +734,6 @@ const SWEEP_MIN = 5;
 // thin crescent near the sun costs moonPenalty() a few points at most.
 const MOON_IGNORE_ILLUM = 15;
 
-// Fewer shootable hours than this and a night is not offered as "the" night.
-const MIN_WINDOW_HOURS = 2;
-
 /** Local noon of `date` as a UTC instant: where a night starts. */
 function nightStartMs(date, offsetSec) {
     return Date.parse(`${date}T12:00:00Z`) - offsetSec * 1000;
@@ -1103,7 +1041,6 @@ function renderSummary() {
 
     // ---- The week: one line a night ----
     box.appendChild(el("h2", "", `未來一週 ${spokenDate(dates[0])} – ${spokenDate(dates[NIGHTS - 1])}`));
-    const bestPerNight = [];
     dates.forEach((date, i) => {
         const label = `${spokenDate(date)} 晚上${i === 0 ? "（今晚）" : ""}：`;
         const ranked = rankNight(spots, date);
@@ -1115,29 +1052,8 @@ function renderSummary() {
         const p = el("p", "", `${label}最晴的地點：${ranked.slice(0, 3).map((r) => spotPhrase(r, false)).join("、")}。 `);
         p.appendChild(el("span", `verdict ${cls}`, text));
         box.appendChild(p);
-        const hours = windowHours(skies[i]);
-        if (hours >= MIN_WINDOW_HOURS) bestPerNight.push({ date, hours, top: ranked[0] });
     });
 
-    // ---- Pick of the week ----
-    box.appendChild(el("h2", "", "這一週最推薦"));
-    // Rounded first, so a 99.6% night with twice the dark hours beats a 99.9% one.
-    bestPerNight.sort((a, b) =>
-        (Math.round(b.top.c.mean) - Math.round(a.top.c.mean)) || (b.hours - a.hours));
-    if (!bestPerNight.length) {
-        box.appendChild(el("p", "", `這一週沒有一個晚上有 ${MIN_WINDOW_HOURS} 小時以上沒有月亮的時段，可以等下一次新月前後再出發。`));
-    } else {
-        const ol = el("ol");
-        for (const { date, hours, top } of bestPerNight.slice(0, 3)) {
-            ol.appendChild(el("li", "",
-                `${spokenDate(date)} 晚上去 ${top.place}：可拍${spokenHours(hours)}，平均晴空 ${Math.round(top.c.mean)}%` +
-                (top.bortle != null ? `，Bortle ${top.bortle}` : "") + "。"));
-        }
-        box.appendChild(ol);
-        const pick = bestPerNight[0];
-        const [text] = verdict(pick.top.c.mean);
-        box.appendChild(el("p", "", `如果這週只能去一次，選 ${spokenDate(pick.date)} 的 ${pick.top.place}，${text}`));
-    }
     box.appendChild(el("p", "note",
         `雲量來源：${activeModel}。預報越遠越不準，第 4 天以後的排名當參考就好，出發前再看一次。` +
         "逐時細節在 astro-score_readable.html，整週的格子在 astro-score_daily.html。"));
@@ -1282,26 +1198,6 @@ function showError(message) {
     meta.classList.add("error");
 }
 
-/** One labelled link per request, so every URL stays inspectable. */
-function setUrls(results) {
-    const urlEl = document.getElementById("url");
-    urlEl.textContent = "";
-    for (const r of results) {
-        const who = document.createElement("span");
-        who.className = "who";
-        who.textContent = r.place;
-        urlEl.appendChild(who);
-        const a = document.createElement("a");
-        a.href = r.url;
-        a.target = "_blank";
-        a.rel = "noopener";
-        a.textContent = r.url;
-        urlEl.appendChild(a);
-        urlEl.appendChild(document.createElement("br"));
-    }
-    document.getElementById("raw").hidden = false;
-}
-
 // Before this local hour the night you are in started yesterday; from it on,
 // "tonight" is the coming one -- so a morning visit plans the evening ahead.
 const TONIGHT_FROM_HR = 6;
@@ -1360,7 +1256,6 @@ document.getElementById("form").addEventListener("submit", async (event) => {
         return { place, lat, lon, params: requests[i], url: r.url, body: r.body, error: null };
     });
 
-    setUrls(results);
     lastResults = results;
     lastDate = date;
     renderSummary();

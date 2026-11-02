@@ -60,14 +60,14 @@ here mainly when changing those constants; the adjustable form is
   moonrise, 「今天只能拍照到 晚上 11:05」; before full: wait for moonset,
   「今天必須等到 晚上 10:30 之後」; near new: all night; near full: not
   tonight), then every `places.js` spot is ranked by its average **ClearScore**
-  (100 − Cloud) over exactly those moonless dark hours. Ends with the best
-  three nights of the week and where to go on each. Tonight reads ① the moon
+  (100 − Cloud) over exactly those moonless dark hours. Tonight reads ① the moon
   (「就您所在的位置（臺北市內湖區）來看，…」), ② the clear sky (>90 很適合,
   <80 雲太多, between 看運氣), ③ the overall verdict from the recommended
   spot's best-hour AstroScore (>90 非常適合, <70 不適合, between 看運氣); each
   later night is one line. One 8-day request per place (clamped to
-  Open-Meteo's 16-day horizon); cloud from `ecmwf_ifs025`, with no tabs, pills
-  or status line, since the page is for reading.
+  Open-Meteo's 16-day horizon); cloud from `ecmwf_ifs025`. The page is for
+  reading, so it has no tabs, pills, status line, intro, folded notes or
+  request URLs — just the form and the text.
 
 - [Astro Bookmark](https://jiechau.github.io/code_snippet_life/astro_score/astro-bookmark.html)
   — outbound links only: CWA's 月相圖, two light-pollution maps, NCDR's

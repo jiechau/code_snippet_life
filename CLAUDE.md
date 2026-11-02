@@ -1143,7 +1143,10 @@ Two steps per night, in that order, and the order is the point:
   `astroVerdict()` of that spot's **best-hour AstroScore** (`astro` in
   `clearByNight()`, moon penalty included; >90 非常適合, <70 不適合, else 看運氣).
   Thresholds are the user's; keep them. Each later night is **one line**
-  (top three spots + `verdict()`), with no moon sentence.
+  (top three spots + `verdict()`), with no moon sentence. There is no
+  week's-pick section, no `.sub` intro, no `<details class="explain">` and no
+  request-URLs panel — all removed at the user's request; the page is the form
+  and the text.
 
 "Tonight" is the time box's date, or the day before **before 06:00**
 (`TONIGHT_FROM_HR`) — a morning visit plans the coming evening. The request is
