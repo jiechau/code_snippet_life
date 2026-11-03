@@ -823,7 +823,11 @@ It **fetches once on load** — the script ends with a `requestSubmit()` after
 field holds a usable default and there is no per-visit input to collect first. The cost
 is one full round, one request per `PLACES` entry, on every page load.
 `astro-score_readable.html` fetches once on load too — on the `#lat=…&lon=…` a link
-gave it (`applyHash()` only fills 輸入 and the box), otherwise on `places.js`'s 輸入.
+gave it (`applyHash()` only fills 輸入 and the box, and presses the 輸入 pill alone even
+when a saved spot shares the coordinate), otherwise on `places.js`'s 輸入. Every row
+name here, 輸入 included, links there that way; this page reads the same hash
+(`applyHash()` into the box only — the submit handler writes `PLACES[0]`), and
+`astro-score_summary.html`'s two closing links carry its 輸入 to both.
 
 It issues **one request per spot**, `FETCH_POOL` (4) in flight at a time via
 `settledPool()` — allSettled's shape with a concurrency cap, so one failure still costs

@@ -2060,17 +2060,15 @@ function buildTable(results, hidePast) {
         const th = document.createElement("th");
         th.className = "label";
         th.scope = "row";
-        // A saved spot's name opens the hour-by-hour page with that spot in its
-        // 輸入 box -- this grid says which night, that one says which hour. 輸入
-        // itself (row 0) stays plain text, like its missing bortle/short lines.
-        const name = document.createElement(index > 0 ? "a" : "span");
+        // Every row's name, 輸入 included, opens the hour-by-hour page with that
+        // coordinate in its 輸入 box -- this grid says which night, that one says
+        // which hour. A new tab, so this grid -- one fetch per row to rebuild --
+        // stays put.
+        const name = document.createElement("a");
         name.className = "name";
         name.textContent = r.place;
-        if (index > 0) {
-            // A new tab, so this grid -- one fetch per row to rebuild -- stays put.
-            name.href = `astro-score_readable.html#lat=${r.lat}&lon=${r.lon}`;
-            name.target = "_blank";
-        }
+        name.href = `astro-score_readable.html#lat=${r.lat}&lon=${r.lon}`;
+        name.target = "_blank";
         th.appendChild(name);
         // Latitude and longitude on their own lines rather than "lat, lon" on
         // one: the label column is position: sticky, so its width is subtracted
@@ -2399,6 +2397,27 @@ for (const el of document.querySelectorAll(".blockwin")) {
         .map(([a, b]) => `${pad2(a)}\u2013${pad2(b)}`).join(" \u00b7 ");
 }
 resetDefaults();
+
+/**
+ * A link can name 輸入: #lat=…&lon=…, the shape astro-score_readable.html reads.
+ * It only fills the location box -- the submit handler below is what copies the
+ * box into PLACES[0], as for a typed or located coordinate. Read once, at load;
+ * anything unparseable or off the globe is ignored and the box keeps places.js's 輸入.
+ */
+function applyHash() {
+    let lat, lon;
+    try {
+        const h = new URLSearchParams(location.hash.replace(/^#/, ""));
+        if (!h.has("lat") || !h.has("lon")) return;
+        lat = Number(h.get("lat"));
+        lon = Number(h.get("lon"));
+    } catch {
+        return;
+    }
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return;
+    document.getElementById("location").value = `${lat},${lon}`;
+}
+applyHash();
 
 // Fetch once on load, so the page opens on the grid rather than on an empty
 // panel waiting for a click: every field already holds a usable default, and the

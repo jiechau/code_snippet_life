@@ -1919,7 +1919,8 @@ document.getElementById("mappick").addEventListener("click", pickFromMap);
 
 /**
  * A link can name the place: #lat=…&lon=… (the shape light_pollution_map.html
- * writes) lands in 輸入. astro-score_daily.html's row names link here this way.
+ * writes) lands in 輸入. astro-score_daily.html's row names link here this way,
+ * 輸入's own row included.
  * Read once, at load; anything unparseable or off the globe is ignored and the
  * page opens on places.js's 輸入 instead. Either way the fetch below follows.
  */
@@ -1937,7 +1938,13 @@ function applyHash() {
     setInputPlace(lat, lon);
     buildPlaces();   // the 輸入 pill carries coordinates in a dataset, so redraw it
     document.getElementById("location").value = `${lat},${lon}`;
-    markActivePlace();
+    // Light the 輸入 pill alone. markActivePlace() would also press a saved spot
+    // sitting on the same coordinate -- and a link from astro-score_daily.html's
+    // row names always does -- which reads as "a places.js spot was chosen"
+    // rather than "this coordinate is now 輸入".
+    document.querySelectorAll(".place").forEach((button, i) => {
+        button.setAttribute("aria-pressed", String(i === 0));
+    });
 }
 
 resetDefaults();
