@@ -134,6 +134,8 @@
         .summary .verdict { font-weight: 600; }
         .summary .verdict.good { color: var(--ok); }
         .summary .verdict.poor { color: var(--err); }
+        /* Which spots a heading ranks: tonight the nearby ones, the week all. */
+        .summary .scope { color: #0d3c8c; }
         .summary a { color: var(--accent); }
         .summary .rest { color: var(--muted); font-size: 0.85rem; }
         .summary .night { border-top: 1px solid var(--line); padding-top: 4px; }
@@ -1051,7 +1053,9 @@ function renderSummary() {
     const skies = dates.map((d) => nightSky(inLat, inLon, d, inOffset));
 
     // ---- Tonight ----
-    box.appendChild(el("h2", "", `今晚 ${spokenDate(lastDate)}`));
+    const h2Tonight = el("h2", "", `今晚 ${spokenDate(lastDate)}您`);
+    h2Tonight.appendChild(el("span", "scope", "附近的位置"));
+    box.appendChild(h2Tonight);
     const where = inputPlaceName ? `（${shortPlaceName(inputPlaceName)}）` : "";
     box.appendChild(el("p", "",
         `① 就您所在的位置${where}來看，${moonSentence(skies[0], inOffset)}${moonPhaseText(skies[0])}`));
@@ -1078,7 +1082,10 @@ function renderSummary() {
     }
 
     // ---- The week: one line a night ----
-    box.appendChild(el("h2", "", `未來一週  所有位置比較 ${spokenDate(dates[0])} – ${spokenDate(dates[NIGHTS - 1])}`));
+    const h2Week = el("h2", "", "未來一週  ");
+    h2Week.appendChild(el("span", "scope", "所有位置"));
+    h2Week.appendChild(document.createTextNode(`比較 ${spokenDate(dates[0])} – ${spokenDate(dates[NIGHTS - 1])}`));
+    box.appendChild(h2Week);
     dates.forEach((date, i) => {
         const label = `${spokenDate(date)} 晚上${i === 0 ? "（今晚）" : ""}：`;
         const ranked = rankNight(spots, date);
