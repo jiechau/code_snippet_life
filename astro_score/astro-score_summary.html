@@ -872,7 +872,9 @@ function moonSentence(sky, offsetSec) {
  * moonlit, astro, offset}: the average and best ClearScore over the hours that are
  * shootable at that spot (dark, moon down or ignorable), how many hours carried
  * a cloud figure, and whether the moon was up all night so the dark hours had
- * to stand in instead, plus the night's best-hour AstroScore. Hours are taken at the spot's own coordinates; a null
+ * to stand in instead, plus the mean AstroScore over those same hours -- the
+ * same hours and the same kind of statistic as `mean`, so ② and ③ cannot
+ * read one clear hour two ways. Hours are taken at the spot's own coordinates; a null
  * cloud figure is skipped, not scored 100.
  */
 function clearByNight(body, lat, lon, model, multi) {
@@ -888,7 +890,7 @@ function clearByNight(body, lat, lon, model, multi) {
         // Noon to noon: the small hours belong to the night before.
         const date = hour < 12 ? addDays(t.slice(0, 10), -1) : t.slice(0, 10);
         if (!nights.has(date)) {
-            nights.set(date, { shoot: [], dark: [], moonless: 0, astro: null, offset });
+            nights.set(date, { shoot: [], dark: [], moonless: 0, offset });
             const mid = astroAt(nightStartMs(date, offset) + 12 * 3600000, lat, lon);
             ignoreByNight.set(date, mid.moonIllum < MOON_IGNORE_ILLUM);
         }
@@ -903,10 +905,9 @@ function clearByNight(body, lat, lon, model, multi) {
         if (moonless) n.moonless += 1;
         const clear = clearOf(hourly[key][i]);
         if (clear === null) return;
-        n.dark.push({ clear, utcMs });
-        // AstroScore as the daily page's bar reads it: the night's best hour.
-        n.astro = Math.max(n.astro ?? 0, astroScore(a.sunAlt, a.moonAlt, a.moonIllum, hourly[key][i]));
-        if (moonless) n.shoot.push({ clear, utcMs });
+        const astro = astroScore(a.sunAlt, a.moonAlt, a.moonIllum, hourly[key][i]);
+        n.dark.push({ clear, astro, utcMs });
+        if (moonless) n.shoot.push({ clear, astro, utcMs });
     });
 
     const out = new Map();
@@ -922,7 +923,7 @@ function clearByNight(body, lat, lon, model, multi) {
             bestAt: best.utcMs,
             hours: hours.length,
             moonlit,
-            astro: n.astro,
+            astro: hours.reduce((s, h) => s + h.astro, 0) / hours.length,
             offset,
         });
     }
@@ -942,7 +943,7 @@ function clearVerdict(mean) {
     return ["今晚雲量中等，拍照看運氣。", ""];
 }
 
-/** The overall word, from that spot's best-hour AstroScore (moon included). */
+/** The overall word, from that spot's mean AstroScore (moon included). */
 function astroVerdict(peak) {
     if (peak > 90) return ["總體來說，今晚非常適合拍照！", "good"];
     if (peak < 70) return ["總體來說，今晚不適合拍照！", "poor"];
@@ -1069,7 +1070,7 @@ function renderSummary() {
             const p3 = el("p", "", "③ ");
             p3.appendChild(el("span", `verdict ${astroCls}`, astroText));
             p3.appendChild(document.createTextNode(
-                `（${top.place} 今晚 AstroScore 最高 ${Math.round(top.c.astro)}，已把月光算進去）`));
+                `（${top.place} 今晚平均 AstroScore ${Math.round(top.c.astro)}，已把月光算進去）`));
             box.appendChild(p3);
         }
     }

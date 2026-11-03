@@ -1148,7 +1148,7 @@ Two steps per night, in that order, and the order is the point:
   saved spot's exact coordinates.
 - **Tonight is three numbered lines**: ① the moon sentence, ② `clearVerdict()`
   of the top spot's mean ClearScore (>90 雲很少, <80 雲太多, else 看運氣), ③
-  `astroVerdict()` of that spot's **best-hour AstroScore** (`astro` in
+  `astroVerdict()` of that spot's **mean AstroScore** over the same hours ② averages (`astro` in
   `clearByNight()`, moon penalty included; >90 非常適合, <70 不適合, else 看運氣).
   Tonight's ② ranks **only 輸入 + the 5 saved spots nearest it**
   (`nearestSpots()`, haversine `distanceKm()`, `NEAR_SPOTS` = 6; when 輸入 sits
