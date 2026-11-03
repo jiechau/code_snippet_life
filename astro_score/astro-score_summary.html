@@ -1110,6 +1110,10 @@ function renderSummary() {
     // Both pages read #lat=…&lon=… into their own 輸入, so 輸入 travels along.
     const here = `#lat=${PLACES[0][1]}&lon=${PLACES[0][2]}`;
     more.appendChild(link(`astro-score_daily.html${here}`, "觀星指數"));
+    // No hash: astro-score_map.html does not read one, so 輸入 cannot travel there.
+    more.appendChild(document.createTextNode(" ("));
+    more.appendChild(link("astro-score_map.html", "觀星地圖"));
+    more.appendChild(document.createTextNode(")"));
     more.appendChild(document.createTextNode(" 以及 "));
     more.appendChild(link(`astro-score_readable.html${here}`, "每小時數據"));
     box.appendChild(more);
