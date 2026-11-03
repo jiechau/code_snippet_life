@@ -414,7 +414,7 @@ two copy the chrome and the request *shape* but are the only pages addressed by
 | `HOURLY_VARS`, `DEFAULT_LAT`/`DEFAULT_LON` | `open-meteo*.html` only — all 3 `astro-score_*.html` pages deliberately override these |
 | 記住 (the opt-in `localStorage` credential box): `note()`, the load/store pair, the `change` + `input` wiring, and the `.keyrow`/`.toggle`/`.geonote` CSS | both `cwa_opendata/` pages (`loadStoredKey`/`storeKey`, one API key as a bare string) + `google_news_url/google_new_url.html` (`loadStoredProxy`/`storeProxy`, three fields as one JSON entry, and no `.keyrow input` rule — its row holds only the checkbox). Same policy in all three: unticked by default, unticking deletes immediately, editing while ticked keeps the store in step, every access wrapped in `try`/`catch`. **No other page stores anything** |
 | `<details class="explain">` (the folded notes above the form) | all 3 `astro_score/` demo pages + both `cwa_opendata/` pages, same CSS and same reason: worth reading once, in the way every time after. Only the `<summary>` and the `.rule` blocks differ |
-| The extra-params box + its `key=value` parse loop | all 5 Open-Meteo pages, the loop verbatim; no `pure_math/` page has one, having no request to add params to. `DEFAULT_EXTRA` is **not** shared: `open-meteo*.html` prefill `daily=...` **and** `past_days=7`, all three `astro-score_*.html` prefill `past_days=7` alone (nothing there reads `daily=`) |
+| The extra-params box + its `key=value` parse loop | all 5 Open-Meteo pages, the loop verbatim; no `pure_math/` page has one, having no request to add params to. `DEFAULT_EXTRA` is **not** shared: `open-meteo*.html` prefill `daily=...` **and** `past_days=7`, the two `astro-score_daily*.html` prefill `past_days=7` alone and `astro-score_readable.html` `past_days=1` (nothing there reads `daily=`) |
 
 **Edit one and you must edit the others in its row.**
 
@@ -551,11 +551,11 @@ present, nulls all the way down, unit the literal string `undefined`" quirk
 **not** rewrite the meta line: `appendPlaceName()` has appended to it by then, and the
 line describes the response rather than the choice.
 
-Its `DEFAULT_EXTRA` is **one line, `past_days=7`** — not the `open_meteo/` pair, since no
+Its `DEFAULT_EXTRA` is **one line, `past_days=1`** — not the `open_meteo/` pair, since no
 page here reads `daily=`. It is deliberately invisible in the default view: the 從現在開始
 trim hides every past hour, so the grid looks the same until the box is unticked, and then
-it shows the week just gone — a forecast next to what the sky actually did. It costs the
-response ~43 KB / 384 hours → ~60 KB / 552. Since `hourly` is fixed here, this is the only
+it shows the day just gone — last night's forecast next to what the sky actually did. It
+costs the response ~43 KB / 384 hours → ~45 KB / 408 (it was `past_days=7`, ~60 KB / 552). Since `hourly` is fixed here, this is the only
 free-form parameter box on the form — and the only way to override `models=` — which is why
 it survived the strip.
 
@@ -1119,7 +1119,10 @@ six nights after it — a sixteenth demo page, also **not yet counted** in the
 duplication table. Its inputs are `astro-score_map.html`'s **minus the pills** (time box + 輸入
 location, geo, map pick), and it has **no 雲量來源 tabs and no meta line** —
 the page is for reading, so cloud is fixed to `DEFAULT_MODEL` and `#meta`
-shows only while fetching or on failure (`setStatus()`). 輸入's reverse-geocoded
+shows only while fetching or on failure (`setStatus()`). **On load it tries 使用目前位置
+first** and opens on the device's position; on any failure, or after `GEO_WAIT_MS` (15 s —
+the geolocation timeout does not run while the permission prompt is open), it fetches
+`places.js`'s 輸入 instead. The other pages still open on `places.js`. 輸入's reverse-geocoded
 name goes into the ① sentence (就您所在的位置（臺北市內湖區）來看) instead,
 redrawn by `loadInputPlaceName()` when it lands. Its form/request functions are
 the map page's copies; the astronomy and score block is the daily

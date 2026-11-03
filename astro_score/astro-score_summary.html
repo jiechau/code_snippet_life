@@ -1176,7 +1176,8 @@ function resetDefaults() {
 /**
  * 使用目前位置: the device's coordinates into the box, then refetch -- the submit
  * handler copies the box into 輸入, as on astro-score_daily.html, so the typed,
- * located and pointed-at routes are one write.
+ * located and pointed-at routes are one write. Resolves true when it located
+ * (and so submitted), false when it did not, for the on-load attempt below.
  */
 async function useCurrentPosition() {
     const button = document.getElementById("geo");
@@ -1189,9 +1190,11 @@ async function useCurrentPosition() {
         document.getElementById("location").value = `${lat},${lon}`;
         note.textContent = `±${Math.round(accuracy)} m`;
         document.getElementById("form").requestSubmit();
+        return true;
     } catch (err) {
         note.classList.add("error");
         note.textContent = err.message;
+        return false;
     } finally {
         button.disabled = false;
     }
@@ -1330,9 +1333,26 @@ document.getElementById("when").addEventListener("change", () => document.getEle
 document.getElementById("location").addEventListener("change", () => document.getElementById("form").requestSubmit());
 
 resetDefaults();
+
+// How long the on-load fetch waits for a position before using places.js's 輸入.
+// The geolocation timeout does not run while the browser's permission prompt is
+// open, so without this an unanswered prompt would leave the page empty.
+const GEO_WAIT_MS = 15000;
+
 // Fetch once on load, like astro-score_daily.html: every field has a usable
-// default, and an empty summary answers nothing.
-document.getElementById("form").requestSubmit();
+// default, and an empty summary answers nothing. The page is about "where you
+// are", so it first tries 使用目前位置 and opens on the device's position; if
+// that fails (refused, file://, no fix) or GEO_WAIT_MS passes, it opens on
+// places.js's 輸入 instead, the geonote saying why. A position granted after the
+// wait still refetches, since the user said yes to exactly that.
+(async () => {
+    const form = document.getElementById("form");
+    let fellBack = false;
+    const timer = setTimeout(() => { fellBack = true; form.requestSubmit(); }, GEO_WAIT_MS);
+    const located = await useCurrentPosition();
+    clearTimeout(timer);
+    if (!located && !fellBack) form.requestSubmit();
+})();
 </script>
 </body>
 </html>
