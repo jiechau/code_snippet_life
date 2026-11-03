@@ -946,7 +946,9 @@ function clearVerdict(mean) {
 /** The overall word, from that spot's mean AstroScore (moon included). */
 function astroVerdict(peak) {
     if (peak > 90) return ["總體來說，今晚非常適合拍照！", "good"];
-    if (peak < 70) return ["總體來說，今晚不適合拍照！", "poor"];
+    // 80, not 70: the mean AstroScore never exceeds ②'s mean ClearScore, so with
+    // ②'s own floor the two lines cannot disagree (雲太多 always means 不適合).
+    if (peak < 80) return ["總體來說，今晚不適合拍照！", "poor"];
     return ["總體來說，今晚拍照要看運氣。", ""];
 }
 
