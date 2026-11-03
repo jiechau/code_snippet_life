@@ -554,8 +554,9 @@ const DEFAULT_MODEL = "ecmwf_ifs025";
 // past_days= extends the series backwards, which is how you check a forecast
 // against what actually happened: score a night, then come back and see what the
 // sky did. It is invisible until 從現在開始 is unticked, since that trim is what
-// hides past hours. Not free -- at the 16-day default, 7 past days takes the
-// response from ~43 KB / 384 hours to ~60 KB / 552 across the four models, and
+// hides past hours. One day by default -- last night, beside tonight -- which at
+// the 16-day default takes the response from ~43 KB / 384 hours to ~45 KB / 408
+// across the four models (7 days was ~60 KB / 552). Not free, since
 // Open-Meteo bills by time range as well as variable count. The API accepts 0..93, but the models' rolling archive only
 // reaches about 61 days back, so beyond that the hours come back null.
 //
@@ -563,7 +564,7 @@ const DEFAULT_MODEL = "ecmwf_ifs025";
 // this is the only free-form parameter box on the form -- and the only way to
 // override models=, which drops the tab row to whatever is left.
 const DEFAULT_EXTRA = [
-    "past_days=7",
+    "past_days=1",
 ].join("\n");
 
 /** The request, as a plain object. */
