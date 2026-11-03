@@ -975,6 +975,9 @@ function spotPhrase(r, full) {
     return `${r.place}（${parts.join("，")}）`;
 }
 
+// 輸入 (PLACES[0]) as the text names it.
+const INPUT_SPOKEN = "您的位置";
+
 // How many spots tonight's ② ranks: 輸入 plus the saved spots nearest to it.
 const NEAR_SPOTS = 6;
 
@@ -1280,7 +1283,10 @@ document.getElementById("form").addEventListener("submit", async (event) => {
 
     const settled = await settledPool(requests, FETCH_POOL, (p) => cachedForecast(p));
 
-    const results = PLACES.map(([place, lat, lon], i) => {
+    const results = PLACES.map(([name, lat, lon], i) => {
+        // The text reads to the user, so 輸入 -- places.js's word for the box --
+        // is spoken as 您的位置 in every sentence that names a spot.
+        const place = i === 0 ? INPUT_SPOKEN : name;
         const outcome = settled[i];
         if (outcome.status === "rejected") {
             const err = outcome.reason;
