@@ -13,6 +13,7 @@ pages:
     - cp -r google_news_url public/
     - cp -r bigdatacloud public/
     - cp -r cwa_opendata public/
+    - cp -r osrm public/
   artifacts:
     paths:
       - public

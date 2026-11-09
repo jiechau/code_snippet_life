@@ -52,7 +52,9 @@ the folder's subject as a map &mdash; the only page named that way; and the four
 (`galactic_center.html`, `orion_nebula_m42.html`, `sun_phase.html`,
 `moon_phase.html`) for the same reason — that folder holds no script either, and
 each page is one block lifted out of
-`astro_score/astro-score_readable.html` rather than a port of anything. List pages carry no logic — they are the same small card
+`astro_score/astro-score_readable.html` rather than a port of anything. A tenth,
+`osrm/osrm_travel_time.html`, is named after its folder plus **what it answers**
+(the user's choice of name); `osrm/` holds no script either. List pages carry no logic — they are the same small card
 markup, differing only in title and links.
 
 **Adding a demo means: a `<snippet>/<script-name>.html` page, a link on that folder's
@@ -1150,11 +1152,21 @@ Two steps per night, in that order, and the order is the point:
   of the top spot's mean ClearScore (>90 雲很少, <80 雲太多, else 看運氣), ③
   `astroVerdict()` of that spot's **mean AstroScore** over the same hours ② averages (`astro` in
   `clearByNight()`, moon penalty included; >90 非常適合, <80 不適合 — ②'s floor, so 雲太多 always reads 不適合 — else 看運氣).
-  Tonight's ② ranks **only 輸入 + the 5 saved spots nearest it**
-  (`nearestSpots()`, haversine `distanceKm()`, `NEAR_SPOTS` = 6; when 輸入 sits
-  on a saved spot, that spot stands in for it at 0 km), worded
-  「依照您目前的位置，最好的選擇是 …」, each line giving its distance. The week
-  lines still rank every spot.
+  Tonight's ② ranks **only 輸入 + the 9 saved spots quickest to drive to**
+  (`nearestSpots()`, `NEAR_SPOTS` = 10; when 輸入 sits on a saved spot, that
+  spot stands in for it at 0 s), worded
+  「依照您目前的位置，依照行車距離最快的 N 個地點，最好的選擇是 …」 (the user's
+  wording), each line giving its 車程. The drive times are **one OSRM `/table`
+  call** from 輸入 to every `PLACES` row (`driveTimes()`, `driveUrl()` —
+  `osrm/osrm_travel_time.html`'s request, `lon,lat`), awaited beside the
+  forecast pool and cached by URL like it. A spot with no route or snapped more
+  than `SNAP_BAD_M` (5 km) away — 柚子湖 on 綠島, from anywhere on the main
+  island — sorts last. **If OSRM fails, ② falls back to haversine
+  `distanceKm()`** and says 「直線距離最近」 with 距離約 N 公里 per line, which is
+  how it worked before; a dead demo server must not cost the page its ②. From
+  內湖 the two orders picked the same first five; from 合歡山 they differ completely
+  (drive: 新城 → 大安 → 王功 → 壽豐 → 後龍; straight line: the east coast across
+  the Central Range). The week lines still rank every spot.
   Thresholds are the user's; keep them. Each later night is **one line**
   (top three spots + `verdict()`), with no moon sentence. There is no
   week's-pick section, no `.sub` intro, no `<details class="explain">` and no
@@ -1495,6 +1507,50 @@ append an `export {...}`, and `node` it against a `uv run` harness that
 `sys.path`-inserts `astro_score/` and imports `milkyway` — that catches a drifted
 term, which eyeballing two 14-term series does not. Slicing at `* The form` instead
 gives you `working()` for a NaN sweep.
+
+## osrm specifics
+
+Driving time from one start to every `places.js` spot: `osrm_travel_time.html`
+(listed as **osrm travel time**), **no script** — like `bigdatacloud/`, the call
+is one keyless `GET`. It is a seventeenth demo page and, like the two newest
+`astro_score/` pages, **not yet counted** in the duplication table's figures.
+Read it as `open_meteo/open-meteo.html` with the request swapped:
+
+- **Copied verbatim from `open-meteo.html`**: the whole `<style>` block (plus a
+  `table.times` block of its own), `.locrow`/`.place`/`.places`,
+  `markActivePlace()`/`buildPlaces()`/`useCurrentPosition()`/`pickFromMap()`
+  (the 9-pill-page byte-identical copies), `show()`'s URL-box half,
+  `reverseGeocode()`/`appendPlaceName()` (one doc comment reworded: no grid
+  point, a snapped start instead), and the submit handler's shape. It is in
+  those rows of the duplication table as an extra copy.
+- **Its own**: `buildUrl(origin, dests)` / `fetchTable()` — the request-core
+  shape against `router.project-osrm.org/table/v1/driving/`, returning errors
+  rather than throwing (OSRM sends CORS on its HTTP 400 too, so the
+  `{"code","message"}` body is readable). `ok` is `resp.ok && code === "Ok"`.
+  `originFromForm()` is `paramsFromForm()`'s location half, same error text.
+- **Origin is the box (= 輸入, `PLACES[0]`); destinations are
+  `PLACES.slice(1)`**, all in **one** request (`sources=0`). Pressing a saved
+  spot's pill makes it the start, so its own row reads `0h00m`.
+- **`lon,lat`**: OSRM's coordinate order is the reverse of every box and of
+  `places.js`. `buildUrl()` is the only place that swaps; don't swap elsewhere.
+- **`destinations[i].distance` is the snap**, how far OSRM moved a point to
+  reach a road. `SNAP_WARN_M` (300 m) flags "the last stretch isn't counted";
+  `SNAP_BAD_M` (5 km) flags "not the same place". 柚子湖 (綠島) is the case for the
+  second: OSRM won't snap to small disconnected road networks, so it lands
+  ~35 km away on the Taiwan coast. 依時間排序 sinks those rows and null
+  (no route) rows to the bottom. It re-sorts `lastRows`; it does not refetch.
+- **Fetches once on load**, like `astro-score_daily.html`. The demo server is
+  fair use (~1 req/s, no key, no quota published, blocks abusers), so one
+  request per Fetch is the rule; don't pool or split it per destination. A
+  browser can't set `User-Agent`, which the policy asks scripts to.
+- The demo server runs `driving` only and rejects every `exclude=` with
+  `InvalidValue`, which is why there is no extra-params box.
+- Free-flow OSM speeds, no traffic; mountain roads (拉拉山, 合歡山) read short.
+
+Checked in the browser pane over `http://localhost` against the live server:
+23 rows on load matching a Python run of the same URL, pill click, sort
+toggle, a malformed box, an HTTP 400, and the phone layout (the table
+scrolls inside `.tablewrap`; the page does not).
 
 ## bigdatacloud specifics
 
