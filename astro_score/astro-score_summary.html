@@ -974,7 +974,11 @@ function spotPhrase(r, full) {
     if (!full) return `${r.place}（${pct(r.c.mean)}）`;
     const parts = [`平均晴空 ${pct(r.c.mean)}`,
         `最晴 ${pct(r.c.best)} 在 ${spokenTime(r.c.bestAt, r.c.offset)}`];
-    if (r.km != null && r.km >= 0.5) parts.push(`距離約 ${Math.round(r.km)} 公里`);
+    if (r.drive) {
+        if (r.drive.seconds >= 60) parts.push(`車程約 ${spokenDrive(r.drive.seconds)}`);
+    } else if (r.km != null && r.km >= 0.5) {
+        parts.push(`距離約 ${Math.round(r.km)} 公里`);
+    }
     if (r.bortle != null) parts.push(`Bortle ${r.bortle}`);
     if (r.c.moonlit) parts.push("月亮整晚都在，以整個天黑時段計");
     return `${r.place}（${parts.join("，")}）`;
@@ -984,7 +988,7 @@ function spotPhrase(r, full) {
 const INPUT_SPOKEN = "您的位置";
 
 // How many spots tonight's ② ranks: 輸入 plus the saved spots nearest to it.
-const NEAR_SPOTS = 6;
+const NEAR_SPOTS = 10;
 
 /** Great-circle distance in km (haversine, mean Earth radius). */
 function distanceKm(lat1, lon1, lat2, lon2) {
@@ -992,16 +996,73 @@ function distanceKm(lat1, lon1, lat2, lon2) {
     return 2 * 6371.0088 * Math.asin(Math.sqrt(h));
 }
 
+/* Driving time from 輸入 to every spot, for choosing tonight's NEAR_SPOTS --
+   osrm/osrm_travel_time.html's request, one /table call for the whole list.
+   Keyless, CORS-enabled, fair use (~1 request a second): one call per Fetch,
+   fired beside the forecasts. Like the place name it is a helper and never
+   data: any failure resolves to null and ② falls back to straight-line km. */
+const OSRM_URL = "https://router.project-osrm.org/table/v1/driving/";
+// Snapped further than this, the time is to some other place: 柚子湖 on 綠島
+// lands ~35 km away on the Taiwan coast, since OSRM will not snap to the
+// island's small road network. Such a spot is "not drivable" here.
+const SNAP_BAD_M = 5000;
+const driveCache = new Map();
+
+/** OSRM wants lon,lat -- the reverse of places.js. sources=0: 輸入 is the start. */
+function driveUrl(points) {
+    const coords = points.map(([lat, lon]) => `${lon},${lat}`).join(";");
+    return `${OSRM_URL}${coords}?sources=0&annotations=duration`;
+}
+
 /**
- * Tonight's candidates: every rankable spot tagged with its distance from 輸入,
- * nearest first, cut to NEAR_SPOTS -- 輸入 itself (0 km) and the five nearest
- * saved spots. When 輸入 sits on a saved spot, rankable() has already dropped
- * 輸入 and that spot takes its 0 km place, so it is still 1 + 5.
+ * [{seconds, snap}] per PLACES row from PLACES[0] (row 0 is the start itself,
+ * 0 s), or null on any failure. Successes are cached by URL for FETCH_TTL_MS,
+ * so changing only the date does not ask OSRM again.
+ */
+async function driveTimes(points, timeoutMs = 15000) {
+    const url = driveUrl(points);
+    const hit = driveCache.get(url);
+    if (hit && Date.now() - hit.at < FETCH_TTL_MS) return hit.rows;
+    try {
+        const resp = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+        const body = await resp.json();
+        if (!resp.ok || body.code !== "Ok") return null;
+        const rows = points.map((_, i) => ({
+            seconds: body.durations[0][i],
+            snap: body.destinations[i].distance,
+        }));
+        driveCache.set(url, { at: Date.now(), rows });
+        return rows;
+    } catch {
+        return null;
+    }
+}
+
+/** A drive time as speech: "27 分鐘", "1 小時 21 分". */
+function spokenDrive(seconds) {
+    const m = Math.round(seconds / 60);
+    if (m < 60) return `${m} 分鐘`;
+    return m % 60 ? `${Math.floor(m / 60)} 小時 ${m % 60} 分` : `${m / 60} 小時`;
+}
+
+/** Seconds to sort by: a spot with no route, or snapped off to elsewhere, last. */
+function driveKey(r) {
+    const d = r.drive;
+    return d && d.seconds != null && d.snap <= SNAP_BAD_M ? d.seconds : Infinity;
+}
+
+/**
+ * Tonight's candidates, cut to NEAR_SPOTS -- 輸入 itself and the nine saved
+ * spots quickest to drive to. When 輸入 sits on a saved spot, rankable() has
+ * already dropped 輸入 and that spot takes its 0 s place, so it is still 1 + 9.
+ * Every spot carries its straight-line km as well; when the OSRM call failed
+ * (no r.drive anywhere) that is what orders them, as it did before.
  */
 function nearestSpots(spots, lat, lon) {
+    const byDrive = spots.some((r) => r.drive);
     return spots
         .map((r) => ({ ...r, km: distanceKm(lat, lon, r.lat, r.lon) }))
-        .sort((a, b) => a.km - b.km)
+        .sort((a, b) => (byDrive ? driveKey(a) - driveKey(b) : 0) || a.km - b.km)
         .slice(0, NEAR_SPOTS);
 }
 
@@ -1059,13 +1120,16 @@ function renderSummary() {
     const where = inputPlaceName ? `（${shortPlaceName(inputPlaceName)}）` : "";
     box.appendChild(el("p", "",
         `① 就您所在的位置${where}來看，${moonSentence(skies[0], inOffset)}${moonPhaseText(skies[0])}`));
-    const tonight = rankNight(nearestSpots(spots, inLat, inLon), lastDate);
+    const near = nearestSpots(spots, inLat, inLon);
+    const tonight = rankNight(near, lastDate);
     if (!tonight.length) {
         box.appendChild(el("p", "", "② 今晚沒有雲量預報可以參考。"));
     } else {
         const top = tonight[0];
         const [clearText, clearCls] = clearVerdict(top.c.mean);
-        const p = el("p", "", `② 再看晴空，依照您目前的位置，最好的選擇是 ${top.place}（平均晴空 ${Math.round(top.c.mean)}%）：`);
+        // OSRM's times when the call came back, straight-line km when it did not.
+        const how = near.some((r) => r.drive) ? "行車距離最快" : "直線距離最近";
+        const p = el("p", "", `② 再看晴空，依照您目前的位置，依照${how}的 ${near.length} 個地點，最好的選擇是 ${top.place}（平均晴空 ${Math.round(top.c.mean)}%）：`);
         p.appendChild(el("span", `verdict ${clearCls}`, clearText));
         box.appendChild(p);
         const ol = el("ol");
@@ -1298,7 +1362,11 @@ document.getElementById("form").addEventListener("submit", async (event) => {
     inputPlaceName = "";
     loadInputPlaceName(PLACES[0][1], PLACES[0][2]);
 
-    const settled = await settledPool(requests, FETCH_POOL, (p) => cachedForecast(p));
+    // One OSRM call beside the forecast pool, awaited together: ② needs both.
+    const [settled, drive] = await Promise.all([
+        settledPool(requests, FETCH_POOL, (p) => cachedForecast(p)),
+        driveTimes(PLACES.map(([, plat, plon]) => [plat, plon])),
+    ]);
 
     const results = PLACES.map(([name, lat, lon], i) => {
         // The text reads to the user, so 輸入 -- places.js's word for the box --
@@ -1319,7 +1387,10 @@ document.getElementById("form").addEventListener("submit", async (event) => {
                 error: `HTTP ${r.status} — ${r.body.reason || "no hourly data in response"}`,
             };
         }
-        return { place, lat, lon, params: requests[i], url: r.url, body: r.body, error: null };
+        return {
+            place, lat, lon, params: requests[i], url: r.url, body: r.body, error: null,
+            drive: drive ? drive[i] : null,
+        };
     });
 
     lastResults = results;
